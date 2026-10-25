@@ -51,6 +51,7 @@ from urllib.parse import quote
 from harvey_dual_audit_core import BUCKETS, Json, as_list, dump, load
 from harvey_review_sample import blockquote, lower_bound
 from legalreasonbench_extract import AUDIT, DATASET, REVISION, upstream_url
+from legalreasonbench_model_runs import run_block
 from legalreasonbench_report import REPORTS
 
 REVIEW_DIR = AUDIT / "human-review"
@@ -298,6 +299,7 @@ def render_item(
         f"[assignment {p['assignment']}]({p['source_url']})"
         for p in as_list(inputs["prior_prompts"])
     ]
+    model_grades = run_block(task, cid, "../")
     return [
         f"## {i}. {inputs['matter_title']}, assignment {inputs['assignment']}"
         + (f": {inputs['assignment_title']}" if inputs["assignment_title"] else "")
@@ -373,6 +375,7 @@ def render_item(
         "",
         "</details>",
         "",
+        *([model_grades, ""] if model_grades else []),
         review,
         "",
     ]
@@ -403,9 +406,11 @@ HEADER = (
             "pagination, and the AI visual transcriptions and figure descriptions "
             "linked "
             "below supplement scanned or image-only documents without guaranteeing "
-            "complete capture (see the [audit README](../README.md)). No solver "
-            "responses or benchmark grades exist for these assignments: the audit "
-            "submitted no responses to the benchmark's judges.",
+            "complete capture (see the [audit README](../README.md)). Saved solver "
+            "answers and native benchmark grades, when available, appear in the "
+            "model-run blocks below. An absent block means no run is published "
+            "for that criterion. Judge votes and reasoning are AI assessments; "
+            "they do not replace the human review fields.",
         ]
     )
     + "\n"

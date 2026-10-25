@@ -4,7 +4,7 @@ A simple random sample of 25 of the 63 litigation criteria that either blind AI 
 
 Items are grouped by assignment for reading; the order has no effect on which criteria were drawn. The AI findings and the later reconciliation are collapsed to keep entries readable. That is a convenience, not reviewer blinding: open them whenever useful, and test their arguments against the pinned upstream files and the governing authority. Quotations in the AI reports are leads, not sources.
 
-Source limits: the extracted text is a convenience copy of the pinned upstream files. PDF extraction used no OCR, DOCX locators are not original pagination, and the AI visual transcriptions and figure descriptions linked below supplement scanned or image-only documents without guaranteeing complete capture (see the [audit README](../README.md)). No solver responses or benchmark grades exist for these assignments: the audit submitted no responses to the benchmark's judges.
+Source limits: the extracted text is a convenience copy of the pinned upstream files. PDF extraction used no OCR, DOCX locators are not original pagination, and the AI visual transcriptions and figure descriptions linked below supplement scanned or image-only documents without guaranteeing complete capture (see the [audit README](../README.md)). Saved solver answers and native benchmark grades, when available, appear in the model-run blocks below. An absent block means no run is published for that criterion. Judge votes and reasoning are AI assessments; they do not replace the human review fields.
 
 ## 1. Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners — states_in_the_first_assignment_that_dci2018_10023_remained_activ
 
@@ -104,6 +104,28 @@ Authorities the model cited:
 - Lee County, Fla., Admin. Code AC-2-6 § 4.1 (amended Aug. 2, 2022): Section 4.1 governs Board remands to the Hearing Examiner; withdrawal under § 4.1B(1) follows only when the six-month deadline is missed because of applicant action or inaction. ([link](https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf))
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not mention DCI2018-10023 or state that it remained active until September 13, 2023.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document does not state anywhere that DCI2018-10023 remained active until September 13, 2023. In fact, DCI2018-10023 is not mentioned at all in the memorandum; it discusses Resolution Z-23-035, Z-23-022, and other case details unrelated to that permit number or date. Thus the specified failure is not committed.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention DCI2018-10023 or state that it remained active until September 13, 2023.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** penalty clear (1/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum states that DCI2018-10023 was formally withdrawn on September 13, 2023, and describes the prior case as having remained open through that period (including the Petition’s allegation that it was left open until 2023). This conveys that the matter remained active/open until that date.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo only notes that DCI2018-10023 was 'formally withdrawn' on September 13, 2023 (per the Petition), listing this as a discrete event in the procedural history table. It does not affirmatively assert that the application remained continuously active from its 2018/2019 filing until that date; it merely cites the withdrawal date as the end of the matter's procedural life. Thus the response does not commit the specific failure of stating that DCI2018-10023 remained active until September 13, 2023.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first assignment (or ground) that DCI2018-10023 remained active until September 13, 2023. The only mention of September 13, 2023 is in the factual timeline table noting when DCI2018-10023 was formally withdrawn.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -214,6 +236,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state that the County should cease construction activities at the subject property. It recommends verifying authority and obtaining counsel’s direction before continuing work in reliance on the quashed rezoning, and suggests seeking a stay if needed, but it does not direct a cessation of construction.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo explicitly states the order 'does not expressly enjoin construction' and advises that staff 'should not issue new approvals or continue work in reliance on the quashed resolution without confirming the authority for that work and obtaining counsel's direction,' rather than directly stating the County should cease construction activities. This is a cautious, conditional statement rather than a direct assertion to cease construction, so the failure criterion is not met.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should cease construction activities at the subject property. Instead, it expressly notes that the order does not enjoin construction, questions the contemporaneous evidence of construction, and advises seeking a stay or verifying permit authority.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly recommends that, pending a stay ruling, the County direct staff to suspend zoning-dependent site work and later reiterates that the County Manager and LCU should suspend such work. This states that County construction activities at the subject property should cease, at least temporarily.
+- `anthropic/claude-sonnet-5`: value `1.0` — In the Executive Summary (the first major section, functioning as the 'first assignment' of recommendations), the memo explicitly states: 'Pending a stay ruling, direct staff to suspend site work that depends on the quashed zoning, and to inventory all permits, development orders, and contracts issued or let in reliance on Resolution Z-23-035.' This is reiterated later in the Recommendation section ('Manage construction risk now... direct the County Manager and LCU to suspend zoning-dependent site work at the SEAWRF site'). This amounts to advising the County to cease/suspend construction activities at the subject property, which is the failure criterion described. Therefore the response does commit the failure.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should cease construction activities at the subject property. Instead, it advises that ongoing construction carries legal risks and recommends seeking a stay while temporarily suspending only zoning-dependent site work pending a stay ruling.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -303,6 +347,28 @@ Evidence the model quoted (check against the source):
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** met (2/3). **Contribution:** `20`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum recommends that the County pursue and timely prepare/file a second-tier certiorari petition in the Sixth District Court of Appeal, identifies the Sixth District as the proper court, and provides the applicable filing deadlines.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memorandum explicitly recommends authorizing the County Attorney to prepare a second-tier certiorari petition to the Sixth District Court of Appeal, lists this as Option 2 ('Seek second-tier certiorari in the Sixth District'), and in the 'Recommended course' section states 'prepare a second-tier certiorari petition' and includes specific timely filing deadlines (e.g., by November 24 or November 26, 2025) for filing with the Sixth District. This satisfies the criterion that the first assignment states the County should file a timely appeal with the 6th District Court of Appeals.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first section/assignment that the County should file a timely appeal with the 6th District Court of Appeal. Instead, it conditionally recommends authorizing counsel to file a motion for rehearing/clarification in the circuit court and to prepare a second-tier certiorari petition, while specifically noting elsewhere that review in the district court is not an appeal as of right.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `20`.
+- `openai/gpt-5.6-terra`: value `1.0` — In the first numbered recommendation in the Executive Summary, the memorandum expressly recommends that the County file a petition for second-tier certiorari in the Sixth District Court of Appeal within 30 days of rendition, with a stated conservative deadline of November 24, 2025. The later Recommendation section reiterates this instruction.
+- `anthropic/claude-sonnet-5`: value `1.0` — In Section VI (Recommendation), the very first action item explicitly advises the Board to authorize the County Attorney to file a petition for writ of certiorari (i.e., an appeal) with the Sixth District Court of Appeal within the applicable deadline (no later than November 24, 2025, i.e., within 30 days of rendition), which satisfies the requirement that the first assignment/recommendation state the County should file a timely appeal with the Sixth District/Circuit Court of Appeal.
+- `gemini/gemini-3.8-flash`: value `1.0` — Under the first recommendation/action item, the memorandum explicitly advises the County to file a timely petition for second-tier certiorari (appeal) in the Sixth District Court of Appeal within 30 days of rendition (specifically noting no later than November 24, 2025).
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -383,6 +449,28 @@ Evidence the model quoted (check against the source):
 - states_in_the_first_assignment_that_the_county_should_remand_the: “States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.”
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum’s first recommended action is to seek rehearing and clarification in circuit court, followed by a second-tier certiorari petition and possible stay. It does not state in the first assignment that the County should remand the matter to the Hearing Examiner to address the deficiencies in the Order Granting Writ of Certiorari while an appeal is pending.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion asks whether the response states that the County should remand the case to the Hearing Examiner to address deficiencies in the Order Granting Writ of Certiorari while an appeal is pending. The memo's first option (Option 1) discusses moving for rehearing/clarification in circuit court, and Option 2 discusses second-tier certiorari to the district court. Nowhere does it recommend remanding to the Hearing Examiner while an appeal is pending. In fact, Option 4 discusses pursuing a new application only if review is not sought or is denied, not while an appeal is pending, and explicitly says not to attempt administrative 'reaffirmation.' There is no statement about remanding to the Hearing Examiner during a pending appeal.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should remand the case to the Hearing Examiner to address the deficiencies while an appeal is pending. Instead, it recommends moving for rehearing/clarification, seeking a stay, and petitioning for second-tier certiorari review.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The first recommended action is to file second-tier certiorari and seek a stay. Although the memorandum proposes preparing a parallel contingency rehearing and discusses a possible new Hearing Examiner/Board hearing, it does not state in the first assignment that the County should remand the case to the Hearing Examiner to address the Order's deficiencies while the appeal is pending.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document never frames an 'assignment' (as in an appellate brief's assignments of error) advocating that the County remand the case to the Hearing Examiner to cure the deficiencies identified in the Order while an appeal is pending. Instead, the memo's primary recommended action (and the first of its numbered recommendations) is to pursue second-tier certiorari in the Sixth DCA, with a stay motion, and only as a parallel/contingency measure (Option 3, to be used 'if appellate relief is denied, or after the Sixth District acts') does it suggest holding a new quasi-judicial hearing before the Hearing Examiner and Board. This contingency rehearing is explicitly not framed as occurring simultaneously with a pending appeal, and it is not labeled or treated as a 'first assignment.' Thus the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first assignment (or first recommendation/option) that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order while an appeal is pending. Instead, the first recommendation is to file a petition for second-tier certiorari in the Sixth District Court of Appeal.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -490,6 +578,28 @@ Authorities the model cited:
 - Fla. Stat. § 163.3167(10) (2024): Protects an unappealed development order only against later invalidation of the underlying land development regulations for deficient approval standards; it does not affect timely certiorari. ([link](https://www.flsenate.gov/Laws/Statutes/2024/163.3167))
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in its first assignment or elsewhere, that under Fla. Stat. § 163.3167(10) (2025) the project's development order may not be invalidated by a subsequent judicial determination because the appeal period has expired. Instead, it states that the rezoning approval was quashed and discusses appellate deadlines and potential review.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo does not mention Fla. Stat. § 163.3167(10) at all, nor does it state that the development order cannot be invalidated due to expiration of the appeal filing period. There is no reference to this statute or the specific legal principle described in the criterion anywhere in the document.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not cite or discuss Fla. Stat. § 163.3167(10) (2025), nor does it state that the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal has expired.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in any assignment or elsewhere, that under Fla. Stat. § 163.3167(10) (2025) the project's development order may not be invalidated by a subsequent judicial determination because the appeal period expired. It instead treats the zoning approval as quashed and development orders/permits as exposed to challenge.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo never cites or discusses Fla. Stat. § 163.3167(10) (2025) or the concept that a development order cannot be invalidated by a subsequent judicial determination because the appeal period has expired. The document's 'first assignment' (Ground I analysis) addresses Jennings-based due process/bias arguments and § 286.0115, not § 163.3167(10). Chapter 163 is only mentioned generically as part of the Petition's cited statutes, with no substantive discussion of subsection (10) or its finality/timeliness protection. Thus the specific legal criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not cite or discuss Fla. Stat. § 163.3167(10) (2025), nor does it state that the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal of the development order has expired.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -608,6 +718,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in its first assignment or elsewhere, that under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response does not mention 'Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025)' or any statement that DCI2018-10023 was considered withdrawn on February 13, 2020. No such content appears anywhere in the document.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), application DCI2018-10023, or that it was considered withdrawn on February 13, 2020.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state that, under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020. Instead, it states that DCI2018-10023 was formally withdrawn on September 13, 2023.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses DCI2018-10023 and its withdrawal date as September 13, 2023 (citing Pet. 16), not February 13, 2020. There is no mention of Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), nor any statement that DCI2018-10023 was considered withdrawn on February 13, 2020. The criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), nor does it state that DCI2018-10023 was considered withdrawn on February 13, 2020 (it only notes that DCI2018-10023 was formally withdrawn on September 13, 2023).
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -685,6 +817,28 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment (Argument II) addresses due process under Jennings, public County actions, alleged bias, and the absence of ex parte contacts. It does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval.
+- `anthropic/claude-sonnet-5`: value `0.0` — The brief never states that expert testimony in the record constitutes competent substantial evidence supporting the Board's approval. The second argument (Argument II, addressing the due-process/Jennings issue) focuses on the lack of an ex parte contact and public governmental acts not establishing prejudgment; it does not discuss expert testimony as evidentiary support for the rezoning. The only mention of 'competent substantial evidence' appears generically in the standard-of-review section, not tied to expert testimony or the second assignment of error.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second assignment of error/argument section (Argument II), the response focuses entirely on procedural due process under Jennings v. Dade County and whether prior public County actions and an on-record motion demonstrate prejudgment. It does not state that expert testimony on the record constitutes competent substantial evidence supporting the Board's approval of the rezoning.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment (Argument II, concerning the Jennings/due-process ruling) does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval. That point is made in the first assignment regarding airport-compatibility evidence, not the second.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document does not organize its arguments as 'assignments' with a labeled 'second assignment.' Its second argument section (Argument II) addresses the Jennings/due process ruling, not expert testimony or competent substantial evidence supporting the Board's approval. The discussion of expert testimony as competent substantial evidence supporting the Board's rezoning decision appears instead under Argument I.C (addressing whether evidence was 'fully considered'), not in a second assignment of error. Thus the specific criterion—that the second assignment states expert testimony is competent substantial evidence supporting the Board's approval—is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The second assignment of error (Argument Section II) addresses due process and ex parte communications under *Jennings*; it does not state that expert testimony on the record is competent substantial evidence supporting the Board's approval of the rezoning.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Not defective
 - **AI reasoning:** Wrong
@@ -759,6 +913,28 @@ Rulings on the blind findings above:
 - **GPT-6 Sol F1 → not_a_defect:** Overturned. The Resolution recites that the Hearing Examiner 'recommended APPROVAL of the request with conditions,' that the Board considered 'the recommendations of the staff, the Hearing Examiner,' and that the Board 'adopts the recommendation of the Hearing Examiner, including the following findings.' The Petition quotes the applicant's planner presenting a Johnson Engineering airport-buffer exhibit at the hearing. A ready-to-file brief can therefore identify the staff recommendation, the Hearing Examiner recommendation, and expert testimony as competent substantial evidence from the supplied record without inventing transcript specifics. Arguing that the first-tier court applied the wrong law by disregarding supporting evidence is a standard second-tier ground and is consistent with the second-tier limits Sol cites. I did not reread Dusseau. These criteria nonetheless ask for ordinary advocacy that the record supports.
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment argues that public County actions and an on-record motion do not establish a due-process violation under Jennings. It does not state that a staff report recommending approval constitutes competent substantial evidence supporting the Board's rezoning approval.
+- `anthropic/claude-sonnet-5`: value `0.0` — The second assignment of error in this brief (Argument II) addresses the Jennings due-process issue regarding ex parte contacts and prior public actions; it does not argue that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. No section of the document makes this specific argument in connection with the second assignment.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second argument/assignment (Section II), the petition focuses entirely on due process, ex parte communications under Jennings, and alleged bias. It does not state that the staff report recommending approval constitutes competent substantial evidence supporting the Board's rezoning approval.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — In the second assignment (Argument II), the response notes that the Board considered staff recommendations and that the resolution adopted record-based findings, but it does not state that a staff report recommending approval constituted competent substantial evidence supporting the Board's approval of the rezoning.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document's second argument section (Argument II) addresses the Jennings due-process/ex parte issue, not a claim that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. While the brief mentions the Board's recital that it considered 'recommendations of the staff' in the factual background and in Argument I's discussion of competent substantial evidence for airport compatibility, it never frames the staff report's approval recommendation as competent substantial evidence in a 'second assignment' or any specific numbered assignment of error. There is no distinct argument heading or discussion stating that the staff report recommending approval is itself competent substantial evidence supporting the rezoning. Thus the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second assignment of error (Argument Section II), the petition mentions that the Resolution recites consideration of 'the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony' and cites Snyder regarding competent substantial evidence, but it never states that the staff report recommending approval is competent substantial evidence that supports the Board's approval.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -854,6 +1030,28 @@ Evidence the model quoted (check against the source):
 - criterion_8: “Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.”
 
 [Full reconciliation](../tasks/lrb-dcca-challenge-police-discipline-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses comparator differences (on-duty status, fatality, and prior force complaints) but does not identify any conflict between the comparator memorandum’s stated coverage years and the dates of the cases it summarizes.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response discusses the comparator memorandum's cases (Guzman, Sadler, Pietrzak) and their characteristics, but nowhere does it identify or flag a conflict between the memorandum's stated coverage years and the dates of the cases it summarizes. There is no mention of any date range stated in the memorandum or any discrepancy with case dates.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions the comparator memorandum and the specific cases within it, but does not identify or discuss any conflict between the memorandum's stated coverage years and the dates of the cases it summarizes.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response states that the Comparator Memo was limited to 2018–2021 records, but it does not identify any conflict between that stated coverage period and the dates of the cases summarized in the memorandum.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response mentions that the Comparator Memo was 'limited to 2018–2021 records' (Part 1, observation 2) but never cross-checks this stated coverage period against the actual dates of the four comparator cases it summarizes, nor flags any discrepancy between the memo's stated years and the dates of the cases discussed. The detailed discrepancy analysis in Part 2.D focuses on on-duty/off-duty characterizations and fatality/prior-discipline details, not on a conflict between the memo's stated coverage years and the case dates. Thus the specific criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response notes that the comparator memorandum was limited to 2018–2021 records, but it does not identify that the memorandum's stated coverage years conflict with the actual dates of the cases summarized within it.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -970,6 +1168,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** met (2/3). **Contribution:** `26`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly states that neither § 1606.2 nor Douglas makes “proof” of exact comparator identity a separate burden, and criticizes the arbitrator for requiring MPD to “prove” that comparators were similarly situated. It correctly distinguishes MPD’s ultimate burden of persuasion from any purported requirement to prove comparator comparability as a rigid prerequisite.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion requires the response to affirmatively state that no uploaded authority requires MPD to prove the comparability of its comparator cases. Instead, the memo takes a nuanced, partially contrary position: it repeatedly states that Douglas places the 'ultimate burden of persuading the reviewing tribunal on the agency' and that 'the word "prove," standing alone, is not the error' — implying that some burden of proof regarding comparators does exist under Douglas, and that the arbitrator's error was only in treating comparator equivalence as a 'rigid prerequisite,' not in requiring proof at all. The response never clearly asserts that no authority (Douglas, DCMR, etc.) imposes a requirement that MPD prove comparator comparability; rather it concedes an ultimate persuasion burden on MPD while arguing it was satisfied. This falls short of identifying the clean point that no uploaded authority requires such proof.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response identifies that neither Douglas nor the DCMR (§ 1606) requires MPD to prove the comparability or exact equivalence of its comparator cases, noting that the arbitrator erred in treating comparator equivalence as a rigid prerequisite requiring MPD to prove they were similarly situated.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `26`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly states that neither Douglas nor DCMR § 1606 imposes a free-standing requirement that MPD prove the comparability of its supporting comparator cases. It characterizes MPD's duty as consideration, documentation, and a prima facie showing, and concludes that the arbitrator erred by requiring MPD to “prove comparability” absent a disparate-treatment showing by the grievant.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memo repeatedly argues that no uploaded source imposes a 'prove comparability' burden on MPD. Part I.C.1 states the arbitrator 'applied a proof standard, not a reasonableness standard' that neither Douglas nor DCMR §1606.2 contains (§1606.2 only requires MPD be 'prepared to demonstrate that... factors were considered,' not prove each conclusion). Part II.B/D explicitly concludes the arbitrator's allocation of a 'burden to prove comparability' was wrong, since Douglas places only a prima facie production burden on the agency and shifts the burden to identify disparity to the grievant, with MPD required only to rebut if challenged. The memo's bottom-line and strongest-argument sections reiterate that MPD's duty was to demonstrate consideration and make a prima facie showing, not to 'prove' comparator comparability, and that no uploaded authority (Douglas, DCMR §1606) imposes such a proof burden on MPD absent a disparity claim.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response clearly identifies that neither DCMR § 1606 nor Douglas (the uploaded governing authorities) requires MPD to prove comparability of its comparator cases, noting that the regulations only require demonstrating consideration and Douglas requires reasonableness rather than an affirmative burden to prove comparability.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -1048,6 +1268,28 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** met (3/3). **Contribution:** `6`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies the discrepancy: it states that PERB’s procedural summary says the arbitrator imposed a 40-day suspension, while the Award actually orders a 45-day suspension.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response includes a 'Record correction' section explicitly stating that PERB's procedural summary says the arbitrator imposed a 40-day suspension while the Award actually orders a 45-day suspension, identifying this discrepancy with citations. This directly satisfies the criterion of identifying that the PERB Decision misstates the length of the suspension imposed by the Award.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly notes in the 'Record correction' section that the PERB Decision's procedural summary misstates the length of the suspension imposed by the Award as 40 days instead of 45 days.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `6`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly identifies the discrepancy: it states that PERB described the Award as reducing termination to a 40-day suspension, while the Award actually imposed a 45-day suspension. It repeats this point in Part I.E.5 and recommends noting the PERB “40-day” misstatement in the brief.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly identifies the discrepancy: 'The PERB Decision says the Award reduced termination to a "40-day suspension." PERB Decision, p. 1, ¶ 1. The Award actually imposed a 45-day suspension. Award, p. 2, ¶¶ 9–10.' This is reiterated multiple times (in Part I.E.5 and the Action Items), satisfying the criterion of identifying that the PERB Decision misstates the length of the suspension imposed by the Award.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly identifies in multiple places (including under 'Record discrepancy you should know about' and Part I.E.5) that the PERB Decision misstated the length of the suspension imposed by the Award as 40 days instead of 45 days.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Not defective
 - **AI reasoning:** Wrong
@@ -1122,6 +1364,28 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G2 → not_a_defect:** Overturned. Langenhorst, as uploaded, twice repeats Guerine's rule that 'The defendant must show that the plaintiff's chosen forum is inconvenient to the defendant and that another forum is more convenient to all parties.' Smith's Exhibit A ¶ 7 says only that DuPage 'would be substantially more convenient for me ... than trial in the Circuit Court of Cook County.' That is a comparative statement. It is not a statement that Cook is inconvenient. The memo is written for the plaintiff and asks for points to target, and identifying that gap under the uploaded rule is the correct answer, not an exact-phrase requirement. A reviewer who treats comparative convenience as enough concedes a point that Langenhorst treats as part of the defendant's burden. The criterion takes the legally sound side.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (1/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies that Dr. Smith’s affidavit does not establish a concrete inconvenience from litigating in Cook County: it states that the affidavit does not explain any specific travel, scheduling, or trial-management burden and argues that conclusory convenience assertions are insufficient. Although that particular point is principally discussed with a Guerine citation, the response also frames the overall burden under Langenhorst.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion requires identifying that Dr. Smith's affidavit fails to state that Cook County itself would be inconvenient for him to litigate (as Langenhorst requires showing the chosen forum is inconvenient to the movant, not merely that the alternative is more convenient). The response instead states that Dr. Smith's affidavit says trial in DuPage 'would be substantially more convenient for him,' and critiques the affidavit for lacking detail about specific travel/scheduling burdens, rather than noting that the affidavit never addresses or shows Cook County is inconvenient for him. The Langenhorst-specific point about failure to show inconvenience of the chosen forum (Cook) is not made; the closest discussion cites Guerine's general standard rather than pinpointing this specific deficiency in Smith's affidavit under Langenhorst. Thus the specific criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response notes that Dr. Smith's affidavit does not explain a specific travel or scheduling burden (citing Guerine), but it fails to identify that Dr. Smith's affidavit does not state/indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (2006).
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly identifies that Dr. Smith’s affidavit states only that DuPage County would be “substantially more convenient,” rather than stating that Cook County is inconvenient. It explains that this comparative assertion is insufficient under Langenhorst, which requires defendants to show the plaintiff’s chosen forum is inconvenient to them, and specifically notes Langenhorst’s rejection of a motion where no affidavit stated that the chosen forum was inconvenient.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memo explicitly, in Section IV.B (Weakness #1 under 'Convenience of the Parties'), states that Dr. Smith's affidavit says only that DuPage would be 'substantially more convenient'—a comparative statement—and that it 'identifies no concrete burden from a Cook County trial' and 'is comparative,' explicitly citing Langenhorst's requirement that 'no affidavits have been filed stating that St. Clair County would be an inconvenient forum.' This directly identifies that Dr. John Smith's affidavit fails to show Cook County would be inconvenient for him, as required by Langenhorst v. Norfolk S. Ry. Co.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section IV.B (and reiterated in Sections IV.I and V), the response expressly identifies that Dr. Smith's affidavit fails to state or show that Cook County is an inconvenient forum for him to litigate the case (noting his affidavit only asserts DuPage would be comparatively 'substantially more convenient' without asserting any actual inconvenience), and grounds this requirement directly in Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -1217,6 +1481,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that Cook County lacks interest in adjudicating the controversy over care rendered by DuPage-based providers. Instead, it repeatedly argues that Cook has a meaningful local interest through the infant’s treatment, deterioration, and death there, while acknowledging that DuPage has a substantial interest in the alleged delivery-care negligence.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response never asserts that Cook County lacks interest in adjudicating a controversy over care rendered by DuPage-based providers. In fact, it explicitly argues the opposite throughout Sections 1, 6, and 7, citing Bradbury to assert that Cook has a genuine local interest because the decedent received extensive treatment, deteriorated, and died there, and that this Cook County nexus is material to the wrongful-death and survival claims. The response repeatedly pushes back against Defendants' claim that Cook is 'unrelated' or lacks interest, rather than adopting that position itself. Thus the described failure (claiming Cook lacks interest) is not present.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that Cook County lacks an interest in adjudicating the controversy. Instead, it repeatedly emphasizes and argues that Cook County has a legitimate local interest because the infant was treated, deteriorated, and died in Cook County, relying on Bradbury to refute the defendants' argument that Cook County lacks interest.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that Cook County lacks an interest in adjudicating the controversy. It recounts Defendants' argument that DuPage has a strong local interest, but expressly rejects the premise that Cook County lacks a connection, arguing that Cook County has an interest because the decedent died there, received substantial treatment there, and Cook County providers and institutions are involved.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion asks whether the response, in discussing Assignment #1 (Local Interest, Section F), mentions that Cook County lacks interest in adjudicating a controversy over care rendered by DuPage-based providers. In Section F, the response actually argues the opposite: it argues that Cook County DOES have interest (death occurred there, Cook County physicians provided treatment there, etc.) and that Defendants' distinction attempting to claim Cook lacks interest 'fails.' The response rebuts the failure rather than committing it itself - it is critiquing Defendants' motion for making that argument, not adopting it as the author's own analysis. The author's own position is that Cook County does have an interest. Thus the response does not commit the failure described; it addresses and refutes it rather than asserting it as a conclusion of the memo's own analysis.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state or argue that Cook County lacks an interest in adjudicating the controversy. Instead, it explicitly argues that Cook County has a legitimate and shared interest under Bradbury because the decedent died there, spent the majority of his life receiving treatment there, and the county has an interest in its treating institutions.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -1296,6 +1582,28 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it does not state that it is supported by his affidavit or that he provided care to Baby Davis. It expressly notes that the supplied record does not establish each listed physician’s role or participation.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document lists Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it never states that the response is supported by an affidavit of Liam Vance, nor does it mention any affidavit from him. No affidavit from Liam Vance is referenced anywhere in the document, so the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Liam Vance (in fact, it notes that the record does not set out each physician's role, expected testimony, or participation).
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies Exhibit 2 as the “Affidavit of Liam Vance, M.D.” and states that Dr. Liam Vance is one of five Cook County treating physicians who treated Baby Davis at Cook County Hospital from August 28 to September 16, 2024. The common affidavit form further states that each affiant treated Baby Davis at Cook County Hospital.
+- `anthropic/claude-sonnet-5`: value `1.0` — The document lists Dr. Liam Vance among the five Cook County treating physicians who provided care to Baby Davis at Cook County Hospital (Section II.C.9), and includes Exhibit 2 as the 'Affidavit of Liam Vance, M.D.' which is cited throughout the response (e.g., Exs. 2–6) to support factual assertions about treatment, causation, and inconvenience arguments. This satisfies the criterion that the response states it is supported by the affidavit of Liam Vance, a physician who treated Baby Davis at Cook County Hospital.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response clearly states that it is supported by the affidavit of Dr. Liam Vance (attached as Exhibit 2), identifying him as one of the physicians who provided medical care and treatment to Baby Davis at Cook County Hospital.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1393,6 +1701,28 @@ Rulings on the blind findings above:
 - **Claude Opus 5.5 O2 → mixed; for this criterion not_a_defect:** A Kane County residence affidavit is supported and satisfies the criterion. Overall ruling: Agree on criterion 12 and disagree on criterion 11. Criterion 11 is satisfied by a supported residence affidavit. Criterion 12 requires a sworn statement of inconvenience that has no record basis, and its 'as required under Langenhorst' framing misdescribes where Langenhorst places the burden. I do not rely on Opus's sequential-dependency argument. The assignment-1 rubric's criterion 11 already expected a recommendation for an inconvenience affidavit from Sara. Assignment 2's instruction to include the affidavits 'you referenced' therefore follows the earlier rubric, and the dependency is not an independent ground.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that it is supported by an affidavit of plaintiff Sara Davis. It discusses affidavits from Dr. Smith and the hospital administrator, but identifies no affidavit by Sara Davis.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document never mentions or cites an affidavit of Sara Davis supporting the response. It references the Complaint, Dr. Smith's affidavit, and the Hospital Administrator's affidavit, but there is no statement that the response is supported by Sara Davis's own affidavit.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that it is supported by an affidavit of the plaintiff, Sara Davis; in fact, it repeatedly notes that there is no affidavit or evidence in the record establishing Sara Davis's residence or convenience.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (2/3). **Contribution:** `5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies Exhibit 1 as the “Affidavit of Sara Davis” and repeatedly states that Plaintiff’s relevant assertions are supported by “Ex. 1,” including her residence, forum choice, convenience, the transfer, and Baby Davis’s treatment and death. It also includes the full affidavit of Sara Davis as Exhibit 1.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document contains no reference to an 'Assignment #2' or any assignment numbering scheme. While it does reference the affidavit of Sara Davis (Exhibit 1) as support for various factual statements, there is no statement explicitly tied to an 'Assignment #2' indicating that response is supported by her affidavit. The criterion requires such a specific statement, which is absent.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states that it is supported by the affidavits attached as exhibits (with Exhibit 1 being the Affidavit of Sara Davis), cites her sworn affidavit throughout the facts and argument sections, and includes the full text of her supporting affidavit.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1506,6 +1836,28 @@ Evidence the model quoted (check against the source):
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** **PENALTY TRIGGERED** (3/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 states that the 2023 report gives an all-case clearance rate of 60.5% for Cook County: “the all-case clearance rate was 60.5% for Cook County.” This matches the specified failure.
+- `anthropic/claude-sonnet-5`: value `1.0` — The document explicitly states: 'The 2023 report gives Defendants some support: the all-case clearance rate was 60.5% for Cook County and 99.0% for the 18th Circuit...' citing the 2023 Annual Report Statistical Summary, pp. 19, 21. This directly matches the failure criterion of stating a 60.5% clearance rate in Cook County, Illinois from the 2023 Illinois Annual Report Statistics.
+- `gemini/gemini-3.8-flash`: value `1.0` — Under the 'Court congestion' heading in Section IV, the response explicitly states that according to the 2023 report (referencing the 2023 Annual Report Statistical Summary), 'the all-case clearance rate was 60.5% for Cook County', thereby committing the specified failure.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (3/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — In Assignment #2, the response expressly states that defendants compare "clearance rates for all case types: 60.5% for Cook" and cites the 2023 Annual Report Statistical Summary. Thus, it states that the report reflects a 60.5% Cook County clearance rate.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly states: 'Defendants compare clearance rates for all case types: 60.5% for Cook and 99.0% for the 18th Circuit. (Defendants Motion to Transfer.pdf, p.5, §V.C; 2023 Annual Report Statistical Summary.pdf, p.21.)' This directly asserts that the 2023 Annual Report Statistical Summary reports a 60.5% clearance rate in Cook County, matching the described failure criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section IV.C.3.c of Assignment #2, the response cites the 2023 Annual Report Statistical Summary (p. 21) for the proposition that the clearance rate for all case types in Cook County was 60.5% ('Defendants compare clearance rates for all case types: 60.5% for Cook and 99.0% for the 18th Circuit. (Defendants Motion to Transfer.pdf, p.5, §V.C; 2023 Annual Report Statistical Summary.pdf, p.21.)'). Therefore, the response commits the specified failure.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1584,6 +1936,28 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Caleb Montgomery as one of five Cook County physicians, but it does not state that Assignment #2 is supported by his affidavit or that he provided care to Baby Davis at Cook County Hospital. It also does not mention an affidavit from Caleb Montgomery at all.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document lists Caleb Montgomery as one of five Cook County physicians identified by name, but it does not cite or reference any affidavit by Caleb Montgomery, nor does it state that the response is supported by such an affidavit. In fact, the brief explicitly states that 'the supplied record does not set out each physician's role, expected testimony, precise residence, willingness to appear, or scheduling burden,' indicating no affidavit from Montgomery exists or is relied upon in the response.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Caleb Montgomery as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Caleb Montgomery.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies Exhibit 4 as the “Affidavit of Caleb Montgomery, M.D.” and states that Dr. Caleb Montgomery is one of five physicians who treated Baby Davis at Cook County Hospital. It relies on Exhibits 2–6, including Montgomery’s affidavit, to support the response’s factual assertions regarding Baby Davis’s Cook County treatment, injuries, deterioration, suffering, and death.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response lists Dr. Caleb Montgomery as one of the five Cook County Hospital treating physicians (Section II.C.9) and includes Exhibit 4, the 'Affidavit of Caleb Montgomery, M.D.,' as supporting evidence cited throughout the brief (e.g., 'Exs. 2–6' citations for treating physician testimony, records, and willingness to testify). The affidavit template identifies him as practicing at Cook County Hospital and treating Baby Davis there. This satisfies the criterion that the response is supported by an affidavit of Caleb Montgomery, a physician who cared for Baby Davis at Cook County Hospital.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states in Section II.C (paragraph 9), Section IV.B.3.c, the Exhibit List, and the supporting affidavits that it is supported by the affidavit of Dr. Caleb Montgomery, a physician who provided care to Baby Davis at Cook County Hospital.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1668,6 +2042,28 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians but does not state that his affidavit indicates DuPage County would be an inconvenient forum for him to litigate the case. Indeed, it acknowledges that the supplied record does not establish each physician’s specific role, residence, willingness to appear, or scheduling burden.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document only mentions Liam Vance as one of five Cook County physicians with whom counsel spoke, without any discussion of an affidavit by him stating that DuPage County would be inconvenient for him to litigate the case, nor any Langenhorst-specific analysis tied to his affidavit. The criterion requires identification of such an affidavit, which is absent from the response.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2 (or an affidavit/discussion thereof) identifying that an affidavit by Liam Vance indicates DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies Liam Vance as a Cook County treating physician and states that his affidavit says a trial in DuPage County would take him away from patient-care obligations longer and would be more burdensome than trial in Cook County. It also expressly ties this evidence to Langenhorst’s treatment of affidavits establishing forum inconvenience.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response includes Exhibit 2, the Affidavit of Liam Vance, M.D., which in paragraph 8 explicitly states that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County.' The brief's argument section (Part IV.B.1 and IV.B.3.c) also references this point, noting that each of the five Cook County treating physicians' affidavits (Exs. 2-6, which include Vance) state that a trial in DuPage would be more burdensome than in Cook County, and ties this to the Langenhorst requirement that affidavits must speak to inconvenience of the forum. Thus the criterion is satisfied.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response identifies and provides the affidavit of Dr. Liam Vance (Exhibit 2), which expressly states that a trial in DuPage County would be more inconvenient and burdensome for him, and cites this evidence in the brief alongside Langenhorst v. Norfolk S. Ry. Co. regarding the convenience of treating physician witnesses.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1749,6 +2145,28 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Caleb Montgomery only as one of five Cook County physicians with whom counsel has spoken. It does not discuss or cite an affidavit from Caleb Montgomery, nor does it state that his affidavit indicates DuPage County would be an inconvenient forum for him to litigate the case as contemplated by Langenhorst.
+- `anthropic/claude-sonnet-5`: value `0.0` — The provided document is Plaintiff's Response in Opposition to Defendants' Motion to Transfer Venue (apparently Assignment #1). It mentions Caleb Montgomery only as one of five Cook County physicians plaintiff's counsel has spoken with, with no discussion of any affidavit by him addressing the inconvenience of DuPage County as a forum for him, nor any citation to Langenhorst for that specific point. There is no Assignment #2 content in this file addressing that requirement.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2, nor does it identify or discuss an affidavit by Caleb Montgomery stating that DuPage County would be an inconvenient forum for him to litigate the case under Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 is Exhibit 4, the affidavit of Caleb Montgomery, M.D. The response states that each physician affidavit, including Exhibit 4, uses the supplied form, whose paragraph 8 says that a trial in DuPage County would be “more inconvenient and burdensome” than a Cook County trial. This identifies Caleb Montgomery’s affidavit as showing that DuPage County would be inconvenient for him, consistent with the Langenhorst requirement.
+- `anthropic/claude-sonnet-5`: value `1.0` — Exhibit 4 (Affidavit of Caleb Montgomery, M.D.) follows the template provided for Exhibits 2-6, which in paragraph 8 explicitly states that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County,' and that testifying in Cook County would take him away from patient-care obligations for less time than DuPage County. This directly supports the argument under Langenhorst that DuPage County would be an inconvenient forum for this witness, which the response uses to argue against transfer.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response includes an affidavit for Dr. Caleb Montgomery (Exhibit 4) stating that traveling to testify in DuPage County would take him away from patient-care obligations longer and would be more inconvenient and burdensome than Cook County, and links this witness convenience analysis to Langenhorst in the argument section.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1827,6 +2245,28 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response names Maya Linwood among five Cook County physicians but expressly states that the supplied record does not establish each physician’s scheduling burden or other individual convenience facts. It does not identify or discuss an affidavit by Maya Linwood stating that DuPage County would be an inconvenient forum for her, as required by the criterion.
+- `anthropic/claude-sonnet-5`: value `0.0` — The provided document is Plaintiff's Response in Opposition to the Motion to Transfer Venue (apparently Assignment #1). It mentions Maya Linwood only as one of five Cook County physicians identified by plaintiff's counsel, with no affidavit by her and no discussion of her finding DuPage County inconvenient as required under Langenhorst. There is no 'Assignment #2' content addressing an affidavit by Maya Linwood regarding forum inconvenience, so the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Maya Linwood as one of five Cook County physicians, but it does not identify or state that an affidavit by Maya Linwood indicates that DuPage County would be an inconvenient forum for her to litigate this case under Langenhorst. In fact, it expressly asserts that the record does not set out her willingness to appear or scheduling burden.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `3`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 identifies Dr. Maya Linwood as Exhibit 5 and states that each treating-physician affidavit uses the supplied form. Paragraph 8 of that form expressly says that trial in DuPage County would be “more inconvenient and burdensome” than trial in Cook County due to the physician's Cook County patient-care, call, and clinical obligations. The response also invokes Langenhorst in discussing forum inconvenience.
+- `anthropic/claude-sonnet-5`: value `1.0` — Exhibit 5, the affidavit of Maya Linwood, M.D., follows the template used for all treating-physician affidavits and explicitly states in paragraph 8 that 'A trial in DuPage County would be more inconvenient and burdensome for me than a trial in Cook County,' directly supporting the Langenhorst-based argument that DuPage would be an inconvenient forum for her to litigate the case.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response includes an affidavit for Dr. Maya Linwood (Exhibit 5, through the common treating physician affidavit form at Exhibits 2–6) specifically stating that a trial in DuPage County would be more inconvenient and burdensome than Cook County, and links these treating physician affidavits directly to the legal requirements and principles established in Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
@@ -1952,6 +2392,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** met (3/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response explicitly states that Patton admitted conspiring to commit a forcible felony by planning a shooting and concludes that Iowa Code § 704.6(1) makes justification unavailable to a participant in that forcible felony.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly states that Patton's admitted conspiracy to commit a forcible felony (Count VIII, Iowa Code §706.1/706.3) establishes participation in a forcible felony, and that under Iowa Code §704.6(1), justification is unavailable to a participant in a forcible felony. It directly ties this conspiracy conviction/admission to the preclusion of the justification defense, satisfying the criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states that Patton pleaded guilty to conspiracy to commit a forcible felony (planning to engage in a shooting) and explains that under Iowa Code § 704.6(1), participating in a forcible felony precludes the justification defense.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly states that Iowa Code § 704.6 makes justification unavailable to a person participating in a forcible felony, and applies that rule to Patton. It specifically relies on Patton’s admission that he conspired with others to commit a forcible felony by planning a shooting, concluding that justification was categorically unavailable to him.
+- `anthropic/claude-sonnet-5`: value `1.0` — The answer states that Patton participated in a forcible felony (conspiracy to commit a forcible felony per his plea admission) and explicitly concludes that under Iowa Code § 704.6(1), the justification defense 'is not available' to one participating in a forcible felony, applying this directly to Patton via his conspiracy admission. This directly satisfies the criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section II.B.1.a, the response cites Patton's state guilty plea to conspiracy to commit a forcible felony (planning to engage in a shooting) and argues under Iowa Code § 704.6(1) that this demonstrates he was participating in a forcible felony, which categorically precludes a justification defense.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2039,6 +2501,28 @@ Evidence the model quoted (check against the source):
 - rubric justification, criterion_23: “Because that involved a different shooting, it's not relevant to whether Patton should receive a justification instruction for the May 10, 2020 shooting.”
 
 [Full reconciliation](../tasks/lrb-vicar-trial-jury-instructions-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not mention that Patton pled guilty in state court to intimidation with a dangerous weapon. It discusses his state-court plea petition only as to conspiracy to commit a forcible felony by planning a shooting.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response discusses Patton's state-court plea petition, but it describes the plea as being to Count VIII, conspiracy to commit a forcible felony under Iowa Code sections 706.1 and 706.3, with an admission to planning a shooting. It does not mention a guilty plea to 'intimidation with a dangerous weapon.' Therefore the specific failure described in the criterion is not present.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Patton pled guilty in state court to intimidation with a dangerous weapon; it only discusses his plea to conspiracy to commit a forcible felony.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The drafting notes mention Patton's state-court plea materials and identify the Count XX petition as "intimidation with a dangerous weapon" under Iowa Code § 708.6.
+- `anthropic/claude-sonnet-5`: value `1.0` — The draft explicitly discusses Patton's state plea document and notes that it contains two petitions: 'In the Count VIII petition (conspiracy to commit a forcible felony...)... The Count XX petition (intimidation with a dangerous weapon, § 708.6) covers a different event, a shooting on April 13, 2020.' This directly references that Patton's state plea included a guilty plea petition for intimidation with a dangerous weapon (Count XX), even though the author says the argument relies only on Count VIII. Because the document does mention this fact, the failure criterion is triggered (Pass under the original failure test), which corresponds to a 'yes' answer under this reformulated schema (the response does mention the Count XX intimidation plea).
+- `gemini/gemini-3.8-flash`: value `0.0` — The response avoids the failure. It does not argue or state in its legal analysis that Patton pled guilty to intimidation with a dangerous weapon; in fact, Drafting Note 2 explicitly clarifies that Count XX covers a separate April 13, 2020 incident and properly limits the argument to Patton's Count VIII conspiracy admission.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -2159,6 +2643,28 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses evidence that Nelson opened fire and states that the analysis does not turn on who fired first, but it does not mention a lack of evidence proving who fired first on May 10, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the sequence of events and states that Nelson opened fire as the Trailblazer approached, treating this as an established fact rather than noting any lack of evidence about who fired first. It never asserts that the record is unclear or lacking proof as to who fired the first shot; instead it argues the issue of who fired first is legally immaterial given the forcible-felony bar. Thus it does not satisfy the specified criterion.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020. Instead, it suggests that Nelson opened fire and notes that the legal standard does not turn on who fired the first shot.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses Patton's assertion that Nelson fired first and argues that the first-shot issue is legally immaterial, but it does not state that the evidence lacked proof of who fired first on May 10, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses who fired first only in the context of Patton's argument that Nelson fired first and bushes, treating it as legally irrelevant under the justification framework. It never states that there was a lack of evidence proving who fired first on May 10, 2020; rather it assumes/accepts the premise that Nelson fired first (or that it doesn't matter) without discussing evidentiary insufficiency on that point.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020; rather, it assumes or addresses Patton's claim that Nelson fired first and argues that who fired first is legally immaterial.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2253,6 +2759,28 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses the pursuit, the Trailblazer approaching, and incoming fire, but does not state that Nelson's car was already stopped when Patton fired his gun.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the pursuit, shots exchanged, and Nelson firing as the Trailblazer approached, but it does not mention that Nelson's car was already stopped when Patton fired his gun. No statement in the text indicates the car's stopped status at the time of firing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Nelson's car was already stopped when Patton fired his gun.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses the chase, Nelson waiting in bushes, and the exchange of gunfire, but it does not state that Nelson's car was already stopped when Patton fired.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document extensively discusses the chase, the shooting, and the circumstances of Patton firing at Nelson's car, but nowhere does it state that Nelson's car was already stopped when Patton fired his gun. In fact, the narrative describes an ongoing multi-mile vehicle chase with windows rolled down as the cars approached each other, and references Nelson waiting in bushes, but does not mention the car being stationary at the moment of firing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Nelson's car was already stopped when Patton fired his gun.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2344,6 +2872,28 @@ Rulings on the blind findings above:
 - **Claude Opus 5.5 O3 → not_a_defect:** Overturned. Opus noted that the native 'final complete legal deliverable' instruction cuts the other way. In my view it decides the question. The solver must write a complete deliverable that builds on response1.md, and the verifier reads only response2.md. An insert-only supplement is therefore not the requested deliverable. Restating the retreat facts in applying Kuhse is required, not unrequested. No permissible earlier answer is excluded.
 
 [Full reconciliation](../tasks/lrb-vicar-trial-jury-instructions-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response describes the OTB group pursuing Nelson and Allison after they fled, but it does not state that the OTB group could have driven away.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the pursuit, provocation, and forcible-felony bar but never states that the OTB group (Patton/Shafer/Mallory/the group pursuing Nelson) could have driven away rather than pursuing. There is no statement about an option to drive away instead of continuing pursuit.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response discusses the pursuit, failure to withdraw, and the duty-to-retreat provision, but it does not state that the OTB group could have driven away.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
+### Claude Opus 5.5 (low)
+
+**Status:** met (2/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response states that the Trailblazer was the pursuing vehicle and that the OTB group could have stopped following Nelson at any point during the multi-mile chase, describing this as an obvious safe alternative. This conveys that the group could have driven away rather than continue the pursuit.
+- `anthropic/claude-sonnet-5`: value `1.0` — The brief explicitly states that the OTB group had the option to leave the scene, e.g., 'At any point during the multi-mile chase, the OTB group could simply have stopped following Nelson' and 'He could have stayed at the mall. He could have let Nelson drive away... He and the group could have stopped the chase at any point over several miles,' which conveys that the OTB group could have driven away rather than pursuing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions that Nelson drove away and that the OTB group could have stopped following or broken off the chase, but it never states that the OTB group could have driven away.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
 
 </details>
 

@@ -1,0 +1,217 @@
+{
+  "scorer": "upstream scripts/score_matter.py",
+  "results": [
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-forum-non-conveniens-response",
+      "matter_reward": 0.009950248756218905,
+      "earned": 2.0,
+      "positive_total": 201.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.125,
+          "earned": 16.0,
+          "positive_total": 128.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.0,
+          "earned": -14.0,
+          "positive_total": 73.0
+        }
+      ],
+      "agent_diagnostic_steps": 2
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-forum-non-conveniens-response",
+      "matter_reward": 0.5323383084577115,
+      "earned": 107.0,
+      "positive_total": 201.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.578125,
+          "earned": 74.0,
+          "positive_total": 128.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.4520547945205479,
+          "earned": 33.0,
+          "positive_total": 73.0
+        }
+      ],
+      "agent_diagnostic_steps": 2
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "matter_reward": 0.15625,
+      "earned": 50.0,
+      "positive_total": 320.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.2647058823529412,
+          "earned": 45.0,
+          "positive_total": 170.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.03333333333333333,
+          "earned": 5.0,
+          "positive_total": 150.0
+        }
+      ],
+      "agent_diagnostic_steps": 2
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "matter_reward": 0.0625,
+      "earned": 20.0,
+      "positive_total": 320.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.08823529411764706,
+          "earned": 15.0,
+          "positive_total": 170.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.03333333333333333,
+          "earned": 5.0,
+          "positive_total": 150.0
+        }
+      ],
+      "agent_diagnostic_steps": 1
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "matter_reward": 0.6746987951807228,
+      "earned": 224.0,
+      "positive_total": 332.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.18309859154929578,
+          "earned": 13.0,
+          "positive_total": 71.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.7954545454545454,
+          "earned": 70.0,
+          "positive_total": 88.0
+        },
+        {
+          "file": "steps/assignment-3/verifier/reward-details.json",
+          "assignment_reward": 0.5333333333333333,
+          "earned": 32.0,
+          "positive_total": 60.0
+        },
+        {
+          "file": "steps/assignment-4/verifier/reward-details.json",
+          "assignment_reward": 1.0,
+          "earned": 73.0,
+          "positive_total": 73.0
+        },
+        {
+          "file": "steps/assignment-5/verifier/reward-details.json",
+          "assignment_reward": 0.9,
+          "earned": 36.0,
+          "positive_total": 40.0
+        }
+      ],
+      "agent_diagnostic_steps": 5
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "matter_reward": 0.1935483870967742,
+      "earned": 60.0,
+      "positive_total": 310.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.08571428571428572,
+          "earned": 15.0,
+          "positive_total": 175.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.3333333333333333,
+          "earned": 45.0,
+          "positive_total": 135.0
+        }
+      ],
+      "agent_diagnostic_steps": 2
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "matter_reward": 0.4819277108433735,
+      "earned": 160.0,
+      "positive_total": 332.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.1267605633802817,
+          "earned": 9.0,
+          "positive_total": 71.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.6590909090909091,
+          "earned": 58.0,
+          "positive_total": 88.0
+        },
+        {
+          "file": "steps/assignment-3/verifier/reward-details.json",
+          "assignment_reward": 0.5333333333333333,
+          "earned": 32.0,
+          "positive_total": 60.0
+        },
+        {
+          "file": "steps/assignment-4/verifier/reward-details.json",
+          "assignment_reward": 0.3972602739726027,
+          "earned": 29.0,
+          "positive_total": 73.0
+        },
+        {
+          "file": "steps/assignment-5/verifier/reward-details.json",
+          "assignment_reward": 0.8,
+          "earned": 32.0,
+          "positive_total": 40.0
+        }
+      ],
+      "agent_diagnostic_steps": 5
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "matter_reward": 0.08064516129032258,
+      "earned": 25.0,
+      "positive_total": 310.0,
+      "assignments": [
+        {
+          "file": "steps/assignment-1/verifier/reward-details.json",
+          "assignment_reward": 0.0,
+          "earned": -5.0,
+          "positive_total": 175.0
+        },
+        {
+          "file": "steps/assignment-2/verifier/reward-details.json",
+          "assignment_reward": 0.2222222222222222,
+          "earned": 30.0,
+          "positive_total": 135.0
+        }
+      ],
+      "agent_diagnostic_steps": 2
+    }
+  ]
+}

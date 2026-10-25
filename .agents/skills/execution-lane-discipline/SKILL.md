@@ -136,6 +136,14 @@ Recovery preserves a saved native smoke case selector automatically. For a histo
 
 Ultramarine uses the managed SDK output tool for its forecast envelope, with automatic tool choice and high effort retained. Its native JSON-output route returned two terminal forecasts without document reads; the output-tool route removes native schema decoding while retaining the same workspace tools, prediction units, and strict document-read acceptance. Validate a live one-case smoke before full expansion; offline tool-loop fixtures establish request shape, not provider behavior.
 
+## LegalReasonBench native result import
+
+Run the pinned LegalReasonBench tasks through their native Harbor multi-step runtime with OpenCode, retaining each matter's persistent workspace. Keep solver inputs separate from audit findings and hidden grading files. An installation-only preflight proves setup, not inference or grading. OpenCode's turn and timeout limits do not establish a dollar cap; solver calls, the three native judges, and automatic retries all consume the experiment's approved ceiling.
+
+After genuine runs finish, map condition slugs to their Harbor job directories in a private JSON file (`gpt6luna-xhigh` and `opus55-low`) and run `uv run python scripts/legalreasonbench_model_runs.py import --runs-map /path/to/runs.json`. The importer copies answers and raw verifier JSON into `docs/legalreasonbench-audit/litigation/model-runs/`, checks the saved solver identity and full native panel, and leaves incomplete panels visibly incomplete. Retain transcripts and usage records privately; inspect public copies for operational metadata before committing. Use upstream `scripts/score_matter.py` for matter scores rather than Harbor's diagnostic mean.
+
+Run `uv run python scripts/legalreasonbench_review_sample.py render` to add the saved criterion grades and judge reasoning outside the worksheet's human-review markers. Existing reviewer fields must survive unchanged. Validate with `uv run pytest tests/test_legalreasonbench_model_runs.py tests/test_legalreasonbench_review_sample.py -q`; fixtures establish import/render behavior only.
+
 ## Community subscription login
 
 Use `harvey-lab run-community-subscription` for the local subscription comparison. Prepare separate fresh role configs with vendor login; Claude creates `.claude.json`, its empty lock directory, and timestamped `backups/` state alongside `.credentials.json`, so retain those files. Normal execution may also leave `.last-cleanup`, failed-event telemetry, an empty `sessions/` directory, and the model catalog cache; these bounded vendor paths are supported for repeat launches. Never substitute a host home/config, histories, custom settings, or an API key. Follow `docs/multiharness/claude-code-harvey-lab-baseline.md`; the upstream `harvey-lab run` command remains a separate API experiment.

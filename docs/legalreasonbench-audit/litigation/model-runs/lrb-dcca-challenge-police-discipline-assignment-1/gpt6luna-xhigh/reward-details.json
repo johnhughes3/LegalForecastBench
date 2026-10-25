@@ -1,0 +1,1261 @@
+{
+  "correctness": {
+    "score": 0.1267605633802817,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "criterion_1",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+        "source": "D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 26 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cReconstruct MPD\u2019s penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD\u2019s finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\u201d",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+            "reasoning": "The response explicitly states that \u201cMPD found all twelve factors aggravating\u201d and later that \u201cMPD concluded that all twelve factors aggravated the penalty.\u201d"
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+            "reasoning": "The document explicitly states that MPD found all twelve Douglas factors to be aggravating, both in the introductory sentence ('MPD found all twelve factors aggravating and treated none as mitigating') and in the conclusion ('MPD concluded that all twelve factors aggravated the penalty and selected termination'), with each factor in the table individually labeled 'Aggravating.'"
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+            "reasoning": "The response explicitly states in Section 1 that MPD found all twelve Douglas factors aggravating in the Final Notice of Adverse Action."
+          }
+        ]
+      },
+      {
+        "name": "criterion_2",
+        "value": 0.0,
+        "raw": false,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+        "source": "Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), \u00b6\u00b6 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. Reconstruct MPD's penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD's finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "1/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "1/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+            "reasoning": "The response states that MPD relied on four comparator cases in which sworn members were terminated and identifies those comparators as Guzman, Sadler, Pietrzak, and Voss (with the first three named in the discussion and the four-case set expressly described as terminations)."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+            "reasoning": "The response discusses MPD's four comparator cases resulting in termination for unjustified force, but only explicitly names three of the four comparators (Guzman, Sadler, and Pietrzak). Voss is never mentioned anywhere in the document, so the response does not fully identify all four named comparator cases (Guzman, Sadler, Pietrzak, and Voss) as the ones resulting in termination."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+            "reasoning": "While the response identifies Guzman, Sadler, and Pietrzak and notes that the comparators resulted in termination, it fails to mention the fourth comparator case, Voss."
+          }
+        ]
+      },
+      {
+        "name": "criterion_3",
+        "value": 0.0,
+        "raw": false,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 4 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\"",
+        "metadata": {
+          "irac_section": "Conclusion"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+            "reasoning": "The response says the Award \"affirmed the finding of cause,\" but it does not specify that the sustained cause finding was on the Conduct Unbecoming charge."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+            "reasoning": "The document states that the arbitrator 'affirmed the finding of cause, reduced the penalty, and ordered reinstatement...' but it never identifies the specific charge as 'Conduct Unbecoming.' There is no mention anywhere in the text of a 'Conduct Unbecoming' charge, so the criterion that the arbitrator sustained the finding of cause specifically on a Conduct Unbecoming charge is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+            "reasoning": "The response mentions that the arbitrator 'affirmed the finding of cause' generally, but fails to mention or identify the specific charge ('Conduct Unbecoming')."
+          }
+        ]
+      },
+      {
+        "name": "criterion_4",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 5 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+            "reasoning": "The response expressly states that the arbitrator\u2019s review was \u201cnot de novo\u201d and that he assessed MPD\u2019s Douglas-factor conclusions under a \u201cwithin tolerable limits of reasonableness\u201d standard."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+            "reasoning": "The response explicitly states the arbitrator declared review was 'not de novo' and applied a 'tolerable limits of reasonableness' standard to MPD's Douglas-factor conclusions, citing this multiple times throughout the analysis (e.g., Section 2 'Review standard' and in both departure discussions)."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+            "reasoning": "Under the 'Review standard' section, the response explicitly states that the arbitrator's review was 'not de novo' and that the arbitrator examined whether MPD's conclusions fell 'within tolerable limits of reasonableness'."
+          }
+        ]
+      },
+      {
+        "name": "criterion_5",
+        "value": 0.0,
+        "raw": false,
+        "weight": -20.0,
+        "signed_score": -20.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "States that the arbitrator overturned the finding of cause.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 4 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" Misreading the scope of the arbitrator's departures poisons every later Step so the plausible misread is penalized here.",
+        "metadata": {
+          "irac_section": "Conclusion"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+            "reasoning": "The response does not state that the arbitrator overturned the finding of cause. It expressly says that the award affirmed the finding of cause and only reduced the penalty from termination to a 45-day suspension."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+            "reasoning": "The response explicitly states that the arbitrator 'affirmed the finding of cause, reduced the penalty' \u2014 it does not state that the arbitrator overturned the finding of cause. Throughout the document, the arbitrator's actions are described as disputing only the Douglas factor analysis (factors six and twelve) relevant to the penalty, not the underlying cause finding. Thus the failure criterion is not committed."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+            "reasoning": "The response does not state that the arbitrator overturned the finding of cause; in fact, it explicitly notes that '[t]he Award affirmed the finding of cause'."
+          }
+        ]
+      },
+      {
+        "name": "criterion_6",
+        "value": 0.0,
+        "raw": false,
+        "weight": -16.0,
+        "signed_score": -16.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6\u00b6 6-9 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" A reduction attributed to an undisturbed factor is the plausible misread of the Award's structure.",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+            "reasoning": "The response says the arbitrator reduced the penalty because he reversed factors six and twelve, while leaving the other factors undisturbed. It does not state that the penalty was reduced based on a Douglas factor left undisturbed."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+            "reasoning": "The response attributes the arbitrator's reduction of the penalty to the two factors he explicitly disturbed and reversed (factors six and twelve), not to any factor he left undisturbed. It explicitly states he left factors one through five and seven through eleven undisturbed and that the penalty change resulted from the reversals on factors six and twelve. This does not commit the failure of claiming the penalty was reduced based on an undisturbed factor."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+            "reasoning": "The response clearly identifies that the arbitrator disturbed only Factors 6 and 12, leaving Factors 1\u20135 and 7\u201311 undisturbed. It accurately states that the penalty reduction was a consequence of the arbitrator's departures on Factors 6 and 12, and does not state that the reduction was based on any factor left undisturbed."
+          }
+        ]
+      },
+      {
+        "name": "criterion_7",
+        "value": 0.0,
+        "raw": false,
+        "weight": 30.0,
+        "signed_score": 30.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 3 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6\u00b6 4-11 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"1. Reconstruct MPD's penalty determination as set out in the Final Notice. For each of the twelve Douglas factors, state MPD's finding and whether MPD treated the factor as aggravating or mitigating, citing the page and paragraph of the Final Notice that supports each answer.\" Reconstructing the factors against the actual paragraphs exposes the Award's miscitation.",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+            "reasoning": "The response maps the Final Notice\u2019s Douglas-factor findings to paragraphs 14\u201325 and discusses the Award\u2019s analysis, but it never identifies or states that the Award cited different/mismatched Final Notice paragraphs for its findings of fact."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+            "reasoning": "The response does not identify any discrepancy or mismatch between the Award's citations to the Final Notice's findings of fact and the paragraphs where those findings actually appear. Instead, the response treats all the citations as accurate and consistent, presenting a detailed mapping of Douglas factors to specific paragraph citations without flagging any citation errors or mismatches between what the Award claims the Final Notice says versus where those findings are actually located in the Final Notice document."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+            "reasoning": "The response does not identify or discuss the discrepancy between the Arbitrator's Award citations to the Final Notice's findings of fact and the actual paragraphs where those findings appear."
+          }
+        ]
+      },
+      {
+        "name": "criterion_8",
+        "value": 0.0,
+        "raw": false,
+        "weight": 28.0,
+        "signed_score": 28.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+        "source": "Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), \u00b6\u00b6 1, 3 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\" The comparator memorandum's stated coverage window is part of the record the departures are mapped against.",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+            "reasoning": "The response discusses comparator differences (on-duty status, fatality, and prior force complaints) but does not identify any conflict between the comparator memorandum\u2019s stated coverage years and the dates of the cases it summarizes."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+            "reasoning": "The response discusses the comparator memorandum's cases (Guzman, Sadler, Pietrzak) and their characteristics, but nowhere does it identify or flag a conflict between the memorandum's stated coverage years and the dates of the cases it summarizes. There is no mention of any date range stated in the memorandum or any discrepancy with case dates."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+            "reasoning": "The response mentions the comparator memorandum and the specific cases within it, but does not identify or discuss any conflict between the memorandum's stated coverage years and the dates of the cases it summarizes."
+          }
+        ]
+      },
+      {
+        "name": "criterion_9",
+        "value": 1.0,
+        "raw": true,
+        "weight": 3.0,
+        "signed_score": 3.0,
+        "polarity": "positive",
+        "contribution": 3.0,
+        "description": "Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6\u00b6 6-9 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. Identify every respect in which the Award departs from the Final Notice. For each departure, state the arbitrator's finding, the standard of review the arbitrator stated he was applying, and the page and paragraph of the Award where each appears. State which Douglas factors the arbitrator left undisturbed.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+            "reasoning": "The response expressly states that the arbitrator left \u201cfactors one through five and seven through eleven\u201d undisturbed, while disturbing only factors six and twelve."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+            "reasoning": "The response explicitly states in the 'Factors left undisturbed and resulting penalty' section: 'The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record.' This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+            "reasoning": "The response explicitly states: \"The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record. Thus, he disturbed only factors six and twelve.\""
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 9.0,
+      "positive_total": 71.0,
+      "unclamped": 0.1267605633802817,
+      "clamped": 0.1267605633802817
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_1",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+                  "reasoning": "The response explicitly states that \u201cMPD found all twelve factors aggravating\u201d and later that \u201cMPD concluded that all twelve factors aggravated the penalty.\u201d"
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+                  "reasoning": "The document explicitly states that MPD found all twelve Douglas factors to be aggravating, both in the introductory sentence ('MPD found all twelve factors aggravating and treated none as mitigating') and in the conclusion ('MPD concluded that all twelve factors aggravated the penalty and selected termination'), with each factor in the table individually labeled 'Aggravating.'"
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.",
+                  "reasoning": "The response explicitly states in Section 1 that MPD found all twelve Douglas factors aggravating in the Final Notice of Adverse Action."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_1\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.\",\n          \"reasoning\": \"The response explicitly states that \\u201cMPD found all twelve factors aggravating\\u201d and later that \\u201cMPD concluded that all twelve factors aggravated the penalty.\\u201d\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.\",\n          \"reasoning\": \"The document explicitly states that MPD found all twelve Douglas factors to be aggravating, both in the introductory sentence ('MPD found all twelve factors aggravating and treated none as mitigating') and in the conclusion ('MPD concluded that all twelve factors aggravated the penalty and selected termination'), with each factor in the table individually labeled 'Aggravating.'\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Final Notice of Adverse Action found all twelve Douglas factors to be aggravating.\",\n          \"reasoning\": \"The response explicitly states in Section 1 that MPD found all twelve Douglas factors aggravating in the Final Notice of Adverse Action.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_2",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+              "reasoning": "1/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+                  "reasoning": "The response states that MPD relied on four comparator cases in which sworn members were terminated and identifies those comparators as Guzman, Sadler, Pietrzak, and Voss (with the first three named in the discussion and the four-case set expressly described as terminations)."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+                  "reasoning": "The response discusses MPD's four comparator cases resulting in termination for unjustified force, but only explicitly names three of the four comparators (Guzman, Sadler, and Pietrzak). Voss is never mentioned anywhere in the document, so the response does not fully identify all four named comparator cases (Guzman, Sadler, Pietrzak, and Voss) as the ones resulting in termination."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.",
+                  "reasoning": "While the response identifies Guzman, Sadler, and Pietrzak and notes that the comparators resulted in termination, it fails to mention the fourth comparator case, Voss."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_2\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.\",\n      \"reasoning\": \"1/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.\",\n          \"reasoning\": \"The response states that MPD relied on four comparator cases in which sworn members were terminated and identifies those comparators as Guzman, Sadler, Pietrzak, and Voss (with the first three named in the discussion and the four-case set expressly described as terminations).\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.\",\n          \"reasoning\": \"The response discusses MPD's four comparator cases resulting in termination for unjustified force, but only explicitly names three of the four comparators (Guzman, Sadler, and Pietrzak). Voss is never mentioned anywhere in the document, so the response does not fully identify all four named comparator cases (Guzman, Sadler, Pietrzak, and Voss) as the ones resulting in termination.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the four comparator cases relied on by MPD, specifically Guzman, Sadler, Pietrzak, and Voss, resulted in termination.\",\n          \"reasoning\": \"While the response identifies Guzman, Sadler, and Pietrzak and notes that the comparators resulted in termination, it fails to mention the fourth comparator case, Voss.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_3",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+                  "reasoning": "The response says the Award \"affirmed the finding of cause,\" but it does not specify that the sustained cause finding was on the Conduct Unbecoming charge."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+                  "reasoning": "The document states that the arbitrator 'affirmed the finding of cause, reduced the penalty, and ordered reinstatement...' but it never identifies the specific charge as 'Conduct Unbecoming.' There is no mention anywhere in the text of a 'Conduct Unbecoming' charge, so the criterion that the arbitrator sustained the finding of cause specifically on a Conduct Unbecoming charge is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.",
+                  "reasoning": "The response mentions that the arbitrator 'affirmed the finding of cause' generally, but fails to mention or identify the specific charge ('Conduct Unbecoming')."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_3\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.\",\n          \"reasoning\": \"The response says the Award \\\"affirmed the finding of cause,\\\" but it does not specify that the sustained cause finding was on the Conduct Unbecoming charge.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.\",\n          \"reasoning\": \"The document states that the arbitrator 'affirmed the finding of cause, reduced the penalty, and ordered reinstatement...' but it never identifies the specific charge as 'Conduct Unbecoming.' There is no mention anywhere in the text of a 'Conduct Unbecoming' charge, so the criterion that the arbitrator sustained the finding of cause specifically on a Conduct Unbecoming charge is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the arbitrator sustained the finding of cause on the Conduct Unbecoming charge.\",\n          \"reasoning\": \"The response mentions that the arbitrator 'affirmed the finding of cause' generally, but fails to mention or identify the specific charge ('Conduct Unbecoming').\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_4",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+                  "reasoning": "The response expressly states that the arbitrator\u2019s review was \u201cnot de novo\u201d and that he assessed MPD\u2019s Douglas-factor conclusions under a \u201cwithin tolerable limits of reasonableness\u201d standard."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+                  "reasoning": "The response explicitly states the arbitrator declared review was 'not de novo' and applied a 'tolerable limits of reasonableness' standard to MPD's Douglas-factor conclusions, citing this multiple times throughout the analysis (e.g., Section 2 'Review standard' and in both departure discussions)."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the arbitrator reviewed MPD\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.",
+                  "reasoning": "Under the 'Review standard' section, the response explicitly states that the arbitrator's review was 'not de novo' and that the arbitrator examined whether MPD's conclusions fell 'within tolerable limits of reasonableness'."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_4\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the arbitrator reviewed MPD\\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the arbitrator reviewed MPD\\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.\",\n          \"reasoning\": \"The response expressly states that the arbitrator\\u2019s review was \\u201cnot de novo\\u201d and that he assessed MPD\\u2019s Douglas-factor conclusions under a \\u201cwithin tolerable limits of reasonableness\\u201d standard.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the arbitrator reviewed MPD\\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.\",\n          \"reasoning\": \"The response explicitly states the arbitrator declared review was 'not de novo' and applied a 'tolerable limits of reasonableness' standard to MPD's Douglas-factor conclusions, citing this multiple times throughout the analysis (e.g., Section 2 'Review standard' and in both departure discussions).\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the arbitrator reviewed MPD\\u2019s penalty selection under a tolerable limits of reasonableness standard rather than de novo.\",\n          \"reasoning\": \"Under the 'Review standard' section, the response explicitly states that the arbitrator's review was 'not de novo' and that the arbitrator examined whether MPD's conclusions fell 'within tolerable limits of reasonableness'.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_5",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+                  "reasoning": "The response does not state that the arbitrator overturned the finding of cause. It expressly says that the award affirmed the finding of cause and only reduced the penalty from termination to a 45-day suspension."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+                  "reasoning": "The response explicitly states that the arbitrator 'affirmed the finding of cause, reduced the penalty' \u2014 it does not state that the arbitrator overturned the finding of cause. Throughout the document, the arbitrator's actions are described as disputing only the Douglas factor analysis (factors six and twelve) relevant to the penalty, not the underlying cause finding. Thus the failure criterion is not committed."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator overturned the finding of cause.",
+                  "reasoning": "The response does not state that the arbitrator overturned the finding of cause; in fact, it explicitly notes that '[t]he Award affirmed the finding of cause'."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_5\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator overturned the finding of cause.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator overturned the finding of cause.\",\n          \"reasoning\": \"The response does not state that the arbitrator overturned the finding of cause. It expressly says that the award affirmed the finding of cause and only reduced the penalty from termination to a 45-day suspension.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator overturned the finding of cause.\",\n          \"reasoning\": \"The response explicitly states that the arbitrator 'affirmed the finding of cause, reduced the penalty' \\u2014 it does not state that the arbitrator overturned the finding of cause. Throughout the document, the arbitrator's actions are described as disputing only the Douglas factor analysis (factors six and twelve) relevant to the penalty, not the underlying cause finding. Thus the failure criterion is not committed.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator overturned the finding of cause.\",\n          \"reasoning\": \"The response does not state that the arbitrator overturned the finding of cause; in fact, it explicitly notes that '[t]he Award affirmed the finding of cause'.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_6",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+                  "reasoning": "The response says the arbitrator reduced the penalty because he reversed factors six and twelve, while leaving the other factors undisturbed. It does not state that the penalty was reduced based on a Douglas factor left undisturbed."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+                  "reasoning": "The response attributes the arbitrator's reduction of the penalty to the two factors he explicitly disturbed and reversed (factors six and twelve), not to any factor he left undisturbed. It explicitly states he left factors one through five and seven through eleven undisturbed and that the penalty change resulted from the reversals on factors six and twelve. This does not commit the failure of claiming the penalty was reduced based on an undisturbed factor."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.",
+                  "reasoning": "The response clearly identifies that the arbitrator disturbed only Factors 6 and 12, leaving Factors 1\u20135 and 7\u201311 undisturbed. It accurately states that the penalty reduction was a consequence of the arbitrator's departures on Factors 6 and 12, and does not state that the reduction was based on any factor left undisturbed."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_6\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.\",\n          \"reasoning\": \"The response says the arbitrator reduced the penalty because he reversed factors six and twelve, while leaving the other factors undisturbed. It does not state that the penalty was reduced based on a Douglas factor left undisturbed.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.\",\n          \"reasoning\": \"The response attributes the arbitrator's reduction of the penalty to the two factors he explicitly disturbed and reversed (factors six and twelve), not to any factor he left undisturbed. It explicitly states he left factors one through five and seven through eleven undisturbed and that the penalty change resulted from the reversals on factors six and twelve. This does not commit the failure of claiming the penalty was reduced based on an undisturbed factor.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator reduced the penalty based on a Douglas factor he left undisturbed.\",\n          \"reasoning\": \"The response clearly identifies that the arbitrator disturbed only Factors 6 and 12, leaving Factors 1\\u20135 and 7\\u201311 undisturbed. It accurately states that the penalty reduction was a consequence of the arbitrator's departures on Factors 6 and 12, and does not state that the reduction was based on any factor left undisturbed.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_7",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+                  "reasoning": "The response maps the Final Notice\u2019s Douglas-factor findings to paragraphs 14\u201325 and discusses the Award\u2019s analysis, but it never identifies or states that the Award cited different/mismatched Final Notice paragraphs for its findings of fact."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+                  "reasoning": "The response does not identify any discrepancy or mismatch between the Award's citations to the Final Notice's findings of fact and the paragraphs where those findings actually appear. Instead, the response treats all the citations as accurate and consistent, presenting a detailed mapping of Douglas factors to specific paragraph citations without flagging any citation errors or mismatches between what the Award claims the Final Notice says versus where those findings are actually located in the Final Notice document."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.",
+                  "reasoning": "The response does not identify or discuss the discrepancy between the Arbitrator's Award citations to the Final Notice's findings of fact and the actual paragraphs where those findings appear."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_7\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.\",\n          \"reasoning\": \"The response maps the Final Notice\\u2019s Douglas-factor findings to paragraphs 14\\u201325 and discusses the Award\\u2019s analysis, but it never identifies or states that the Award cited different/mismatched Final Notice paragraphs for its findings of fact.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.\",\n          \"reasoning\": \"The response does not identify any discrepancy or mismatch between the Award's citations to the Final Notice's findings of fact and the paragraphs where those findings actually appear. Instead, the response treats all the citations as accurate and consistent, presenting a detailed mapping of Douglas factors to specific paragraph citations without flagging any citation errors or mismatches between what the Award claims the Final Notice says versus where those findings are actually located in the Final Notice document.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award's citation to the Final Notice's findings of fact does not match the paragraphs where those findings appear.\",\n          \"reasoning\": \"The response does not identify or discuss the discrepancy between the Arbitrator's Award citations to the Final Notice's findings of fact and the actual paragraphs where those findings appear.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_8",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+                  "reasoning": "The response discusses comparator differences (on-duty status, fatality, and prior force complaints) but does not identify any conflict between the comparator memorandum\u2019s stated coverage years and the dates of the cases it summarizes."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+                  "reasoning": "The response discusses the comparator memorandum's cases (Guzman, Sadler, Pietrzak) and their characteristics, but nowhere does it identify or flag a conflict between the memorandum's stated coverage years and the dates of the cases it summarizes. There is no mention of any date range stated in the memorandum or any discrepancy with case dates."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.",
+                  "reasoning": "The response mentions the comparator memorandum and the specific cases within it, but does not identify or discuss any conflict between the memorandum's stated coverage years and the dates of the cases it summarizes."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_8\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.\",\n          \"reasoning\": \"The response discusses comparator differences (on-duty status, fatality, and prior force complaints) but does not identify any conflict between the comparator memorandum\\u2019s stated coverage years and the dates of the cases it summarizes.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.\",\n          \"reasoning\": \"The response discusses the comparator memorandum's cases (Guzman, Sadler, Pietrzak) and their characteristics, but nowhere does it identify or flag a conflict between the memorandum's stated coverage years and the dates of the cases it summarizes. There is no mention of any date range stated in the memorandum or any discrepancy with case dates.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.\",\n          \"reasoning\": \"The response mentions the comparator memorandum and the specific cases within it, but does not identify or discuss any conflict between the memorandum's stated coverage years and the dates of the cases it summarizes.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_9",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+                  "reasoning": "The response expressly states that the arbitrator left \u201cfactors one through five and seven through eleven\u201d undisturbed, while disturbing only factors six and twelve."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+                  "reasoning": "The response explicitly states in the 'Factors left undisturbed and resulting penalty' section: 'The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record.' This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.",
+                  "reasoning": "The response explicitly states: \"The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record. Thus, he disturbed only factors six and twelve.\""
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_9\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.\",\n          \"reasoning\": \"The response expressly states that the arbitrator left \\u201cfactors one through five and seven through eleven\\u201d undisturbed, while disturbing only factors six and twelve.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.\",\n          \"reasoning\": \"The response explicitly states in the 'Factors left undisturbed and resulting penalty' section: 'The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record.' This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator left Douglas factors one through five and seven through eleven undisturbed.\",\n          \"reasoning\": \"The response explicitly states: \\\"The arbitrator left factors one through five and seven through eleven undisturbed, finding MPD weighed them within tolerable limits of reasonableness and that the findings were supported by the record. Thus, he disturbed only factors six and twelve.\\\"\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}

@@ -3,9 +3,9 @@
 > [!WARNING]
 > **These audits are AI generated and have not been verified.** It reflects some human steering and guidance, but should not be treated as verified legal analysis, an authoritative assessment of Harvey LAB, or an accepted correction to any benchmark score. The reports may contain factual, legal, citation, arithmetic, and grading errors. Their labels “confirmed,” “definite,” and “verified” describe AI reviewer judgments; they do not establish human verification. **Portions of the findings that have been verified will be described separately on the public-facing LegalForecastBench site.** Inclusion here does not confer that status.
 
-The warning above is copied from the Harvey audit. Here it applies to the LegalReasonBench audit as well. No findings in this directory have been verified by a human.
+The warning above is copied from the Harvey audit. Here it applies to the LegalReasonBench AI audit reports as well. The human-review worksheet records the project author's criterion-specific verdicts separately from those reports.
 
-The [human-review protocol](human-review/README.md) draws a simple random sample of 25 of the 63 criteria that either blind report flagged, with a blank [worksheet](human-review/worksheet.md) for the project author's review. Until its verdicts are recorded and tallied there, no human verdict exists.
+The [human-review protocol](human-review/README.md) draws a simple random sample of 25 of the 63 criteria that either blind report flagged, with a [worksheet](human-review/worksheet.md) for the project author's review. Its recorded verdicts and completion status control the status of that review; blank items do not count as verdicts.
 
 This audit asks whether litigation assignments in micro1's public sample show the rubric defect classes examined in the [Harvey LAB audit](../../harvey-lab-audit/litigation-dispute-resolution/README.md). It does not correct scores or estimate an error rate for the withheld full benchmark.
 
@@ -47,7 +47,7 @@ The saved citation review records 2,312 real-authority occurrences: 1,957 verifi
 
 The completed occurrence censuses cover readable source text and original embedded media under the saved counting conventions. Full-resolution image inspection resolved the initial land-use fine-print gap and recovered one rule citation in a rotated survey notice; a final D.C. rescan recovered 15 omitted occurrences. Residual illegible image text is identified as geographic labels, map credits or drafting metadata. These are AI coverage judgments, not a guarantee of exhaustive capture. All assigned source-access gaps received retrieval attempts, but 164 occurrences remain unable to verify: historical local compilations, some agency decisions and secondary works, exact editions, and reporter pages remain unavailable or unread. Their per-reference records retain the attempts and precise limits. No not-found citation was labelled fabricated merely because retrieval failed. The summary's completion flag concerns enumeration and completion of required second checks; it does not mean every authority was verified.
 
-The rendering code reuses the Harvey status aggregation and agreement buckets. It assigns each criterion the strongest status in a model's findings, deduplicates criteria within a category, and preserves overlaps between categories. It counts reconciliation separately. No model responses were submitted to benchmark judges, and no scores were adjusted.
+The rendering code reuses the Harvey status aggregation and agreement buckets. It assigns each criterion the strongest status in a model's findings, deduplicates criteria within a category, and preserves overlaps between categories. It counts reconciliation separately. The rubric audit itself submitted no model responses to benchmark judges and adjusted no scores. The subsequent [paired solver experiment](model-runs/README.md) preserves actual answers and native benchmark grades separately; its available criterion grades also appear in the human-review worksheet.
 
 ## Reproduction
 
@@ -83,6 +83,52 @@ The extraction used pandoc 3.1.3, pypdf 6.21.0, and fonttools 4.67.0. Replaying 
 - [human-review/README.md](human-review/README.md)
 - [human-review/worksheet.md](human-review/worksheet.md)
 - [in-scope.md](in-scope.md)
+- [model-runs/README.md](model-runs/README.md)
+- [model-runs/experiment.md](model-runs/experiment.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md)
+- [model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md](model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-4/gpt6luna-xhigh/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-4/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-4/gpt6luna-xhigh/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-4/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-4/opus55-low/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-4/opus55-low/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-4/opus55-low/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-4/opus55-low/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-5/gpt6luna-xhigh/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-5/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-5/gpt6luna-xhigh/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-5/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-5/opus55-low/README.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-5/opus55-low/README.md)
+- [model-runs/lrb-dcca-challenge-police-discipline-assignment-5/opus55-low/response.md](model-runs/lrb-dcca-challenge-police-discipline-assignment-5/opus55-low/response.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md](model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md](model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md](model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/README.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md](model-runs/lrb-forum-non-conveniens-response-assignment-1/opus55-low/response.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md](model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md](model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md](model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/README.md)
+- [model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md](model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md)
+- [model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md](model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md)
 - [prompts/README.md](prompts/README.md)
 - [prompts/audit-prompts.md](prompts/audit-prompts.md)
 - [tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/README.md](tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/README.md)

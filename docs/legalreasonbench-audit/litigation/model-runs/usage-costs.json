@@ -1,0 +1,535 @@
+{
+  "units": "USD; token counts are native recorded usage",
+  "provider_billed_usd": null,
+  "method": "Token reconstruction at recorded standard-rate pricing; native SDK calculated solver dollars retained separately. Conservative estimates use higher published Sonnet tariff and a doubled OpenAI reserve. Gemini missing cache-write category is disclosed in incomplete_token_categories; full prompt is priced. Not an invoice.",
+  "pricing_sources": {
+    "checked": "2026-10-25",
+    "units": "USD per million tokens",
+    "sources": {
+      "gpt-6-luna": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+      "gpt-5.6-terra": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "claude-opus-5-5": "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+      "claude-sonnet-5": "https://platform.claude.com/docs/en/models/sonnet-5/overview",
+      "gemini-3.8-flash": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    "notes": [
+      "Sonnet overview shows 2/10, while introduction says 3/15; conservative budget reserve uses 3/15 pending reconciliation.",
+      "Native OpenCode cost is SDK calculated, not an invoice. Native judges record tokens; direct-provider charges require reconstruction.",
+      "Gemini introductory standard rates apply through 2026-12-31.",
+      "OpenAI cache-write and long-context tier rates follow the native OpenCode model catalog snapshot; Terra model-page input/output/read rates agree, but its cache-write rate is not independently confirmed on the provider page.",
+      "GPT-6 Luna calls above 272000 prompt tokens are repriced at 0.20 input, 0.75 output, 0.02 read, 0.25 write per million; SDK solver dollars retained separately."
+    ],
+    "base_rates": {
+      "gpt-6-luna": {
+        "input": 0.1,
+        "output": 0.5,
+        "cache_read": 0.01,
+        "cache_write": 0.125
+      },
+      "claude-opus-5-5": {
+        "input": 4,
+        "output": 20,
+        "cache_read": 0.2,
+        "cache_write": 5
+      },
+      "gpt-5.6-terra": {
+        "input": 2,
+        "output": 12,
+        "cache_read": 0.2,
+        "cache_write": 2.5
+      },
+      "claude-sonnet-5": {
+        "input": 2,
+        "output": 10,
+        "cache_read": 0.2,
+        "cache_write": 2.5
+      },
+      "gemini-3.8-flash": {
+        "input": 0.75,
+        "output": 3.75,
+        "cache_read": 0.075,
+        "cache_write": 0.75
+      }
+    },
+    "long_context_above_272000": {
+      "gpt-6-luna": {
+        "input": 0.2,
+        "output": 0.75,
+        "cache_read": 0.02,
+        "cache_write": 0.25
+      },
+      "gpt-5.6-terra": {
+        "input": 4,
+        "output": 18,
+        "cache_read": 0.4,
+        "cache_write": 5
+      }
+    }
+  },
+  "runs": [
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-forum-non-conveniens-response",
+      "models": {
+        "gpt-6-luna": {
+          "calls": 61,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 183,
+          "output": 86798,
+          "cache_read": 7820750,
+          "cache_write": 355079,
+          "runtime_cost_reported_calls": 61,
+          "runtime_cost_usd": 0.16600967500000002,
+          "reconstructed_usd": 0.16600967500000002,
+          "conservative_usd": 0.33201935000000005
+        },
+        "gpt-5.6-terra": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 159,
+          "output": 6790,
+          "cache_read": 0,
+          "cache_write": 264029,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.7418704999999999,
+          "conservative_usd": 1.4837409999999998
+        },
+        "claude-sonnet-5": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 455524,
+          "output": 18212,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.0931679999999997,
+          "conservative_usd": 1.639752
+        },
+        "gemini-3.8-flash": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 53,
+          "input": 268091,
+          "output": 35624,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.3346582500000001,
+          "conservative_usd": 0.3346582500000001
+        }
+      }
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-forum-non-conveniens-response",
+      "models": {
+        "claude-opus-5-5": {
+          "calls": 29,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 62,
+          "output": 54964,
+          "cache_read": 2262835,
+          "cache_write": 221012,
+          "runtime_cost_reported_calls": 29,
+          "runtime_cost_usd": 2.657155,
+          "reconstructed_usd": 2.6571549999999995,
+          "conservative_usd": 2.6571549999999995
+        },
+        "gpt-5.6-terra": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 159,
+          "output": 6752,
+          "cache_read": 0,
+          "cache_write": 642341,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.6871945000000006,
+          "conservative_usd": 3.374389000000001
+        },
+        "claude-sonnet-5": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 1026153,
+          "output": 27799,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 2.330296,
+          "conservative_usd": 3.4954440000000004
+        },
+        "gemini-3.8-flash": {
+          "calls": 53,
+          "missing_usage": 0,
+          "incomplete_token_categories": 53,
+          "input": 663383,
+          "output": 44723,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.6652485,
+          "conservative_usd": 0.6652485
+        }
+      }
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "models": {
+        "gpt-6-luna": {
+          "calls": 112,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 336,
+          "output": 148763,
+          "cache_read": 23777182,
+          "cache_write": 615497,
+          "runtime_cost_reported_calls": 112,
+          "runtime_cost_usd": 0.38912404500000014,
+          "reconstructed_usd": 0.545967045,
+          "conservative_usd": 1.09193409
+        },
+        "gpt-5.6-terra": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 111,
+          "output": 5396,
+          "cache_read": 0,
+          "cache_write": 190815,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.5420114999999999,
+          "conservative_usd": 1.0840229999999997
+        },
+        "claude-sonnet-5": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 304980,
+          "output": 12893,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.7388899999999997,
+          "conservative_usd": 1.1083349999999996
+        },
+        "gemini-3.8-flash": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 37,
+          "input": 204793,
+          "output": 21968,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.2359747500000001,
+          "conservative_usd": 0.2359747500000001
+        }
+      }
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-certiorari-quasi-judicial-land-use",
+      "models": {
+        "claude-opus-5-5": {
+          "calls": 31,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 66,
+          "output": 50640,
+          "cache_read": 1776233,
+          "cache_write": 183026,
+          "runtime_cost_reported_calls": 31,
+          "runtime_cost_usd": 2.2834406,
+          "reconstructed_usd": 2.2834406,
+          "conservative_usd": 2.2834406
+        },
+        "gpt-5.6-terra": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 111,
+          "output": 5298,
+          "cache_read": 0,
+          "cache_write": 407679,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.0829954999999998,
+          "conservative_usd": 2.1659909999999996
+        },
+        "claude-sonnet-5": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 632007,
+          "output": 18774,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.4517539999999995,
+          "conservative_usd": 2.1776309999999994
+        },
+        "gemini-3.8-flash": {
+          "calls": 37,
+          "missing_usage": 0,
+          "incomplete_token_categories": 37,
+          "input": 444656,
+          "output": 29694,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.4448445,
+          "conservative_usd": 0.4448445
+        }
+      }
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "models": {
+        "claude-opus-5-5": {
+          "calls": 65,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 140,
+          "output": 111294,
+          "cache_read": 3212665,
+          "cache_write": 352997,
+          "runtime_cost_reported_calls": 65,
+          "runtime_cost_usd": 4.633958000000001,
+          "reconstructed_usd": 4.633958000000001,
+          "conservative_usd": 4.633958000000001
+        },
+        "gpt-5.6-terra": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 162,
+          "output": 5871,
+          "cache_read": 0,
+          "cache_write": 519836,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.3703659999999998,
+          "conservative_usd": 2.7407319999999995
+        },
+        "claude-sonnet-5": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 793080,
+          "output": 16207,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.7482300000000006,
+          "conservative_usd": 2.622345000000001
+        },
+        "gemini-3.8-flash": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 54,
+          "input": 541953,
+          "output": 26570,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.50610225,
+          "conservative_usd": 0.50610225
+        }
+      }
+    },
+    {
+      "condition": "opus55-low",
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "models": {
+        "claude-opus-5-5": {
+          "calls": 17,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 38,
+          "output": 20891,
+          "cache_read": 663372,
+          "cache_write": 110643,
+          "runtime_cost_reported_calls": 17,
+          "runtime_cost_usd": 1.1038614,
+          "reconstructed_usd": 1.1038614,
+          "conservative_usd": 1.1038614
+        },
+        "gpt-5.6-terra": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 105,
+          "output": 3495,
+          "cache_read": 0,
+          "cache_write": 250879,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.6693475,
+          "conservative_usd": 1.338695
+        },
+        "claude-sonnet-5": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 389517,
+          "output": 10597,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.885004,
+          "conservative_usd": 1.3275059999999999
+        },
+        "gemini-3.8-flash": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 35,
+          "input": 257756,
+          "output": 23189,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.28027575000000005,
+          "conservative_usd": 0.28027575000000005
+        }
+      }
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-dcca-challenge-police-discipline",
+      "models": {
+        "gpt-6-luna": {
+          "calls": 79,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 237,
+          "output": 164751,
+          "cache_read": 8717860,
+          "cache_write": 652139,
+          "runtime_cost_reported_calls": 79,
+          "runtime_cost_usd": 0.25109517500000006,
+          "reconstructed_usd": 0.26307693499999996,
+          "conservative_usd": 0.5261538699999999
+        },
+        "gpt-5.6-terra": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 162,
+          "output": 5250,
+          "cache_read": 0,
+          "cache_write": 299957,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.8132164999999998,
+          "conservative_usd": 1.6264329999999996
+        },
+        "claude-sonnet-5": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 490524,
+          "output": 16091,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 1.141958,
+          "conservative_usd": 1.7129369999999997
+        },
+        "gemini-3.8-flash": {
+          "calls": 54,
+          "missing_usage": 0,
+          "incomplete_token_categories": 54,
+          "input": 324455,
+          "output": 27798,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.34758374999999997,
+          "conservative_usd": 0.34758374999999997
+        }
+      }
+    },
+    {
+      "condition": "gpt6luna-xhigh",
+      "matter": "lrb-vicar-trial-jury-instructions",
+      "models": {
+        "gpt-6-luna": {
+          "calls": 27,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 81,
+          "output": 35589,
+          "cache_read": 1175489,
+          "cache_write": 137886,
+          "runtime_cost_reported_calls": 27,
+          "runtime_cost_usd": 0.04679323999999999,
+          "reconstructed_usd": 0.04679323999999999,
+          "conservative_usd": 0.09358647999999999
+        },
+        "gpt-5.6-terra": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 105,
+          "output": 3775,
+          "cache_read": 0,
+          "cache_write": 63199,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.2035075,
+          "conservative_usd": 0.407015
+        },
+        "claude-sonnet-5": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 0,
+          "input": 109232,
+          "output": 7524,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.29370399999999997,
+          "conservative_usd": 0.44055599999999995
+        },
+        "gemini-3.8-flash": {
+          "calls": 35,
+          "missing_usage": 0,
+          "incomplete_token_categories": 35,
+          "input": 64371,
+          "output": 17177,
+          "cache_read": 0,
+          "cache_write": 0,
+          "runtime_cost_reported_calls": 0,
+          "runtime_cost_usd": null,
+          "reconstructed_usd": 0.112692,
+          "conservative_usd": 0.112692
+        }
+      }
+    }
+  ]
+}

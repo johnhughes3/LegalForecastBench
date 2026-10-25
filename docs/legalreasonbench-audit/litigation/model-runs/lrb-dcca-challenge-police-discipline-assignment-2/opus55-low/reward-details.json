@@ -1,0 +1,1667 @@
+{
+  "correctness": {
+    "score": 0.7954545454545454,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "criterion_1",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+        "source": "Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+            "reasoning": "The memorandum expressly states that under Douglas, substitution of the agency-selected penalty is appropriate only if the agency failed to weigh the relevant factors or its judgment clearly exceeded the limits of reasonableness. It also repeatedly describes the governing standard as whether the penalty stayed within the tolerable limits of reasonableness."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+            "reasoning": "The document explicitly states the Douglas standard multiple times, e.g., 'Only if the Board finds that the agency failed to weigh the relevant factors, or that the agency's judgment clearly exceeded the limits of reasonableness, is it appropriate for the Board then to specify how the agency's decision should be corrected...' and 'He could substitute his own penalty only if MPD failed to weigh the relevant factors or its judgment \"clearly exceeded the limits of reasonableness.\"' This matches the criterion precisely."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+            "reasoning": "The response explicitly states multiple times (quoting and citing Douglas) that the agency-selected penalty stands and the reviewer may substitute or alter the penalty only if the agency failed to weigh the relevant factors or the agency's judgment/penalty clearly exceeded the tolerable limits of reasonableness."
+          }
+        ]
+      },
+      {
+        "name": "criterion_2",
+        "value": 1.0,
+        "raw": true,
+        "weight": 6.0,
+        "signed_score": 6.0,
+        "polarity": "positive",
+        "contribution": 6.0,
+        "description": "Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+            "reasoning": "The memorandum expressly states that, on Douglas factor 6, the arbitrator held MPD \u201cdid not prove that the comparator officers were similarly situated\u201d and \u201cfailed to carry its burden to prove comparability,\u201d citing Award p. 2, \u00b6 7. It further characterizes this as the arbitrator imposing an affirmative proof burden on MPD."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+            "reasoning": "The answer explicitly states that the arbitrator held MPD 'did not prove that the comparator officers were similarly situated' and 'failed to carry its burden to prove comparability,' citing Award, p.2, \u00b67, and extensively analyzes this as the arbitrator's requirement under Douglas factor six (consistency of penalty). This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+            "reasoning": "The response explicitly identifies that under Douglas factor six, the arbitrator required MPD to carry an affirmative burden to prove that the comparator officers were similarly situated (citing Award, p. 2, \u00b6 7 in multiple sections, including I.C and II.B)."
+          }
+        ]
+      },
+      {
+        "name": "criterion_3",
+        "value": 1.0,
+        "raw": true,
+        "weight": 6.0,
+        "signed_score": 6.0,
+        "polarity": "positive",
+        "contribution": 6.0,
+        "description": "Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 8 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+            "reasoning": "The memorandum expressly identifies that the arbitrator\u2019s factor-12 conclusion rested on his determination that \u201ca suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force.\u201d It further characterizes that determination as the arbitrator\u2019s competing predictive judgment."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+            "reasoning": "The document explicitly addresses factor 12, stating 'What the arbitrator held... a suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force. Award, p. 2, \u00b6 8,' and frames this as the arbitrator's basis for his factor 12 finding, analyzing it extensively in Section D. This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+            "reasoning": "The response explicitly identifies that the arbitrator's factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct by the Grievant and other members of the force (see Section I.D and the summary in the Bottom Line)."
+          }
+        ]
+      },
+      {
+        "name": "criterion_4",
+        "value": 1.0,
+        "raw": true,
+        "weight": 26.0,
+        "signed_score": 26.0,
+        "polarity": "positive",
+        "contribution": 26.0,
+        "description": "Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+        "source": "D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), \u00b6\u00b6 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) (dcmr_title6b_1606.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"2. State which party bore the burden of production and persuasion on the comparator evidence at each stage of the proceedings, and assess the legal consequence of Braddock's failure to raise disparate treatment before the arbitration hearing. Identify the strongest position MPD can take on this record and the weakest point in that position, with page and paragraph citations.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+            "reasoning": "The memorandum expressly states that neither Douglas nor DCMR \u00a7 1606 imposes a free-standing requirement that MPD prove the comparability of its supporting comparator cases. It characterizes MPD's duty as consideration, documentation, and a prima facie showing, and concludes that the arbitrator erred by requiring MPD to \u201cprove comparability\u201d absent a disparate-treatment showing by the grievant."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+            "reasoning": "The memo repeatedly argues that no uploaded source imposes a 'prove comparability' burden on MPD. Part I.C.1 states the arbitrator 'applied a proof standard, not a reasonableness standard' that neither Douglas nor DCMR \u00a71606.2 contains (\u00a71606.2 only requires MPD be 'prepared to demonstrate that... factors were considered,' not prove each conclusion). Part II.B/D explicitly concludes the arbitrator's allocation of a 'burden to prove comparability' was wrong, since Douglas places only a prima facie production burden on the agency and shifts the burden to identify disparity to the grievant, with MPD required only to rebut if challenged. The memo's bottom-line and strongest-argument sections reiterate that MPD's duty was to demonstrate consideration and make a prima facie showing, not to 'prove' comparator comparability, and that no uploaded authority (Douglas, DCMR \u00a71606) imposes such a proof burden on MPD absent a disparity claim."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+            "reasoning": "The response clearly identifies that neither DCMR \u00a7 1606 nor Douglas (the uploaded governing authorities) requires MPD to prove comparability of its comparator cases, noting that the regulations only require demonstrating consideration and Douglas requires reasonableness rather than an affirmative burden to prove comparability."
+          }
+        ]
+      },
+      {
+        "name": "criterion_5",
+        "value": 1.0,
+        "raw": true,
+        "weight": -18.0,
+        "signed_score": -18.0,
+        "polarity": "negative",
+        "contribution": -18.0,
+        "description": "States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+        "source": "D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), \u00b6\u00b6 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) (dcmr_title6b_1606.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cState which party bore the burden of production and persuasion on the comparator evidence at each stage of the proceedings.\u201d Stating the initial-showing rule as settled law relies on authority outside the uploaded materials.",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+            "reasoning": "The memorandum expressly states that the grievant must first identify more leniently treated, similarly situated employees before the agency must rebut or explain disparity. It characterizes this as a production burden on the employee and criticizes the arbitrator for requiring MPD to prove comparability without such a showing."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+            "reasoning": "The memo repeatedly and explicitly adopts the framework that the employee/grievant must first make an initial showing of disparate treatment (identify similarly situated, more leniently treated employees) before the agency's burden to rebut or explain comparator evidence is triggered. For example: 'Under Douglas, a disparate-penalty claim is the employee's contention to raise. Once the employee raises it, the agency must rebut or explain it,' and the explicit two-step sequence: '1. The employee identifies more leniently treated, similarly situated employees. 2. The agency must then rebut or explain the disparity.' It further states that 'the burden of producing evidence of a genuinely similar, more leniently treated employee remained with the grievant' and that MPD's 'unrebutted prima facie showing' sufficed because the grievant never raised disparate treatment. This is precisely the failure criterion: asserting that the employee must make an initial showing before the agency bears a comparator burden."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+            "reasoning": "The response commits the failure by explicitly asserting that Douglas requires the employee to make an initial showing of disparate treatment (identifying more leniently treated, similarly situated employees) before the agency bears any burden of production or explanation regarding comparators."
+          }
+        ]
+      },
+      {
+        "name": "criterion_6",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+        "source": "D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) (dcmr_title6b_1606.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+            "reasoning": "The memorandum expressly states that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 requires managers to demonstrate consideration of the listed factors and further explains that \u00a7 1606.3 requires the factors to be considered and balanced in arriving at the appropriate remedy. It specifically characterizes this as a consideration-and-balancing duty in penalty selection."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+            "reasoning": "The response explicitly discusses DCMR \u00a7 1606.2 and states that factors 'shall be considered and balanced to arrive at the appropriate remedy' (citing \u00a7 1606.3), and throughout the memo frames the deciding official's duty as requiring balancing of the Douglas-type factors under \u00a7 1606.2. It directly addresses the requirement to balance the factors when selecting a penalty, satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+            "reasoning": "The response explicitly discusses D.C. Mun. Regs. tit. 6-B, \u00a7 1606 (citing \u00a7 1606.2 and \u00a7 1606.3), noting that the regulation lists twelve factors that track Douglas and imposes a duty on agency managers/deciding officials to consider and balance these factors to determine the appropriate penalty."
+          }
+        ]
+      },
+      {
+        "name": "criterion_7",
+        "value": 0.0,
+        "raw": false,
+        "weight": -24.0,
+        "signed_score": -24.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 5 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\" Entitlement to an unconstrained penalty choice is the scope error the instruction tests.",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+            "reasoning": "The memorandum expressly rejects the proposition that the arbitrator could select whatever penalty he considered most appropriate without deference to MPD. It repeatedly states that Douglas requires deference to management\u2019s primary discretion and permits substitution only if MPD failed to weigh relevant factors or its judgment clearly exceeded tolerable limits of reasonableness."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+            "reasoning": "The response repeatedly argues the opposite of the failure criterion: it criticizes the arbitrator for substituting his own judgment/penalty without properly deferring to MPD, explicitly stating that deference was required and that the arbitrator was not entitled to select whatever penalty he thought appropriate without finding MPD's judgment 'clearly exceeded the limits of reasonableness.' The memo nowhere states that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD's selection; rather it affirmatively argues the opposite (that such action was error). Thus the failure described is not committed."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+            "reasoning": "The response does not state that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD. Rather, it repeatedly argues that the arbitrator was required under Douglas and DCMR \u00a7 1606 to apply a deferential 'tolerable limits of reasonableness' standard and exceeded his authority by substituting his own judgment."
+          }
+        ]
+      },
+      {
+        "name": "criterion_8",
+        "value": 0.0,
+        "raw": false,
+        "weight": -22.0,
+        "signed_score": -22.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "Mentions authority absent from the uploaded materials in support of the burden allocation.",
+        "source": "D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), \u00b6\u00b6 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) (dcmr_title6b_1606.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cDo not rely on, reference, or infer any legal authority, factual information, or data beyond what is contained in these uploaded files.\u201d",
+        "metadata": {},
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+            "reasoning": "The memorandum supports its burden-allocation discussion with Douglas, DCMR \u00a7 1606, the Award, and the uploaded factual materials. Although it refers to the \u201cJimenez warning,\u201d it immediately cites the relevant discussion in the uploaded Douglas decision rather than relying on an external authority."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+            "reasoning": "The memo explicitly limits itself to the five uploaded documents (Final Notice, Award, Comparator Memo, Douglas excerpt, DCMR \u00a7 1606) and is careful to flag every gap where external authority (e.g., the PERB/DCCA review standard, the CBA, hearing transcript) would be needed but is absent. The burden-allocation discussion in Part II relies exclusively on Douglas and DCMR \u00a7 1606, citing specific pages/paragraphs from the uploaded Douglas excerpt (including its internal discussion of sub-cases like Nocifore, all pinpoint-cited to pages within the uploaded Douglas document). No outside case law, statute, or secondary authority not present in the uploaded materials is invoked to support the burden allocation analysis. Thus the response does not commit the failure of citing authority absent from the uploaded materials."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+            "reasoning": "The response strictly confines its analysis of burden allocation to the provided record materials (Douglas v. Veterans Administration, DCMR \u00a7 1606, and the record documents) and cites no outside authorities."
+          }
+        ]
+      },
+      {
+        "name": "criterion_9",
+        "value": 1.0,
+        "raw": true,
+        "weight": 30.0,
+        "signed_score": 30.0,
+        "polarity": "positive",
+        "contribution": 30.0,
+        "description": "Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 5 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280 (1981) (douglas_v_veterans_admin.pdf), paginated 313 to 346",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cSupport every point with page and paragraph citations to the uploaded materials.\u201d Verifying the Award\u2019s own citations against the uploaded opinion is part of citation-supported analysis.",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+            "reasoning": "The memorandum expressly identifies the discrepancy multiple times, including that the Award cites Douglas \u201cat 306\u201d but the uploaded Douglas copy is paginated 313\u2013346 and contains no page 306. It reiterates this in Part III: \u201cThe Award's citation to \u20185 M.S.P.R. at 306\u2019 does not match the uploaded copy.\u201d"
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+            "reasoning": "The response explicitly addresses this in the 'Pin-cite discrepancy' section and again in Part III.4, stating that the Award cites 'Douglas, 5 M.S.P.R. at 306' but the uploaded copy has no page 306 since it is paginated 313\u2013346, meaning the citation does not correspond to any page of the uploaded opinion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+            "reasoning": "The response explicitly notes in both the preliminary section ('Pin-cite discrepancy') and in Part III ('Preservation and open items', item 4) that the Award's citation to 'Douglas, 5 M.S.P.R. at 306' does not correspond to any page of the uploaded Douglas opinion, pointing out that the uploaded copy is paginated 313\u2013346."
+          }
+        ]
+      },
+      {
+        "name": "criterion_10",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {},
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+            "reasoning": "The memorandum expressly identifies on-duty status as one distinction the arbitrator used to reject comparator similarity: it states that the arbitrator \u201cdisqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints,\u201d and further discusses the Award\u2019s statement that two comparators involved on-duty conduct."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+            "reasoning": "The response explicitly states that the arbitrator distinguished the comparator cases on grounds including on-duty status (e.g., 'The arbitrator disqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints. Award, p. 2, \u00b6 7' and discussion that 'Two of the four comparators involved on-duty conduct' per the Award), satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+            "reasoning": "The response explicitly notes in Section I.C that one of the grounds the arbitrator gave for distinguishing the comparator cases was on-duty status (pointing out that the arbitrator disqualified comparators based on distinctions including 'on-duty status' and noting the arbitrator's statement that two of the four comparators involved on-duty conduct)."
+          }
+        ]
+      },
+      {
+        "name": "criterion_11",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {},
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_11",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+            "reasoning": "The response expressly identifies fatality as a distinction the arbitrator used: it states, regarding Comparator C (Pietrzak), \u201cThe arbitrator distinguished it on the fatality,\u201d and also notes that he disqualified comparators based on distinctions including \u201ca fatality.\u201d"
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_11",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+            "reasoning": "The response explicitly discusses factor 6 comparator distinctions and states: 'Comparator C (Pietrzak) was an off-duty firearm discharge, like Braddock's. The arbitrator distinguished it on the fatality.' This identifies that the arbitrator distinguished a comparator case on the ground that it involved a fatality, satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_11",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+            "reasoning": "The response explicitly identifies that one of the grounds the arbitrator relied upon to distinguish the comparator cases was that a comparator incident involved a fatality."
+          }
+        ]
+      },
+      {
+        "name": "criterion_12",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"1. State the scope of review the arbitrator was required to apply to MPD's penalty selection under Douglas and D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017), and assess whether the arbitrator's treatment of Douglas factors six and twelve stayed within that scope. Address the arbitrator's requirement that MPD 'prove' the comparability of the comparator cases on factor six, and the arbitrator's finding that a suspension would 'likely' have sufficed to deter future misconduct on factor twelve. Support every point with page and paragraph citations to the uploaded materials.\"",
+        "metadata": {},
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_12",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+            "reasoning": "The memorandum expressly identifies prior force history as one of the arbitrator's stated distinctions among the comparator cases: it says the arbitrator disqualified comparators based on distinctions including \"two prior force complaints\" and discusses his use of Braddock's prior reprimand in distinguishing the comparators."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_12",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+            "reasoning": "The answer's section I.C discusses the factor-6 comparator distinction and notes that the arbitrator distinguished comparators on grounds including 'two prior force complaints' and discusses prior force history (e.g., Comparator D's 'only one unrelated prior complaint' and Braddock's 'prior sustained reprimand'). The memo explicitly identifies that the arbitrator used prior disciplinary/force history as one basis for distinguishing comparators ('on-duty status, a fatality, two prior force complaints' as grounds for disqualifying comparators), satisfying the criterion that prior force history was identified as a ground for distinguishing comparator cases."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_12",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+            "reasoning": "The response explicitly notes in Section I.C.2 that one of the distinctions the arbitrator used to disqualify/distinguish the comparator cases was 'two prior force complaints' (referencing Award, p. 2, \u00b6 7)."
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 70.0,
+      "positive_total": 88.0,
+      "unclamped": 0.7954545454545454,
+      "clamped": 0.7954545454545454
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_1",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+                  "reasoning": "The memorandum expressly states that under Douglas, substitution of the agency-selected penalty is appropriate only if the agency failed to weigh the relevant factors or its judgment clearly exceeded the limits of reasonableness. It also repeatedly describes the governing standard as whether the penalty stayed within the tolerable limits of reasonableness."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+                  "reasoning": "The document explicitly states the Douglas standard multiple times, e.g., 'Only if the Board finds that the agency failed to weigh the relevant factors, or that the agency's judgment clearly exceeded the limits of reasonableness, is it appropriate for the Board then to specify how the agency's decision should be corrected...' and 'He could substitute his own penalty only if MPD failed to weigh the relevant factors or its judgment \"clearly exceeded the limits of reasonableness.\"' This matches the criterion precisely."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.",
+                  "reasoning": "The response explicitly states multiple times (quoting and citing Douglas) that the agency-selected penalty stands and the reviewer may substitute or alter the penalty only if the agency failed to weigh the relevant factors or the agency's judgment/penalty clearly exceeded the tolerable limits of reasonableness."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_1\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.\",\n          \"reasoning\": \"The memorandum expressly states that under Douglas, substitution of the agency-selected penalty is appropriate only if the agency failed to weigh the relevant factors or its judgment clearly exceeded the limits of reasonableness. It also repeatedly describes the governing standard as whether the penalty stayed within the tolerable limits of reasonableness.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.\",\n          \"reasoning\": \"The document explicitly states the Douglas standard multiple times, e.g., 'Only if the Board finds that the agency failed to weigh the relevant factors, or that the agency's judgment clearly exceeded the limits of reasonableness, is it appropriate for the Board then to specify how the agency's decision should be corrected...' and 'He could substitute his own penalty only if MPD failed to weigh the relevant factors or its judgment \\\"clearly exceeded the limits of reasonableness.\\\"' This matches the criterion precisely.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that under Douglas an agency-selected penalty stands unless the agency failed to weigh the relevant factors or the penalty exceeded the tolerable limits of reasonableness.\",\n          \"reasoning\": \"The response explicitly states multiple times (quoting and citing Douglas) that the agency-selected penalty stands and the reviewer may substitute or alter the penalty only if the agency failed to weigh the relevant factors or the agency's judgment/penalty clearly exceeded the tolerable limits of reasonableness.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_10",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+                  "reasoning": "The memorandum expressly identifies on-duty status as one distinction the arbitrator used to reject comparator similarity: it states that the arbitrator \u201cdisqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints,\u201d and further discusses the Award\u2019s statement that two comparators involved on-duty conduct."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+                  "reasoning": "The response explicitly states that the arbitrator distinguished the comparator cases on grounds including on-duty status (e.g., 'The arbitrator disqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints. Award, p. 2, \u00b6 7' and discussion that 'Two of the four comparators involved on-duty conduct' per the Award), satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.",
+                  "reasoning": "The response explicitly notes in Section I.C that one of the grounds the arbitrator gave for distinguishing the comparator cases was on-duty status (pointing out that the arbitrator disqualified comparators based on distinctions including 'on-duty status' and noting the arbitrator's statement that two of the four comparators involved on-duty conduct)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_10\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.\",\n          \"reasoning\": \"The memorandum expressly identifies on-duty status as one distinction the arbitrator used to reject comparator similarity: it states that the arbitrator \\u201cdisqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints,\\u201d and further discusses the Award\\u2019s statement that two comparators involved on-duty conduct.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.\",\n          \"reasoning\": \"The response explicitly states that the arbitrator distinguished the comparator cases on grounds including on-duty status (e.g., 'The arbitrator disqualified comparators on single distinctions: on-duty status, a fatality, two prior force complaints. Award, p. 2, \\u00b6 7' and discussion that 'Two of the four comparators involved on-duty conduct' per the Award), satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was on-duty status.\",\n          \"reasoning\": \"The response explicitly notes in Section I.C that one of the grounds the arbitrator gave for distinguishing the comparator cases was on-duty status (pointing out that the arbitrator disqualified comparators based on distinctions including 'on-duty status' and noting the arbitrator's statement that two of the four comparators involved on-duty conduct).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_11",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_11",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+                  "reasoning": "The response expressly identifies fatality as a distinction the arbitrator used: it states, regarding Comparator C (Pietrzak), \u201cThe arbitrator distinguished it on the fatality,\u201d and also notes that he disqualified comparators based on distinctions including \u201ca fatality.\u201d"
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_11",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+                  "reasoning": "The response explicitly discusses factor 6 comparator distinctions and states: 'Comparator C (Pietrzak) was an off-duty firearm discharge, like Braddock's. The arbitrator distinguished it on the fatality.' This identifies that the arbitrator distinguished a comparator case on the ground that it involved a fatality, satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_11",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.",
+                  "reasoning": "The response explicitly identifies that one of the grounds the arbitrator relied upon to distinguish the comparator cases was that a comparator incident involved a fatality."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_11\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_11\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.\",\n          \"reasoning\": \"The response expressly identifies fatality as a distinction the arbitrator used: it states, regarding Comparator C (Pietrzak), \\u201cThe arbitrator distinguished it on the fatality,\\u201d and also notes that he disqualified comparators based on distinctions including \\u201ca fatality.\\u201d\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_11\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.\",\n          \"reasoning\": \"The response explicitly discusses factor 6 comparator distinctions and states: 'Comparator C (Pietrzak) was an off-duty firearm discharge, like Braddock's. The arbitrator distinguished it on the fatality.' This identifies that the arbitrator distinguished a comparator case on the ground that it involved a fatality, satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_11\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was that the comparator incident involved a fatality.\",\n          \"reasoning\": \"The response explicitly identifies that one of the grounds the arbitrator relied upon to distinguish the comparator cases was that a comparator incident involved a fatality.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_12",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_12",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+                  "reasoning": "The memorandum expressly identifies prior force history as one of the arbitrator's stated distinctions among the comparator cases: it says the arbitrator disqualified comparators based on distinctions including \"two prior force complaints\" and discusses his use of Braddock's prior reprimand in distinguishing the comparators."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_12",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+                  "reasoning": "The answer's section I.C discusses the factor-6 comparator distinction and notes that the arbitrator distinguished comparators on grounds including 'two prior force complaints' and discusses prior force history (e.g., Comparator D's 'only one unrelated prior complaint' and Braddock's 'prior sustained reprimand'). The memo explicitly identifies that the arbitrator used prior disciplinary/force history as one basis for distinguishing comparators ('on-duty status, a fatality, two prior force complaints' as grounds for disqualifying comparators), satisfying the criterion that prior force history was identified as a ground for distinguishing comparator cases."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_12",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.",
+                  "reasoning": "The response explicitly notes in Section I.C.2 that one of the distinctions the arbitrator used to disqualify/distinguish the comparator cases was 'two prior force complaints' (referencing Award, p. 2, \u00b6 7)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_12\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_12\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.\",\n          \"reasoning\": \"The memorandum expressly identifies prior force history as one of the arbitrator's stated distinctions among the comparator cases: it says the arbitrator disqualified comparators based on distinctions including \\\"two prior force complaints\\\" and discusses his use of Braddock's prior reprimand in distinguishing the comparators.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_12\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.\",\n          \"reasoning\": \"The answer's section I.C discusses the factor-6 comparator distinction and notes that the arbitrator distinguished comparators on grounds including 'two prior force complaints' and discusses prior force history (e.g., Comparator D's 'only one unrelated prior complaint' and Braddock's 'prior sustained reprimand'). The memo explicitly identifies that the arbitrator used prior disciplinary/force history as one basis for distinguishing comparators ('on-duty status, a fatality, two prior force complaints' as grounds for disqualifying comparators), satisfying the criterion that prior force history was identified as a ground for distinguishing comparator cases.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_12\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that one ground the arbitrator gave for distinguishing the comparator cases was prior force history.\",\n          \"reasoning\": \"The response explicitly notes in Section I.C.2 that one of the distinctions the arbitrator used to disqualify/distinguish the comparator cases was 'two prior force complaints' (referencing Award, p. 2, \\u00b6 7).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_2",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+                  "reasoning": "The memorandum expressly states that, on Douglas factor 6, the arbitrator held MPD \u201cdid not prove that the comparator officers were similarly situated\u201d and \u201cfailed to carry its burden to prove comparability,\u201d citing Award p. 2, \u00b6 7. It further characterizes this as the arbitrator imposing an affirmative proof burden on MPD."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+                  "reasoning": "The answer explicitly states that the arbitrator held MPD 'did not prove that the comparator officers were similarly situated' and 'failed to carry its burden to prove comparability,' citing Award, p.2, \u00b67, and extensively analyzes this as the arbitrator's requirement under Douglas factor six (consistency of penalty). This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.",
+                  "reasoning": "The response explicitly identifies that under Douglas factor six, the arbitrator required MPD to carry an affirmative burden to prove that the comparator officers were similarly situated (citing Award, p. 2, \u00b6 7 in multiple sections, including I.C and II.B)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_2\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.\",\n          \"reasoning\": \"The memorandum expressly states that, on Douglas factor 6, the arbitrator held MPD \\u201cdid not prove that the comparator officers were similarly situated\\u201d and \\u201cfailed to carry its burden to prove comparability,\\u201d citing Award p. 2, \\u00b6 7. It further characterizes this as the arbitrator imposing an affirmative proof burden on MPD.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.\",\n          \"reasoning\": \"The answer explicitly states that the arbitrator held MPD 'did not prove that the comparator officers were similarly situated' and 'failed to carry its burden to prove comparability,' citing Award, p.2, \\u00b67, and extensively analyzes this as the arbitrator's requirement under Douglas factor six (consistency of penalty). This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator required MPD to prove that the comparator officers were similarly situated under Douglas factor six.\",\n          \"reasoning\": \"The response explicitly identifies that under Douglas factor six, the arbitrator required MPD to carry an affirmative burden to prove that the comparator officers were similarly situated (citing Award, p. 2, \\u00b6 7 in multiple sections, including I.C and II.B).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_3",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+                  "reasoning": "The memorandum expressly identifies that the arbitrator\u2019s factor-12 conclusion rested on his determination that \u201ca suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force.\u201d It further characterizes that determination as the arbitrator\u2019s competing predictive judgment."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+                  "reasoning": "The document explicitly addresses factor 12, stating 'What the arbitrator held... a suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force. Award, p. 2, \u00b6 8,' and frames this as the arbitrator's basis for his factor 12 finding, analyzing it extensively in Section D. This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.",
+                  "reasoning": "The response explicitly identifies that the arbitrator's factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct by the Grievant and other members of the force (see Section I.D and the summary in the Bottom Line)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_3\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator\\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator\\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.\",\n          \"reasoning\": \"The memorandum expressly identifies that the arbitrator\\u2019s factor-12 conclusion rested on his determination that \\u201ca suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force.\\u201d It further characterizes that determination as the arbitrator\\u2019s competing predictive judgment.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator\\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.\",\n          \"reasoning\": \"The document explicitly addresses factor 12, stating 'What the arbitrator held... a suspension would likely have sufficed to deter future misconduct by the Grievant and by other members of the force. Award, p. 2, \\u00b6 8,' and frames this as the arbitrator's basis for his factor 12 finding, analyzing it extensively in Section D. This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator\\u2019s factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct.\",\n          \"reasoning\": \"The response explicitly identifies that the arbitrator's factor twelve finding rested on his conclusion that a suspension would likely have sufficed to deter future misconduct by the Grievant and other members of the force (see Section I.D and the summary in the Bottom Line).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_4",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+                  "reasoning": "The memorandum expressly states that neither Douglas nor DCMR \u00a7 1606 imposes a free-standing requirement that MPD prove the comparability of its supporting comparator cases. It characterizes MPD's duty as consideration, documentation, and a prima facie showing, and concludes that the arbitrator erred by requiring MPD to \u201cprove comparability\u201d absent a disparate-treatment showing by the grievant."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+                  "reasoning": "The memo repeatedly argues that no uploaded source imposes a 'prove comparability' burden on MPD. Part I.C.1 states the arbitrator 'applied a proof standard, not a reasonableness standard' that neither Douglas nor DCMR \u00a71606.2 contains (\u00a71606.2 only requires MPD be 'prepared to demonstrate that... factors were considered,' not prove each conclusion). Part II.B/D explicitly concludes the arbitrator's allocation of a 'burden to prove comparability' was wrong, since Douglas places only a prima facie production burden on the agency and shifts the burden to identify disparity to the grievant, with MPD required only to rebut if challenged. The memo's bottom-line and strongest-argument sections reiterate that MPD's duty was to demonstrate consideration and make a prima facie showing, not to 'prove' comparator comparability, and that no uploaded authority (Douglas, DCMR \u00a71606) imposes such a proof burden on MPD absent a disparity claim."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.",
+                  "reasoning": "The response clearly identifies that neither DCMR \u00a7 1606 nor Douglas (the uploaded governing authorities) requires MPD to prove comparability of its comparator cases, noting that the regulations only require demonstrating consideration and Douglas requires reasonableness rather than an affirmative burden to prove comparability."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_4\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.\",\n          \"reasoning\": \"The memorandum expressly states that neither Douglas nor DCMR \\u00a7 1606 imposes a free-standing requirement that MPD prove the comparability of its supporting comparator cases. It characterizes MPD's duty as consideration, documentation, and a prima facie showing, and concludes that the arbitrator erred by requiring MPD to \\u201cprove comparability\\u201d absent a disparate-treatment showing by the grievant.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.\",\n          \"reasoning\": \"The memo repeatedly argues that no uploaded source imposes a 'prove comparability' burden on MPD. Part I.C.1 states the arbitrator 'applied a proof standard, not a reasonableness standard' that neither Douglas nor DCMR \\u00a71606.2 contains (\\u00a71606.2 only requires MPD be 'prepared to demonstrate that... factors were considered,' not prove each conclusion). Part II.B/D explicitly concludes the arbitrator's allocation of a 'burden to prove comparability' was wrong, since Douglas places only a prima facie production burden on the agency and shifts the burden to identify disparity to the grievant, with MPD required only to rebut if challenged. The memo's bottom-line and strongest-argument sections reiterate that MPD's duty was to demonstrate consideration and make a prima facie showing, not to 'prove' comparator comparability, and that no uploaded authority (Douglas, DCMR \\u00a71606) imposes such a proof burden on MPD absent a disparity claim.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.\",\n          \"reasoning\": \"The response clearly identifies that neither DCMR \\u00a7 1606 nor Douglas (the uploaded governing authorities) requires MPD to prove comparability of its comparator cases, noting that the regulations only require demonstrating consideration and Douglas requires reasonableness rather than an affirmative burden to prove comparability.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_5",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+                  "reasoning": "The memorandum expressly states that the grievant must first identify more leniently treated, similarly situated employees before the agency must rebut or explain disparity. It characterizes this as a production burden on the employee and criticizes the arbitrator for requiring MPD to prove comparability without such a showing."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+                  "reasoning": "The memo repeatedly and explicitly adopts the framework that the employee/grievant must first make an initial showing of disparate treatment (identify similarly situated, more leniently treated employees) before the agency's burden to rebut or explain comparator evidence is triggered. For example: 'Under Douglas, a disparate-penalty claim is the employee's contention to raise. Once the employee raises it, the agency must rebut or explain it,' and the explicit two-step sequence: '1. The employee identifies more leniently treated, similarly situated employees. 2. The agency must then rebut or explain the disparity.' It further states that 'the burden of producing evidence of a genuinely similar, more leniently treated employee remained with the grievant' and that MPD's 'unrebutted prima facie showing' sufficed because the grievant never raised disparate treatment. This is precisely the failure criterion: asserting that the employee must make an initial showing before the agency bears a comparator burden."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden",
+                  "reasoning": "The response commits the failure by explicitly asserting that Douglas requires the employee to make an initial showing of disparate treatment (identifying more leniently treated, similarly situated employees) before the agency bears any burden of production or explanation regarding comparators."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_5\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden\",\n          \"reasoning\": \"The memorandum expressly states that the grievant must first identify more leniently treated, similarly situated employees before the agency must rebut or explain disparity. It characterizes this as a production burden on the employee and criticizes the arbitrator for requiring MPD to prove comparability without such a showing.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden\",\n          \"reasoning\": \"The memo repeatedly and explicitly adopts the framework that the employee/grievant must first make an initial showing of disparate treatment (identify similarly situated, more leniently treated employees) before the agency's burden to rebut or explain comparator evidence is triggered. For example: 'Under Douglas, a disparate-penalty claim is the employee's contention to raise. Once the employee raises it, the agency must rebut or explain it,' and the explicit two-step sequence: '1. The employee identifies more leniently treated, similarly situated employees. 2. The agency must then rebut or explain the disparity.' It further states that 'the burden of producing evidence of a genuinely similar, more leniently treated employee remained with the grievant' and that MPD's 'unrebutted prima facie showing' sufficed because the grievant never raised disparate treatment. This is precisely the failure criterion: asserting that the employee must make an initial showing before the agency bears a comparator burden.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden\",\n          \"reasoning\": \"The response commits the failure by explicitly asserting that Douglas requires the employee to make an initial showing of disparate treatment (identifying more leniently treated, similarly situated employees) before the agency bears any burden of production or explanation regarding comparators.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_6",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+                  "reasoning": "The memorandum expressly states that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 requires managers to demonstrate consideration of the listed factors and further explains that \u00a7 1606.3 requires the factors to be considered and balanced in arriving at the appropriate remedy. It specifically characterizes this as a consideration-and-balancing duty in penalty selection."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+                  "reasoning": "The response explicitly discusses DCMR \u00a7 1606.2 and states that factors 'shall be considered and balanced to arrive at the appropriate remedy' (citing \u00a7 1606.3), and throughout the memo frames the deciding official's duty as requiring balancing of the Douglas-type factors under \u00a7 1606.2. It directly addresses the requirement to balance the factors when selecting a penalty, satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.",
+                  "reasoning": "The response explicitly discusses D.C. Mun. Regs. tit. 6-B, \u00a7 1606 (citing \u00a7 1606.2 and \u00a7 1606.3), noting that the regulation lists twelve factors that track Douglas and imposes a duty on agency managers/deciding officials to consider and balance these factors to determine the appropriate penalty."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_6\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \\u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \\u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.\",\n          \"reasoning\": \"The memorandum expressly states that D.C. Mun. Regs. tit. 6-B, \\u00a7 1606.2 requires managers to demonstrate consideration of the listed factors and further explains that \\u00a7 1606.3 requires the factors to be considered and balanced in arriving at the appropriate remedy. It specifically characterizes this as a consideration-and-balancing duty in penalty selection.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \\u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.\",\n          \"reasoning\": \"The response explicitly discusses DCMR \\u00a7 1606.2 and states that factors 'shall be considered and balanced to arrive at the appropriate remedy' (citing \\u00a7 1606.3), and throughout the memo frames the deciding official's duty as requiring balancing of the Douglas-type factors under \\u00a7 1606.2. It directly addresses the requirement to balance the factors when selecting a penalty, satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that D.C. Mun. Regs. tit. 6-B, \\u00a7 1606.2 (2017) requires the deciding official to balance the Douglas-type factors when selecting a penalty.\",\n          \"reasoning\": \"The response explicitly discusses D.C. Mun. Regs. tit. 6-B, \\u00a7 1606 (citing \\u00a7 1606.2 and \\u00a7 1606.3), noting that the regulation lists twelve factors that track Douglas and imposes a duty on agency managers/deciding officials to consider and balance these factors to determine the appropriate penalty.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_7",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+                  "reasoning": "The memorandum expressly rejects the proposition that the arbitrator could select whatever penalty he considered most appropriate without deference to MPD. It repeatedly states that Douglas requires deference to management\u2019s primary discretion and permits substitution only if MPD failed to weigh relevant factors or its judgment clearly exceeded tolerable limits of reasonableness."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+                  "reasoning": "The response repeatedly argues the opposite of the failure criterion: it criticizes the arbitrator for substituting his own judgment/penalty without properly deferring to MPD, explicitly stating that deference was required and that the arbitrator was not entitled to select whatever penalty he thought appropriate without finding MPD's judgment 'clearly exceeded the limits of reasonableness.' The memo nowhere states that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD's selection; rather it affirmatively argues the opposite (that such action was error). Thus the failure described is not committed."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\u2019s penalty selection",
+                  "reasoning": "The response does not state that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD. Rather, it repeatedly argues that the arbitrator was required under Douglas and DCMR \u00a7 1606 to apply a deferential 'tolerable limits of reasonableness' standard and exceeded his authority by substituting his own judgment."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_7\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\\u2019s penalty selection\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\\u2019s penalty selection\",\n          \"reasoning\": \"The memorandum expressly rejects the proposition that the arbitrator could select whatever penalty he considered most appropriate without deference to MPD. It repeatedly states that Douglas requires deference to management\\u2019s primary discretion and permits substitution only if MPD failed to weigh relevant factors or its judgment clearly exceeded tolerable limits of reasonableness.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\\u2019s penalty selection\",\n          \"reasoning\": \"The response repeatedly argues the opposite of the failure criterion: it criticizes the arbitrator for substituting his own judgment/penalty without properly deferring to MPD, explicitly stating that deference was required and that the arbitrator was not entitled to select whatever penalty he thought appropriate without finding MPD's judgment 'clearly exceeded the limits of reasonableness.' The memo nowhere states that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD's selection; rather it affirmatively argues the opposite (that such action was error). Thus the failure described is not committed.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD\\u2019s penalty selection\",\n          \"reasoning\": \"The response does not state that the arbitrator was entitled to select whatever penalty he considered most appropriate without deference to MPD. Rather, it repeatedly argues that the arbitrator was required under Douglas and DCMR \\u00a7 1606 to apply a deferential 'tolerable limits of reasonableness' standard and exceeded his authority by substituting his own judgment.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_8",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+                  "reasoning": "The memorandum supports its burden-allocation discussion with Douglas, DCMR \u00a7 1606, the Award, and the uploaded factual materials. Although it refers to the \u201cJimenez warning,\u201d it immediately cites the relevant discussion in the uploaded Douglas decision rather than relying on an external authority."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+                  "reasoning": "The memo explicitly limits itself to the five uploaded documents (Final Notice, Award, Comparator Memo, Douglas excerpt, DCMR \u00a7 1606) and is careful to flag every gap where external authority (e.g., the PERB/DCCA review standard, the CBA, hearing transcript) would be needed but is absent. The burden-allocation discussion in Part II relies exclusively on Douglas and DCMR \u00a7 1606, citing specific pages/paragraphs from the uploaded Douglas excerpt (including its internal discussion of sub-cases like Nocifore, all pinpoint-cited to pages within the uploaded Douglas document). No outside case law, statute, or secondary authority not present in the uploaded materials is invoked to support the burden allocation analysis. Thus the response does not commit the failure of citing authority absent from the uploaded materials."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.",
+                  "reasoning": "The response strictly confines its analysis of burden allocation to the provided record materials (Douglas v. Veterans Administration, DCMR \u00a7 1606, and the record documents) and cites no outside authorities."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_8\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.\",\n          \"reasoning\": \"The memorandum supports its burden-allocation discussion with Douglas, DCMR \\u00a7 1606, the Award, and the uploaded factual materials. Although it refers to the \\u201cJimenez warning,\\u201d it immediately cites the relevant discussion in the uploaded Douglas decision rather than relying on an external authority.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.\",\n          \"reasoning\": \"The memo explicitly limits itself to the five uploaded documents (Final Notice, Award, Comparator Memo, Douglas excerpt, DCMR \\u00a7 1606) and is careful to flag every gap where external authority (e.g., the PERB/DCCA review standard, the CBA, hearing transcript) would be needed but is absent. The burden-allocation discussion in Part II relies exclusively on Douglas and DCMR \\u00a7 1606, citing specific pages/paragraphs from the uploaded Douglas excerpt (including its internal discussion of sub-cases like Nocifore, all pinpoint-cited to pages within the uploaded Douglas document). No outside case law, statute, or secondary authority not present in the uploaded materials is invoked to support the burden allocation analysis. Thus the response does not commit the failure of citing authority absent from the uploaded materials.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions authority absent from the uploaded materials in support of the burden allocation.\",\n          \"reasoning\": \"The response strictly confines its analysis of burden allocation to the provided record materials (Douglas v. Veterans Administration, DCMR \\u00a7 1606, and the record documents) and cites no outside authorities.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_9",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+                  "reasoning": "The memorandum expressly identifies the discrepancy multiple times, including that the Award cites Douglas \u201cat 306\u201d but the uploaded Douglas copy is paginated 313\u2013346 and contains no page 306. It reiterates this in Part III: \u201cThe Award's citation to \u20185 M.S.P.R. at 306\u2019 does not match the uploaded copy.\u201d"
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+                  "reasoning": "The response explicitly addresses this in the 'Pin-cite discrepancy' section and again in Part III.4, stating that the Award cites 'Douglas, 5 M.S.P.R. at 306' but the uploaded copy has no page 306 since it is paginated 313\u2013346, meaning the citation does not correspond to any page of the uploaded opinion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Award\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.",
+                  "reasoning": "The response explicitly notes in both the preliminary section ('Pin-cite discrepancy') and in Part III ('Preservation and open items', item 4) that the Award's citation to 'Douglas, 5 M.S.P.R. at 306' does not correspond to any page of the uploaded Douglas opinion, pointing out that the uploaded copy is paginated 313\u2013346."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_9\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award\\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award\\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.\",\n          \"reasoning\": \"The memorandum expressly identifies the discrepancy multiple times, including that the Award cites Douglas \\u201cat 306\\u201d but the uploaded Douglas copy is paginated 313\\u2013346 and contains no page 306. It reiterates this in Part III: \\u201cThe Award's citation to \\u20185 M.S.P.R. at 306\\u2019 does not match the uploaded copy.\\u201d\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award\\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.\",\n          \"reasoning\": \"The response explicitly addresses this in the 'Pin-cite discrepancy' section and again in Part III.4, stating that the Award cites 'Douglas, 5 M.S.P.R. at 306' but the uploaded copy has no page 306 since it is paginated 313\\u2013346, meaning the citation does not correspond to any page of the uploaded opinion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Award\\u2019s citation to Douglas v. Veterans Administration, 5 M.S.P.R. 280, 306 (1981) does not correspond to any page of the uploaded Douglas opinion.\",\n          \"reasoning\": \"The response explicitly notes in both the preliminary section ('Pin-cite discrepancy') and in Part III ('Preservation and open items', item 4) that the Award's citation to 'Douglas, 5 M.S.P.R. at 306' does not correspond to any page of the uploaded Douglas opinion, pointing out that the uploaded copy is paginated 313\\u2013346.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}
