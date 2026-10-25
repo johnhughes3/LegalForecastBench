@@ -1734,13 +1734,16 @@ Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
-- **Environment explanation:**
-- **Note and source locator:**
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** Yes
+- **Environment:** Defective
+- **Environment explanation:** No affidavit from Sara Davis is provided in the environment, and the prompt does not instruct the model to create one. The only fact supplied about her circumstances is that she "resides in Kane County, Illinois."
+- **Note and source locator:** This has the same problem as item 14 of asking the model to draft (apparently without placeholders) an assertion that a given point is supported by an affidavit that does not exist. This one is a closer call because the affiant is the client, so the lawyers preparing this opposition brief presumably can be more confident in what the client's testimony will be. But even a client needs to be comfortable that the facts they are swearing to are accurate and may tell the lawyer to change them, so preparing drafts without placeholders as Opus has done (and was partially rewarded for) is still hazardous.
+
+  There is a separate issue here where Sonnet misgraded the rubric because it refers to Assignment #2 in the actual rubric text that is supplied to the judge model, but that is a reference to the prompt the generative models receive and should not be in the output. Sonnet did the same thing on two other criteria in this run (criteria 4 and 22), failing the brief only because it had no "Assignment #2" label; in each case the other two judges passed it, so the majority result did not change. For purposes of this exercise, I am not treating that as a rubric defect because all the rubrics in the land-use and forum non conveniens matters have the issue that they refer to a specific assignment number that is not legible to the judge grader. That is an overarching issue in the benchmark setup that can be addressed globally.
+- Sources: assignment 1 prompt ("our client, Sara Davis, resides in Kane County, Illinois"); Defendants Motion to Transfer.pdf ¶ 9 (the complaint does not allege her residence); assignment 2 prompt ("Please include all affidavits and information you referenced from Assignment #1"). [Opus 5.5 (low), 2/3](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md): its Exhibit 1 is a complete sworn affidavit for Sara with facts found nowhere in the record (¶ 7, "I had not consulted a lawyer, I was not considering a lawsuit"; ¶ 9, "Most of the medical and hospital expenses ... were incurred at Cook County Hospital"), which the brief cites as sworn fact. Sonnet 5's dissent: "The document contains no reference to an 'Assignment #2' or any assignment numbering scheme." [GPT-6 Luna (xhigh), 0/3](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) cites no affidavit from Sara. Label scan: of 1,074 native judge votes in the litigation runs, Claude Sonnet 5 cited a missing assignment label in 10 (GPT-5.6 Terra and Gemini 3.8 Flash in none); it was the sole dissent on that ground for criteria 4, 11 and 22 of this Opus run, and the response also failed on substance in the other 7. 90 of the 179 litigation criteria name an assignment (every criterion in the land-use and forum non conveniens matters; none in the DCCA or VICAR matters). Criterion 12, the companion requirement that her affidavit say DuPage County would be inconvenient, rests on the same missing affidavit; it was not drawn into this sample.
 <!-- review:end -->
 
 ## 16. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_18
