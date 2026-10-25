@@ -2,7 +2,7 @@
 
 The community route runs the native Codex CLI solver through the contributor's ChatGPT subscription and a separate native Claude Code judge through a Claude subscription. It reuses the same pinned task projection, deliverable capture, per-criterion evaluation, and judge implementation as the [Claude Code community baseline](claude-code-harvey-lab-baseline.md). This is a local community measurement; the official API benchmark and the upstream `harvey-lab run` API experiment are separate commands.
 
-Prepare the pinned Harvey LAB v1.1.0 source, solver projection, evaluator-private material, and evaluator wrapper using the commands in the Claude baseline guide. Use the identical prepared task and requested Claude judge family for a comparison. A native model family alias may resolve to a newer deployment; record both the requested identity and the actual model when the runtime reports it, and leave an unreported actual identity unknown.
+Prepare the pinned Harvey LAB v1.1.0 source, solver projection, evaluator-private material, and evaluator wrapper using the commands in the Claude baseline guide. Use the identical prepared task and requested Claude judge family for a comparison. When the solvers use different foundation models, their scores compare complete model-and-harness systems and cannot isolate the effect of the harness. A native model family alias may resolve to a newer deployment; record both the requested identity and the actual model when the runtime reports it, and leave an unreported actual identity unknown.
 
 Create separate, owner-only role configuration roots outside every source, projection, evaluator-private, run, and executable directory. Authenticate each role with the vendor's supported login command; do not copy existing credentials, settings, histories, or plugin state:
 
@@ -12,7 +12,7 @@ CODEX_HOME="$PWD/community-auth/codex-solver" codex login
 CLAUDE_CONFIG_DIR="$PWD/community-auth/claude-judge" claude auth login
 ```
 
-The solver root must contain only its owner-only `auth.json`; the judge root must contain only its owner-only `.credentials.json`. Both vendor status commands must confirm subscription authentication. The runtime launches each role with an isolated home and only its own authentication root. API keys are not projected. Codex retains its native workspace-write sandbox and tools, with user configuration and execution rules suppressed and session persistence disabled. The Claude judge has no tools and cannot read the solver login.
+The Codex solver root must contain only its owner-only `auth.json`. The Claude judge root contains its owner-only `.credentials.json` and may retain the vendor-generated state described in the [Claude baseline guide](claude-code-harvey-lab-baseline.md); do not delete supported vendor state created by login or status. Both vendor status commands must confirm subscription authentication. The runtime launches each role with an isolated home and only its own authentication root. API keys are not projected. Codex retains its native workspace-write sandbox and tools, with user configuration and execution rules suppressed and session persistence disabled. The Claude judge has no tools and cannot read the solver login.
 
 Choose and record the exact installed binary versions and SHA-256 values. Both are required explicitly; the command does not silently update the checked-in example pins. Inspect compatibility without login or model calls:
 
