@@ -17,8 +17,10 @@ Subcommands:
     anchors, so network access is required. Refuses to overwrite either file.
 
 ``render``
-    Regenerate the worksheet's supporting material from the saved audit files,
-    copying every reviewer field between the ``<!-- review -->`` markers unchanged.
+    Regenerate the worksheet's supporting material from the saved audit files and
+    ``human-review/real-cases.json`` (the real litigation each matter appears to be
+    based on), copying every reviewer field between the ``<!-- review -->`` markers
+    unchanged.
 
 ``tally``
     Check that sample.json and the worksheet still match the seeded draw, count the
@@ -52,6 +54,13 @@ from legalreasonbench_extract import AUDIT, DATASET, REVISION, upstream_url
 from legalreasonbench_report import REPORTS
 
 REVIEW_DIR = AUDIT / "human-review"
+
+REAL_CASES = REVIEW_DIR / "real-cases.json"
+
+REAL_CASE_LABEL = (
+    "**Apparent real-world basis** (identified by Claude Opus 5.5 during this "
+    "review; not part of the task environment):"
+)
 
 SEED = 20261024
 
@@ -263,7 +272,9 @@ def blank_review() -> str:
     return "\n".join([*lines, REVIEW_END])
 
 
-def render_item(i: int, row: Json, inputs: Json, line: int, review: str) -> list[str]:
+def render_item(
+    i: int, row: Json, inputs: Json, line: int, review: str, basis: str
+) -> list[str]:
     """One worksheet entry: criterion, sources, collapsed AI material, review block."""
     task, cid = key(row)
     crit = next(c for c in inputs["rubric"] if c["criterion_id"] == cid)
@@ -303,6 +314,8 @@ def render_item(i: int, row: Json, inputs: Json, line: int, review: str) -> list
                 f"{inputs['matter_id']}.md)",
             ]
         ),
+        "",
+        f"{REAL_CASE_LABEL} {basis}",
         "",
         f"**{kind} criterion, {crit['points']:+g} points** "
         f"(the assignment's reward criteria total {inputs['positive_points']:g}) · "
@@ -409,9 +422,14 @@ def render_worksheet(
         )
     ]
     lines = {key(s): s["rubric_line"] for s in record["sample"]}
+    # Keyed by matter, since every assignment of a matter shares one fact pattern.
+    cases = load(REAL_CASES)
     for i, row in enumerate(sample, 1):
         review = (reviews or {}).get(key(row), blank_review())
-        out += render_item(i, row, task_inputs(row["task"]), lines[key(row)], review)
+        inputs = task_inputs(row["task"])
+        out += render_item(
+            i, row, inputs, lines[key(row)], review, cases[inputs["matter_id"]]
+        )
     return "\n".join(out).rstrip() + "\n"
 
 
