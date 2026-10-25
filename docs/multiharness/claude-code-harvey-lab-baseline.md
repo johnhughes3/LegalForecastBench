@@ -67,3 +67,5 @@ The solver and judge use distinct contained execution services, config roots, an
 No GitHub Actions workflow is supplied for this route because contributor subscription login is deliberately local and interactive. Do not move a durable CLI login into CI secrets or convert this community command into an API gateway workaround. Use the official API-backed benchmark workflows for official benchmark runs.
 
 Any one-task result remains labeled `Preliminary — one task pair, operator-run, not independently reproducible.` until a real local solver and separate judge execution has completed and its artifacts have been inspected.
+
+The matching [Codex subscription baseline](codex-cli-harvey-lab-baseline.md) selects `--harness codex` on the same community command and uses the same separate Claude subscription judge. Keep the prepared task and requested judge family identical when comparing these two native solvers.

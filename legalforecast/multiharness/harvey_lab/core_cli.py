@@ -44,9 +44,26 @@ def register(
     community = commands.add_parser(
         "run-community-subscription",
         help=(
-            "Run the prepared Claude Code LAB arm through the contributor's "
-            "local Claude subscription with a separate native CLI judge."
+            "Run a prepared Claude Code or Codex LAB arm through the contributor's "
+            "local subscription with a separate Claude subscription judge."
         ),
+    )
+    community.add_argument(
+        "--harness", choices=("claude-code", "codex"), default="claude-code"
+    )
+    community.add_argument(
+        "--codex-version",
+        help="Exact codex --version output; required for --harness codex.",
+    )
+    community.add_argument(
+        "--codex-sha256",
+        help="Unprefixed Codex executable SHA-256; required for --harness codex.",
+    )
+    community.add_argument(
+        "--reasoning-effort",
+        choices=("low", "medium", "high"),
+        default="medium",
+        help="Explicit native Codex solver reasoning effort.",
     )
     community.add_argument("--source-root", type=Path, required=True)
     community.add_argument("--projection-dir", type=Path, required=True)
@@ -57,7 +74,7 @@ def register(
         "--solver-config-dir",
         type=Path,
         required=True,
-        help="Owner-only Claude config prepared solely for the solver login.",
+        help="Owner-only config prepared solely for the selected native solver login.",
     )
     community.add_argument(
         "--judge-config-dir",
@@ -78,7 +95,7 @@ def register(
     community.add_argument(
         "--solver-model",
         required=True,
-        help="Claude CLI model or supported family alias requested for the solver.",
+        help="Native solver model or supported family alias to request.",
     )
     community.add_argument(
         "--judge-model",
@@ -228,6 +245,10 @@ def _run_community_subscription(args: argparse.Namespace) -> int:
 
     result = run_community_subscription_harvey_lab(
         CommunitySubscriptionOperatorRequest(
+            harness=args.harness,
+            codex_version=args.codex_version,
+            codex_sha256=args.codex_sha256,
+            reasoning_effort=args.reasoning_effort,
             source_root=args.source_root,
             projection_root=args.projection_dir,
             evaluator_private_root=args.evaluator_private_dir,
@@ -255,6 +276,7 @@ def _run_community_subscription(args: argparse.Namespace) -> int:
                     "unknown_reason": ("flat_subscription_has_no_per_call_allocation"),
                 },
                 "execution_mode": "community-subscription",
+                "harness": args.harness,
                 "judge_model_observed": (
                     None
                     if "unreported@requested-" in provenance.judge_resolved_identity
@@ -264,8 +286,10 @@ def _run_community_subscription(args: argparse.Namespace) -> int:
                 "n_criteria": result.score.n_criteria,
                 "n_passed": result.score.n_passed,
                 "score": result.baseline_score_value,
-                "solver_model_observed": observed_model_from_receipt(
-                    result.solver_execution
+                "solver_model_observed": (
+                    result.solver_execution.served_model
+                    if args.harness == "codex"
+                    else observed_model_from_receipt(result.solver_execution)
                 ),
                 "solver_model_requested": args.solver_model,
                 "task_id": result.task.lab_task_id,

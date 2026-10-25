@@ -6,6 +6,7 @@ import os
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from legalforecast.multiharness.auth_binding import (
     bind_adapter_auth_profile,
@@ -19,6 +20,14 @@ from legalforecast.multiharness.claude_code import (
 from legalforecast.multiharness.claude_code_harvey_lab import (
     ClaudeCodeHarveyLabMeasurementResult,
     run_claude_code_clean_native_harvey_lab,
+)
+from legalforecast.multiharness.codex_cli import (
+    CodexCliAdapter,
+    load_codex_local_cli_manifest,
+)
+from legalforecast.multiharness.codex_cli_harvey_lab import (
+    CodexCliHarveyLabMeasurementResult,
+    run_codex_cli_clean_native_harvey_lab,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
@@ -67,6 +76,10 @@ class CommunitySubscriptionOperatorRequest:
     claude_sha256: str
     solver_model: str
     judge_model: str
+    harness: Literal["claude-code", "codex"] = "claude-code"
+    codex_version: str | None = None
+    codex_sha256: str | None = None
+    reasoning_effort: str = "medium"
     timeout_seconds: int = 900
     pin: HarveyLabPin = field(default_factory=harvey_lab_v1_1_pin)
 
@@ -75,7 +88,7 @@ class CommunitySubscriptionOperatorRequest:
 class CommunitySubscriptionRuntime:
     """Distinct solver and judge services using separate local logins."""
 
-    adapter: ClaudeCodeCliAdapter
+    adapter: ClaudeCodeCliAdapter | CodexCliAdapter
     judge_service: LocalCliExecutionService
     evaluator_runner: ProductionHarveyLabEvaluatorRunner
     judge_boundary: HarveyLabJudgeRequestBoundary
@@ -104,9 +117,34 @@ def build_community_subscription_runtime(
     )
     manifest = claude_code_local_manifest()
     bound = bind_adapter_auth_profile(manifest, CONTRIBUTOR_SUBSCRIPTION)
+    if request.harness not in {"claude-code", "codex"}:
+        raise CommunitySubscriptionOperatorError("unsupported community solver harness")
+    solver_executable = "codex" if request.harness == "codex" else "claude"
+    solver_pin = executable_pin
+    solver_manifest = manifest
+    if request.harness == "codex":
+        if not request.codex_version or not request.codex_sha256:
+            raise CommunitySubscriptionOperatorError(
+                "Codex requires explicit --codex-version and --codex-sha256"
+            )
+        solver_manifest = load_codex_local_cli_manifest()
+        solver_pin = ExecutableIdentityPin(
+            basename="codex",
+            version=request.codex_version,
+            sha256=request.codex_sha256,
+            distribution_kind="standalone-cli",
+            required_flags=(
+                "--ephemeral",
+                "--ignore-user-config",
+                "--ignore-rules",
+                "--strict-config",
+            ),
+        )
+    solver_bound = bind_adapter_auth_profile(solver_manifest, CONTRIBUTOR_SUBSCRIPTION)
     solver_config, judge_config = validate_role_config_separation(
         request.solver_config_dir,
         request.judge_config_dir,
+        solver_executable=solver_executable,
         forbidden_paths=(
             request.source_root,
             request.projection_root,
@@ -116,7 +154,7 @@ def build_community_subscription_runtime(
         ),
     )
     solver_presence = NativeCliSubscriptionPresence(
-        "claude", config_root=solver_config, role="solver"
+        solver_executable, config_root=solver_config, role="solver"
     )
     judge_presence = NativeCliSubscriptionPresence(
         "claude", config_root=judge_config, role="judge"
@@ -126,11 +164,11 @@ def build_community_subscription_runtime(
         f"{request.evaluator_bin_dir}{os.pathsep}{parent_env.get('PATH', '/usr/bin')}"
     )
     solver_service = contained_execution_service(
-        bound,
+        solver_bound,
         parent_env=parent_env,
-        adapter_id="claude-code-community-subscription-solver",
-        display_name="Claude Code community subscription solver",
-        executable_pin=executable_pin,
+        adapter_id=f"{request.harness}-community-subscription-solver",
+        display_name=f"{request.harness} community subscription solver",
+        executable_pin=solver_pin,
         subscription_presence=solver_presence,
         filesystem_read_paths=(request.projection_root,),
         filesystem_write_paths=(request.run_root / "solver-workspace",),
@@ -153,9 +191,16 @@ def build_community_subscription_runtime(
         claude_sha256=request.claude_sha256,
     )
     return CommunitySubscriptionRuntime(
-        adapter=ClaudeCodeCliAdapter(
-            execution_service=solver_service,
-            auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        adapter=(
+            CodexCliAdapter(
+                execution_service=solver_service,
+                auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+            )
+            if request.harness == "codex"
+            else ClaudeCodeCliAdapter(
+                execution_service=solver_service,
+                auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+            )
         ),
         judge_service=judge_service,
         evaluator_runner=runner,
@@ -168,7 +213,7 @@ def run_community_subscription_harvey_lab(
     request: CommunitySubscriptionOperatorRequest,
     *,
     runtime: CommunitySubscriptionRuntime | None = None,
-) -> ClaudeCodeHarveyLabMeasurementResult:
+) -> ClaudeCodeHarveyLabMeasurementResult | CodexCliHarveyLabMeasurementResult:
     """Run the prepared community arm without API keys or hosted authority."""
 
     if request.run_root.exists() or request.run_root.is_symlink():
@@ -177,25 +222,58 @@ def run_community_subscription_harvey_lab(
         )
     selected = runtime or build_community_subscription_runtime(request)
     if runtime is None:
-        pin = selected.adapter.execution_service.executable_pin
-        if pin is None:
-            raise CommunitySubscriptionOperatorError(
-                "community subscription runtime has no executable pin"
-            )
-        try:
-            with tempfile.TemporaryDirectory(
-                prefix="lfb-community-claude-preflight-"
-            ) as scratch:
-                preflight_native_cli(
-                    pin,
-                    scratch_root=Path(scratch),
-                    parent_env=selected.adapter.execution_service.parent_env,
+        for service in (selected.adapter.execution_service, selected.judge_service):
+            if not isinstance(service, LocalCliExecutionService):
+                raise CommunitySubscriptionOperatorError(
+                    "native runtime must be contained"
                 )
-        except (LocalCliIdentityError, LocalCliProbeError) as exc:
-            raise CommunitySubscriptionOperatorError(
-                "native Claude capability preflight failed before execution"
-            ) from exc
+            pin = service.executable_pin
+            if pin is None:
+                raise CommunitySubscriptionOperatorError(
+                    "community subscription runtime has no executable pin"
+                )
+            try:
+                with tempfile.TemporaryDirectory(
+                    prefix="lfb-community-native-preflight-"
+                ) as scratch:
+                    preflight_native_cli(
+                        pin,
+                        scratch_root=Path(scratch),
+                        parent_env=service.parent_env,
+                    )
+            except (LocalCliIdentityError, LocalCliProbeError) as exc:
+                raise CommunitySubscriptionOperatorError(
+                    f"native {pin.basename} capability preflight failed "
+                    "before execution"
+                ) from exc
     request.run_root.mkdir(parents=True)
+    if isinstance(selected.adapter, CodexCliAdapter):
+        result = run_codex_cli_clean_native_harvey_lab(
+            adapter=selected.adapter,
+            source_root=request.source_root,
+            solver_root=request.projection_root,
+            evaluator_private_root=request.evaluator_private_root,
+            sandbox_root=request.run_root / "solver-workspace",
+            sealed_root=request.run_root / "sealed",
+            quarantine_root=request.run_root / "quarantine",
+            overlay_root=request.run_root / "evaluator-overlay",
+            evaluator_working_directory=request.run_root / "evaluator-work",
+            pin=request.pin,
+            model=request.solver_model,
+            reasoning_effort=request.reasoning_effort,
+            timeout_seconds=request.timeout_seconds,
+            judge_request_boundary=selected.judge_boundary,
+            evaluator_runner=selected.evaluator_runner,
+            evaluator_provenance_provider=selected.evaluator_provenance_provider,
+            require_production_provenance=True,
+            evaluator_execution_service=selected.judge_service,
+            use_prepared_projection=True,
+        )
+        if not isinstance(result, CodexCliHarveyLabMeasurementResult):
+            raise CommunitySubscriptionOperatorError(
+                "community LAB operator unexpectedly produced an issuer result"
+            )
+        return result
     result = run_claude_code_clean_native_harvey_lab(
         adapter=selected.adapter,
         source_root=request.source_root,
