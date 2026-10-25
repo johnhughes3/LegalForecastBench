@@ -67,6 +67,8 @@ def test_vendor_status_projects_only_explicit_role_config(
         if executable == "claude":
             (config / ".claude.json").write_text("{}")
             (config / ".claude.json.lock").mkdir(exist_ok=True)
+            if len(calls) == 1:
+                _claude_runtime_bookkeeping(config)
         return subprocess.CompletedProcess(argv, 0, stdout, stderr)
 
     monkeypatch.setattr(
@@ -247,3 +249,75 @@ def test_codex_vendor_state_cannot_link_outside_role_root(
     target.symlink_to(outside, target_is_directory=True)
     with pytest.raises(AuthProfileError, match="symlink"):
         validate_auth_only_config_root("codex", config, role="solver")
+
+
+_UUID_A = "11111111-1111-4111-8111-111111111111"
+_UUID_B = "22222222-2222-4222-8222-222222222222"
+
+
+def _claude_runtime_bookkeeping(config: Path) -> None:
+    cleanup = config / ".last-cleanup"
+    cleanup.write_text("synthetic")
+    cleanup.chmod(0o664)
+    (config / "sessions").mkdir(mode=0o700)
+    telemetry = config / "telemetry"
+    telemetry.mkdir(mode=0o775)
+    (telemetry / f"1p_failed_events.{_UUID_A}.{_UUID_B}.json").write_text("{}")
+    catalog = config / "cache" / "model-catalog"
+    catalog.mkdir(mode=0o775, parents=True)
+    (catalog / f"{_UUID_A}-{_UUID_B}-cc.json").write_text("{}")
+
+
+def test_claude_runtime_bookkeeping_allows_repeat_metadata_validation(
+    tmp_path: Path,
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    validate_auth_only_config_root("claude", config, role="solver")
+    _claude_runtime_bookkeeping(config)
+    for _attempt in range(2):
+        assert validate_auth_only_config_root("claude", config, role="solver") == config
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "settings.json",
+        "history.jsonl",
+        "plugins",
+        "telemetry/history.jsonl",
+        "cache/settings.json",
+        "cache/model-catalog/settings.json",
+        "sessions/history.jsonl",
+    ],
+)
+def test_claude_runtime_bookkeeping_rejects_configuration_or_history(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    _claude_runtime_bookkeeping(config)
+    (config / entry).touch()
+    with pytest.raises(AuthProfileError):
+        validate_auth_only_config_root("claude", config, role="solver")
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        ".last-cleanup",
+        "sessions",
+        "telemetry",
+        "cache",
+        "cache/model-catalog",
+        f"telemetry/1p_failed_events.{_UUID_A}.{_UUID_B}.json",
+        f"cache/model-catalog/{_UUID_A}-{_UUID_B}-cc.json",
+    ],
+)
+def test_claude_runtime_bookkeeping_cannot_link_outside_role_root(
+    tmp_path: Path, entry: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    target = config / entry
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(tmp_path / "outside")
+    with pytest.raises(AuthProfileError):
+        validate_auth_only_config_root("claude", config, role="solver")

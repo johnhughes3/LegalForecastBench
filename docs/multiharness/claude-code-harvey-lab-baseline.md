@@ -43,6 +43,8 @@ claude --version
 sha256sum "$(command -v claude)"
 ```
 
+The same isolated role roots can be reused after a run. The validator permits native `.last-cleanup`, failed-event JSON files in `telemetry/`, an empty `sessions/` directory, and model catalog JSON caches under `cache/model-catalog/`, alongside login state. Keep this vendor bookkeeping; settings, histories, plugins, extra cache directories, and symlinks remain rejected.
+
 ## Run the local community baseline
 
 Use the exact version string and unprefixed digest observed above. Model family aliases such as `sonnet` are allowed because the native CLI supports them; requested aliases and observed model identities are reported separately. If the CLI does not report an actual model identity, the result says it was unreported rather than asserting an exact judge model.
