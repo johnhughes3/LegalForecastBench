@@ -110,6 +110,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not mention DCI2018-10023 or state that it remained active until September 13, 2023.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document does not state anywhere that DCI2018-10023 remained active until September 13, 2023. In fact, DCI2018-10023 is not mentioned at all in the memorandum; it discusses Resolution Z-23-035, Z-23-022, and other case details unrelated to that permit number or date. Thus the specified failure is not committed.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention DCI2018-10023 or state that it remained active until September 13, 2023.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** penalty clear (1/3). **Contribution:** `-0`.
@@ -231,6 +239,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state that the County should cease construction activities at the subject property. It recommends verifying authority and obtaining counsel’s direction before continuing work in reliance on the quashed rezoning, and suggests seeking a stay if needed, but it does not direct a cessation of construction.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo explicitly states the order 'does not expressly enjoin construction' and advises that staff 'should not issue new approvals or continue work in reliance on the quashed resolution without confirming the authority for that work and obtaining counsel's direction,' rather than directly stating the County should cease construction activities. This is a cautious, conditional statement rather than a direct assertion to cease construction, so the failure criterion is not met.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should cease construction activities at the subject property. Instead, it expressly notes that the order does not enjoin construction, questions the contemporaneous evidence of construction, and advises seeking a stay or verifying permit authority.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-30`.
@@ -334,6 +350,14 @@ Evidence the model quoted (check against the source):
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** met (2/3). **Contribution:** `20`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum recommends that the County pursue and timely prepare/file a second-tier certiorari petition in the Sixth District Court of Appeal, identifies the Sixth District as the proper court, and provides the applicable filing deadlines.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memorandum explicitly recommends authorizing the County Attorney to prepare a second-tier certiorari petition to the Sixth District Court of Appeal, lists this as Option 2 ('Seek second-tier certiorari in the Sixth District'), and in the 'Recommended course' section states 'prepare a second-tier certiorari petition' and includes specific timely filing deadlines (e.g., by November 24 or November 26, 2025) for filing with the Sixth District. This satisfies the criterion that the first assignment states the County should file a timely appeal with the 6th District Court of Appeals.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first section/assignment that the County should file a timely appeal with the 6th District Court of Appeal. Instead, it conditionally recommends authorizing counsel to file a motion for rehearing/clarification in the circuit court and to prepare a second-tier certiorari petition, while specifically noting elsewhere that review in the district court is not an appeal as of right.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** met (3/3). **Contribution:** `20`.
@@ -431,6 +455,14 @@ Evidence the model quoted (check against the source):
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum’s first recommended action is to seek rehearing and clarification in circuit court, followed by a second-tier certiorari petition and possible stay. It does not state in the first assignment that the County should remand the matter to the Hearing Examiner to address the deficiencies in the Order Granting Writ of Certiorari while an appeal is pending.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion asks whether the response states that the County should remand the case to the Hearing Examiner to address deficiencies in the Order Granting Writ of Certiorari while an appeal is pending. The memo's first option (Option 1) discusses moving for rehearing/clarification in circuit court, and Option 2 discusses second-tier certiorari to the district court. Nowhere does it recommend remanding to the Hearing Examiner while an appeal is pending. In fact, Option 4 discusses pursuing a new application only if review is not sought or is denied, not while an appeal is pending, and explicitly says not to attempt administrative 'reaffirmation.' There is no statement about remanding to the Hearing Examiner during a pending appeal.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should remand the case to the Hearing Examiner to address the deficiencies while an appeal is pending. Instead, it recommends moving for rehearing/clarification, seeking a stay, and petitioning for second-tier certiorari review.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -552,6 +584,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in its first assignment or elsewhere, that under Fla. Stat. § 163.3167(10) (2025) the project's development order may not be invalidated by a subsequent judicial determination because the appeal period has expired. Instead, it states that the rezoning approval was quashed and discusses appellate deadlines and potential review.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo does not mention Fla. Stat. § 163.3167(10) at all, nor does it state that the development order cannot be invalidated due to expiration of the appeal filing period. There is no reference to this statute or the specific legal principle described in the criterion anywhere in the document.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not cite or discuss Fla. Stat. § 163.3167(10) (2025), nor does it state that the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal has expired.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -681,6 +721,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in its first assignment or elsewhere, that under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response does not mention 'Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025)' or any statement that DCI2018-10023 was considered withdrawn on February 13, 2020. No such content appears anywhere in the document.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), application DCI2018-10023, or that it was considered withdrawn on February 13, 2020.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -772,6 +820,14 @@ Rulings on the blind findings above:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment (Argument II) addresses due process under Jennings, public County actions, alleged bias, and the absence of ex parte contacts. It does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval.
+- `anthropic/claude-sonnet-5`: value `0.0` — The brief never states that expert testimony in the record constitutes competent substantial evidence supporting the Board's approval. The second argument (Argument II, addressing the due-process/Jennings issue) focuses on the lack of an ex parte contact and public governmental acts not establishing prejudgment; it does not discuss expert testimony as evidentiary support for the rezoning. The only mention of 'competent substantial evidence' appears generically in the standard-of-review section, not tied to expert testimony or the second assignment of error.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second assignment of error/argument section (Argument II), the response focuses entirely on procedural due process under Jennings v. Dade County and whether prior public County actions and an on-record motion demonstrate prejudgment. It does not state that expert testimony on the record constitutes competent substantial evidence supporting the Board's approval of the rezoning.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -863,6 +919,14 @@ Rulings on the blind findings above:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment argues that public County actions and an on-record motion do not establish a due-process violation under Jennings. It does not state that a staff report recommending approval constitutes competent substantial evidence supporting the Board's rezoning approval.
+- `anthropic/claude-sonnet-5`: value `0.0` — The second assignment of error in this brief (Argument II) addresses the Jennings due-process issue regarding ex parte contacts and prior public actions; it does not argue that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. No section of the document makes this specific argument in connection with the second assignment.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second argument/assignment (Section II), the petition focuses entirely on due process, ex parte communications under Jennings, and alleged bias. It does not state that the staff report recommending approval constitutes competent substantial evidence supporting the Board's rezoning approval.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.

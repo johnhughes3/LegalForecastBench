@@ -6,12 +6,12 @@ Pinned source: `micro1-inc/LegalReasonBench` revision `1bfa904c8f255925baf2610c0
 
 Only explicitly mapped native Harbor outputs are included. Responses and raw verifier files are copied unchanged. Missing or incomplete panels are not model failures. Complete refers to the grade panel; native agent exit diagnostics are disclosed on the individual run pages.
 
-Answers: **6**; complete panels: **6**; partial/incomplete: **0**; missing: **16**.
+Answers: **8**; complete panels: **8**; partial/incomplete: **0**; missing: **14**.
 
 | Assignment | Criteria | GPT-6 Luna (xhigh) | Claude Opus 5.5 (low) |
 |---|---:|---|---|
-| lrb-certiorari-quasi-judicial-land-use-assignment-1 | 25 | missing assignment | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) |
-| lrb-certiorari-quasi-judicial-land-use-assignment-2 | 12 | missing assignment | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) |
+| lrb-certiorari-quasi-judicial-land-use-assignment-1 | 25 | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-1/gpt6luna-xhigh/README.md) | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) |
+| lrb-certiorari-quasi-judicial-land-use-assignment-2 | 12 | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-2/gpt6luna-xhigh/README.md) | [complete](lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) |
 | lrb-dcca-challenge-police-discipline-assignment-1 | 9 | missing assignment | missing assignment |
 | lrb-dcca-challenge-police-discipline-assignment-2 | 12 | missing assignment | missing assignment |
 | lrb-dcca-challenge-police-discipline-assignment-3 | 16 | missing assignment | missing assignment |
