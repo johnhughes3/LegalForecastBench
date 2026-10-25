@@ -98,7 +98,7 @@ const datasetLd = datasetNode({
 				<tbody class="divide-y divide-rule text-ink-2">
 					{benchmarkSnapshots.snapshots.map((s) => (
 						<tr>
-							<td class={cell}><a class={link} href={s.upstream}>{s.benchmark}</a><div class="mt-1 text-xs text-ink-3">{s.license} · <a class={link} href={s.audit}>our audit</a></div></td>
+							<td class={cell}><a class={link} href={s.upstream}>{s.benchmark}</a><div class="mt-1 text-xs text-ink-3">{s.rights} · <a class={link} href={s.license_url}>{s.license}</a> · <a class={link} href={s.audit}>our audit</a></div></td>
 							<td class={cell}><code class="break-all text-xs">{s.commit}</code><div class="mt-1 text-xs text-ink-3">committed {s.committed}</div></td>
 							<td class={cell}><a class={link} href={snapshotFileUrl(s.archive)} download>{s.archive}</a> ({formatBytes(s.bytes)})<div class="mt-1 text-xs text-ink-3">SHA-256 <code class="break-all">{s.sha256}</code></div></td>
 						</tr>
@@ -107,6 +107,7 @@ const datasetLd = datasetNode({
 			</table>
 		</div>
 		<p class="mt-3 text-sm text-ink-2">Archived on Zenodo: <a class={link} href={`https://doi.org/${benchmarkSnapshots.doi}`}>doi:{benchmarkSnapshots.doi}</a> · <a class={link} href={snapshotFileUrl("SHA256SUMS")} download>SHA256SUMS</a> · <a class={link} href={snapshotFileUrl(benchmarkSnapshots.verifier.file)} download>{benchmarkSnapshots.verifier.file}</a>. To verify (Python 3.10+ and git): <code class="text-xs">python3 {benchmarkSnapshots.verifier.file} --sums SHA256SUMS *.tar</code></p>
+		<p class="mt-3 max-w-3xl text-sm text-ink-2">The snapshots are unmodified copies of the upstream repositories, repackaged only as single-commit git repositories. Each keeps its upstream license: Harvey LAB under the MIT License (its notice is included in the snapshot), and LegalReasonBench under CC BY 4.0, cited as its authors request: “{benchmarkSnapshots.snapshots.find((s) => s.citation)?.citation}.” The public court records reproduced in LegalReasonBench are not covered by its license; LAB's matter documents are synthetic. Neither Harvey nor micro1 sponsors or endorses this work.</p>
 
 		<div class="mt-12 grid gap-10 md:grid-cols-2">
 			<div>
