@@ -1,0 +1,1723 @@
+{
+  "correctness": {
+    "score": 0.03333333333333333,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+        "value": 1.0,
+        "raw": true,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 5.0,
+        "description": "Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+        "source": "Florida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity\n\"Jurisdiction of District Courts of Appeal.\n\"b) Jurisdiction of District Courts of Appeal.\n. . .\n(2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review:\n(A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or\n(B) final orders of circuit courts acting in their review capacity.\"\nSee also Map of Florida\u2019s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "identifies_in_the_second_assignment_that_the_appropriate_mechanism_to_appeal_the",
+          "original_index": 26,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+            "reasoning": "The response expressly identifies the correct second-assignment mechanism: a \"PETITION FOR WRIT OF CERTIORARI\" seeking \"Second-Tier Review of a Circuit Court Order Entered in Its Review Capacity,\" filed in the District Court of Appeal of Florida, Sixth District. Its jurisdiction section likewise states that the circuit court\u2019s final order acting in its review capacity is reviewable by certiorari in that court."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+            "reasoning": "The document is itself a complete Petition for Writ of Certiorari filed in the Sixth District Court of Appeal, but it does not present its arguments as a list of discrete 'assignments of error' and does not have a 'second assignment' that specifically discusses or justifies the appropriate appellate mechanism (i.e., that a Petition for Writ of Certiorari to the 6th DCA is the correct vehicle to challenge the circuit court's order granting first-tier certiorari). The jurisdictional section merely cites Art. V \u00a74(b)(3) and Rule 9.030(b)(2)(B) as the basis for invoking jurisdiction, but this is framed as the 'Basis for Invoking Jurisdiction' section of the petition itself, not as a discrete assignment of error identifying the correct procedural mechanism for appeal. There is no numbered 'assignments' section at all in the document."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+            "reasoning": "The response identifies and utilizes a Petition for Writ of Certiorari to the Sixth District Court of Appeal as the appropriate mechanism to seek review of the Circuit Court's Order Granting Petition for Writ of Certiorari (second-tier certiorari review under Florida Rule of Appellate Procedure 9.030(b)(2)(B))."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+        "value": 0.0,
+        "raw": false,
+        "weight": 20.0,
+        "signed_score": 20.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+        "source": "Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001), is the preeminent FL Supreme court case on the limited review of quasi-judicial. \nhttps://caselaw.findlaw.com/court/fl-supreme-court/1489002.html#:~:text=Notably,ended\n\"Notably, when applying the third prong, the court should review the record to determine simply whether the Commission's decision is supported by competent substantial evidence.\n\nWe reiterate that the \u201ccompetent substantial evidence\u201d standard cannot be used by a reviewing court as a mechanism for exerting covert control over the policy determinations and factual findings of the local agency. \u2002 Rather, this standard requires the reviewing court to defer to the agency's superior technical expertise and special vantage point in such matters. \u2002 The issue before the court is not whether the agency's decision is the \u201cbest\u201d decision or the \u201cright\u201d decision or even a \u201cwise\u201d decision, for these are technical and policy-based determinations properly within the purview of the agency. \u2002 The circuit court has no training or experience-and is inherently unsuited-to sit as a roving \u201csuper agency\u201d with plenary oversight in such matters.\n\nThe sole issue before the court on first-tier certiorari review is whether the agency's decision is lawful. \u2002 The court's task vis-a-vis the third prong of Vaillant is simple: \u2009The court must review the record to assess the evidentiary support for the agency's decision. \u2002 Evidence contrary to the agency's decision is outside the scope of the inquiry at this point, for the reviewing court above all cannot reweigh the \u201cpros and cons\u201d of conflicting evidence. \u2002 While contrary evidence may be relevant to the wisdom of the decision, it is irrelevant to the lawfulness of the decision. \u2002 As long as the record contains competent substantial evidence to support the agency's decision, the decision is presumed lawful and the court's job is ended.\"",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_by_ignoring_the_com",
+          "original_index": 27,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+            "reasoning": "The document\u2019s second argument/assignment is the Jennings due-process issue. The Dusseau competent-substantial-evidence/reweighing contention appears in Argument I.C and elsewhere, not in the second assignment. Thus it does not state in the second assignment that the circuit court erred by ignoring competent substantial evidence supporting approval contrary to Dusseau."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+            "reasoning": "The petition is organized into numbered 'Arguments' (I through V), not 'assignments of error,' so there is no 'second assignment' as such. While Dusseau is cited and discussed (in the Standard of Review section and within Argument I.C regarding reweighing evidence), it is not presented as a distinct second assignment of error specifically arguing that the circuit court ignored competent substantial evidence supporting approval. Instead, the Dusseau-based argument is folded into Argument I, which primarily focuses on the FAA advisory circulars being non-binding and the court misapplying airport compatibility law, with the 'reweighing evidence' point as a subsection (I.C). The document does not frame a standalone 'second assignment' matching the criterion's description before moving to due process/Jennings issues (which actually constitutes Argument II). Thus the specific structural and substantive requirement of the criterion is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+            "reasoning": "The argument that the circuit court erred by ignoring/reweighing competent substantial evidence supporting the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm'rs, 794 So. 2d 1270 (Fla. 2001) is raised in the first assignment of error (Argument I.C), not the second assignment. The second assignment of error (Argument II) addresses procedural due process and Jennings v. Dade County."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+        "value": 0.0,
+        "raw": false,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+        "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony. \u2002 These record materials, along with the staff presentations, combined to provide evidence \u201csufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.\u201d",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument.",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_staff_report_recommending_approval_is_c",
+          "original_index": 28,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "In the second assignment (Argument II), the response notes that the Board considered staff recommendations and that the resolution adopted record-based findings, but it does not state that a staff report recommending approval constituted competent substantial evidence supporting the Board's approval of the rezoning."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "The document's second argument section (Argument II) addresses the Jennings due-process/ex parte issue, not a claim that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. While the brief mentions the Board's recital that it considered 'recommendations of the staff' in the factual background and in Argument I's discussion of competent substantial evidence for airport compatibility, it never frames the staff report's approval recommendation as competent substantial evidence in a 'second assignment' or any specific numbered assignment of error. There is no distinct argument heading or discussion stating that the staff report recommending approval is itself competent substantial evidence supporting the rezoning. Thus the criterion is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "In the second assignment of error (Argument Section II), the petition mentions that the Resolution recites consideration of 'the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony' and cites Snyder regarding competent substantial evidence, but it never states that the staff report recommending approval is competent substantial evidence that supports the Board's approval."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+        "value": 0.0,
+        "raw": false,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+        "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony. \u2002 These record materials, along with the staff presentations, combined to provide evidence \u201csufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.\u201d",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument.",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_expert_testimony_on_the_record_is_competent",
+          "original_index": 29,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "The second assignment (Argument II, concerning the Jennings/due-process ruling) does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval. That point is made in the first assignment regarding airport-compatibility evidence, not the second."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "The document does not organize its arguments as 'assignments' with a labeled 'second assignment.' Its second argument section (Argument II) addresses the Jennings/due process ruling, not expert testimony or competent substantial evidence supporting the Board's approval. The discussion of expert testimony as competent substantial evidence supporting the Board's rezoning decision appears instead under Argument I.C (addressing whether evidence was 'fully considered'), not in a second assignment of error. Thus the specific criterion\u2014that the second assignment states expert testimony is competent substantial evidence supporting the Board's approval\u2014is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "The second assignment of error (Argument Section II) addresses due process and ex parte communications under *Jennings*; it does not state that expert testimony on the record is competent substantial evidence supporting the Board's approval of the rezoning."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+        "value": 0.0,
+        "raw": false,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+        "source": "City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D\n\"Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony. \u2002 These record materials, along with the staff presentations, combined to provide evidence \u201csufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.\u201d",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d The primary argument on appeal is that the court failed to apply the standard of review under Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001), by ignoring the competent substantial evidence on the record that supported the Board's approval. Identifying the competent substantial evidence on the record supports this argument.",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_hearing_examiner_s_recommendation_of_ap",
+          "original_index": 30,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "In the second assignment of error (Argument II), the response states that the Board adopted the Hearing Examiner's record-based findings, but it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's rezoning approval."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "The document is organized as Arguments I\u2013V (not as 'assignments of error'), and there is no statement in any section\u2014especially not in what would correspond to a 'second assignment' (Argument II, which addresses the Jennings due process issue)\u2014asserting that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's approval. The brief does discuss the Hearing Examiner's recommendation and the Board's adoption of it, but this point appears in connection with the record generally (e.g., Section I.C discussing competent substantial evidence of airport compatibility) rather than as a specific assertion tied to a 'second assignment' of error. The criterion is therefore not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+            "reasoning": "In the second assignment of error (Argument Section II), the brief notes that the Board adopted the Hearing Examiner's record-based findings and references the general standard that a quasi-judicial rezoning is upheld if supported by competent substantial evidence under Snyder. However, it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's decision."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+        "value": 0.0,
+        "raw": false,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+        "source": "Martin County v. Yusem, 690 So. 2d 1288, 1295 (Fla. 1997), is the controlling FL supreme court case on the limited judicial review of local government legislative functions. https://caselaw.findlaw.com/court/fl-supreme-court/1459273.html#:~:text=-,The%20fairly,1996%29%2E\n \"The fairly debatable standard of review is a highly deferential standard requiring approval of a planning action if reasonable persons could differ as to its propriety.\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_by_failing_to_apply",
+          "original_index": 31,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+            "reasoning": "The response does not state, in a second assignment or otherwise, that the circuit court failed to apply the 'fairly debatable' standard to a legislative decision. Instead, it consistently characterizes the rezoning as quasi-judicial and argues under first-tier/second-tier certiorari standards, competent substantial evidence, and due process."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+            "reasoning": "The document contains no 'second assignment' discussing a 'fairly debatable' standard of review for a legislative decision to construct a water treatment plant on county property. The brief's arguments (I-V) focus on FAA advisory circulars, Jennings due process, predetermination, and the reversal remedy, but never mention the 'fairly debatable' standard of review at all, nor frame the plant construction as a legislative decision subject to that standard."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+            "reasoning": "The response does not state in the second assignment of error (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to a legislative decision to construct a water treatment plant. Instead, the petition frames the rezoning as a quasi-judicial decision governed by the competent substantial evidence / Snyder standard."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+        "value": 0.0,
+        "raw": false,
+        "weight": 20.0,
+        "signed_score": 20.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+        "source": "Lee County Fla. Land Development Code \u00a7 2-191 (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH2AD_ARTVUNCO_S2-191PRLIUNCO#:~:text=This%20section%20does%20not%20prohibit%20the%20informational%20discussion%20of%20pending%20or%20proposed%20cases%20or%20appeals%20by%20and%20between%20a%20County%20Commissioner%20and%20any%20employee%20of%20the%20Board%20of%20County%20Commissioners%2E\n\"Unauthorized communications with a County Commissioner prohibited. . . . This section does not prohibit the informational discussion of pending or proposed cases or appeals by and between a County Commissioner and any employee of the Board of County Commissioners. \"\nSee also Fla. Stat \u00a7 286.0115(3) (2025); https://www.leg.state.fl.us/Statutes/index.cfm?App_mode=Display_Statute&URL=0200-0299/0286/Sections/0286.0115.html#:~:text=%283%29%E2%80%83This%20section%20does%20not%20restrict%20the%20authority%20of%20any%20board%20or%20commission%20to%20establish%20rules%20or%20procedures%20governing%20public%20hearings%20or%20contacts%20with%20local%20public%20officials\n\"286.0115\u2003Access to local public officials; quasi-judicial proceedings on local government land use matters.\u2014 (3)\u2003This section does not restrict the authority of any board or commission to establish rules or procedures governing public hearings or contacts with local public officials.",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_in_finding_that_com",
+          "original_index": 32,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+            "reasoning": "The second assignment argues that the circuit court misapplied Jennings because no undisclosed ex parte communication was identified, but it does not state that the court erred in finding communications with staff to be ex parte communications under Lee County Land Development Code \u00a7 2-191 (2025). The petition does not cite or discuss \u00a7 2-191 or staff communications in that assignment."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+            "reasoning": "The document's second argument (Assignment II) addresses the circuit court's erroneous application of Jennings v. Dade County to a commissioner's on-the-record motion, framing it as an ex parte communication issue. However, the document never mentions Lee County Fla. Land Development Code \u00a7 2-191, nor does it address a finding that communications with staff constitute ex parte communications. There is no reference to staff communications or \u00a7 2-191 anywhere in the petition. The criterion is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+            "reasoning": "The second assignment of error (Section II) addresses whether an on-the-record motion violated due process under Jennings v. Dade County and discusses section 286.0115, Florida Statutes. It does not state or argue that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025)."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+        "value": 0.0,
+        "raw": false,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+        "source": "Martin County v. Yusem, 690 So. 2d 1288, 1295 (Fla. 1997), is the controlling FL supreme court case on the limited judicial review of local government legislative functions. https://caselaw.findlaw.com/court/fl-supreme-court/1459273.html#:~:text=-,The%20fairly,1996%29%2E\n \"The fairly debatable standard of review is a highly deferential standard requiring approval of a planning action if reasonable persons could differ as to its propriety.\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.\nSee also Williams v. Public Util. Protective League, 178 So. 286 (Fla. 1938); https://hallapproved.com/fl/cases/supreme/1938/3402391/#:~:text=As%20an,inadequate\n\"As an abstract proposition of law, the power of the City to compromise, settle, and compose litigation of any kind to which it is a party is an incident to and implied from its power to sue and be sued. Like the power to legislate and negotiate it will not be restrained from exercising such power by a court of equity on a mere showing of belief, fear, or apprehension that some wrong or injury will be done, or when the injury is conjectural or speculative. Relief under such circumstances will be granted only in cases where the pleadings and the proof show clearly that the resulting injury will be irreparable and the remedy at law inadequate.\"",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_by_failing_to_apply_2",
+          "original_index": 33,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+            "reasoning": "The response does not state in its second assignment that the circuit court erred by failing to apply the fairly debatable standard to the County's legislative decision to enter the Kingston Settlement. It discusses the Kingston settlement only as part of a predetermination argument and asserts that planning, acquisition, and settlement activities did not disqualify the Board, without invoking or applying the fairly debatable standard."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+            "reasoning": "The document does not use an 'assignment of error' structure at all; it is organized into Arguments I-V. There is no mention of a 'fairly debatable standard' anywhere in the document. While Argument III discusses the Kingston Settlement in the context of a 'predetermination' theory, it does not frame this as an assignment of error about failing to apply the fairly debatable standard of review to a legislative decision to enter into the settlement. The analysis instead argues about planning functions, proprietary/legislative activities not being prejudgment, and reliance on materials outside the record, but never invokes the 'fairly debatable' standard of review concept."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+            "reasoning": "The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to the county's legislative decision to enter into the Kingston Settlement. Argument II focuses entirely on the misapplication of Jennings v. Dade County and procedural due process concerning an on-the-record motion."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+        "value": 0.0,
+        "raw": false,
+        "weight": 20.0,
+        "signed_score": 20.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+        "source": "The circuit court found that the County had failed to comply with Fed. Aviation Admin., Advisory Circular 150/5190-7 Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023) requirements for airport compatibility, concluding that the most current and restrictive regulations should have been fully considered. This was legal error. Lee County, Fla. Land Development Code \u00a7 34-1102 (2025) incorporates only Fed. Aviation Admin.,  Advisory Circular No. 150/5300-13B, Airport Design (2022) and 150/5200-30D Airport Field Condition Assessments and Winter Operations Safety (July 29, 2016), not Fed. Aviation Admin., Advisory CircularNo. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), which the order treats as controlling. Lee County, Fla. Land Development Code \u00a7 34-1102 (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTVIDIRE_DIV12AICODI_S34-1102PUIN\n\"The purpose of this division is to establish protections around SWFIA and Page Field in accordance with the provisions of F.S. Chs. 330 and 333, as amended, as well as Federal regulations, as amended, including 14 CFR Parts 77, 150 and 151 and FAA Advisory Circulars 150/5300-13A, as amended, renumbered or replaced, and 150/5200-33B, as amended, renumbered or replaced, which address height obstructions, airport hazards, wildlife attractants, noise, runway protection zones, light emissions, reflectivity and power interference, aircraft overflights, and the public investment in air transportation facilities.\"",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_by_finding_that_fed",
+          "original_index": 34,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+            "reasoning": "The response does not state, in a second assignment or otherwise, that the circuit court erred by finding FAA Advisory Circular No. 150/5190-7 (Dec. 7, 2023) incorporated into Lee County Land Development Code \u00a7 34-1102 (2025). It instead discusses different advisory circulars, including AC 150/5190-4B (Sept. 16, 2022) and AC 150/5200-33C."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+            "reasoning": "The document's second assignment of error (Argument II) concerns the circuit court's application of Jennings v. Dade County to a commissioner's on-the-record motion, not anything about FAA advisory circulars being incorporated into LDC \u00a7 34-1102. The argument about FAA advisories and LDC \u00a7 34-1102 appears as Argument I (the first assignment), not the second. Furthermore, the specific advisory circular named in the criterion\u2014No. 150/5190-7, 'Minimum Standards for Commercial Aeronautical Activities' (Dec. 7, 2023)\u2014does not appear anywhere in the document; the circulars actually cited are AC 150/5200-33C and AC 150/5190-4B. Thus the criterion is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+            "reasoning": "The response does not mention Fed. Aviation Admin. Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), anywhere in the petition. Furthermore, the second assignment of error (Argument II) addresses procedural due process under Jennings v. Dade County rather than incorporation of FAA advisory circulars into the Land Development Code."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+        "value": 0.0,
+        "raw": false,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+        "source": "Fed. Aviation Admin., Advisory Circular No. 150/5190-4B, Airport Land Use Compatibility Planning (Sept. 16, 2022) at page 2 confirms that \u201cThis AC does not constitute a regulation, and is not legally binding in its own right\u2026 Conformity with this AC is voluntary, and nonconformity will not affect rights and obligations under existing statutes and regulations,\u201d https://www.faa.gov/documentLibrary/media/Advisory_Circular/150_5190_4b_Land_Use_Compatibility.pdf",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_in_treating_federal",
+          "original_index": 35,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+            "reasoning": "The response does argue that the circuit court erred by treating FAA Advisory Circulars as binding law, but it presents that contention as Argument I (and Ground III below), not as the second assignment. The second assignment/Argument II concerns the on-the-record motion and due process under Jennings."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+            "reasoning": "The document does argue that the circuit court erred in treating FAA Advisory Circulars as binding/mandatory law (Argument I, Sections A-C), but this argument is presented as the FIRST assignment of error, not the second. The second assignment of error (Argument II) addresses the Jennings due process/ex parte communication issue, not the FAA Advisory Circulars. Therefore the criterion, which specifically requires this argument to appear in the 'second assignment,' is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+            "reasoning": "The response argues that the circuit court erred in treating Federal Aviation Administration Advisory Circulars as binding law under its first assignment of error (Argument I), rather than in the second assignment (which instead addresses due process under Jennings)."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+        "value": 0.0,
+        "raw": false,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+        "source": "Florida law is unequivocal that when a circuit court finds error in a local government\u2019s quasi-judicial land use decision, its power is limited to quashing the decision and remanding the matter \u201cas if no order had been entered.\u201d Broward County v. G.B.V. Int\u2019l, Ltd., 787 So. 2d 838, 845 (Fla. 2001) (\u201cWhen a circuit court grants certiorari relief, it quashes the order and leaves the matter pending before the lower tribunal as if no order had been entered.\u201d). https://caselaw.findlaw.com/court/fl-supreme-court/1495364.html#:~:text=When,entered,-%2E\nThe Board's decision is not reversed resulting in a denial, it is quashed resulting in a return to the status quo prior to the decision.",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_erred_by_purporting_to_re",
+          "original_index": 36,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "1/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "1/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+            "reasoning": "The petition\u2019s second substantive assignment/argument, Section IV, expressly states that the circuit court exceeded its certiorari jurisdiction by \"Reversing\" the Board\u2019s decision. It explains that the circuit court\u2019s decretal paragraph stated the Board\u2019s decision was \"REVERSED\" and argues that certiorari permits only quashal, not reversal."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+            "reasoning": "The document organizes its claims as 'Arguments' I through V, not as 'assignments of error.' The second argument (Argument II) addresses the Jennings due process issue regarding the on-the-record motion, not the circuit court's purported reversal of the Board's decision. The reversal/remedy issue is instead addressed in Argument IV ('The Circuit Court Exceeded Its Certiorari Jurisdiction by Reversing the Board's Decision'). Thus, the second assignment/argument does not state that the circuit court erred by purporting to reverse the Board's rezoning decision."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+            "reasoning": "The response argues that the circuit court erred by purporting to reverse the Board's decision in Section IV (the fourth assignment of error), rather than in the second assignment (Section II, which addresses due process under Jennings)."
+          }
+        ]
+      },
+      {
+        "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+        "value": 0.0,
+        "raw": false,
+        "weight": 30.0,
+        "signed_score": 30.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+        "source": "Fla. Const. art. III, \u00a7 3; https://www.flsenate.gov/laws/constitution#A2S03:~:text=The,herein\n\"The powers of the state government shall be divided into legislative, executive and judicial branches. No person belonging to one branch shall exercise any powers appertaining to either of the other branches unless expressly provided herein\"\nSee also Modlin v. City of Miami Beach, 201 So.2d 70 (Fla. 1967); https://law.justia.com/cases/florida/supreme-court/1967/34865-0.html#:~:text=liability%2E-,The,persons \n\"The distinction between legislative action, on the one hand, and executive and judicial action, on the other, is not difficult to define. It is sufficient for present purposes to say that the former is typically prospective and nondiscriminatory, whereas the latter operate retroactively and discriminatorily. In other words, legislative action prescribes a general rule for future operation, whereas judicial and executive action is typically concerned with applying the general rule to specific situations or persons.\"\nThis is a landmark FL supreme court case defining the separate functions of government.",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cDraft a ready-to-file brief requesting second-tier review.\u201d",
+        "metadata": {
+          "review_flag": false,
+          "original_name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_by_violating_the",
+          "original_index": 37,
+          "classifier_reason": "Names second assignment",
+          "classifier_confidence": "high"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+            "reasoning": "The response does not state, in its second assignment or elsewhere, that the circuit court violated separation of powers under article III, section 3 of the Florida Constitution by substituting its judgment for the Board while the Board exercised legislative functions. It discusses improper reweighing/substitution of judgment in the context of quasi-judicial certiorari review, but does not invoke the specified constitutional separation-of-powers theory."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+            "reasoning": "The document's second argument heading (Section II) addresses the Jennings due process issue, not separation of powers under Fla. Const. art. III, \u00a7 3. There is no mention anywhere in the document of separation of powers, Article III, Section 3 of the Florida Constitution, or an argument that the circuit court substituted its judgment for the Board's legislative function in violation of separation of powers. While Section I does discuss the circuit court reweighing evidence and substituting its judgment (citing Dusseau, FP&L, Omnipoint), this is framed as applying the wrong law under certiorari standards, not as a separation of powers violation, and it is not labeled as the 'second assignment of error.' The actual second assignment (Section II) concerns Jennings/due process, not separation of powers. Thus the criterion is not satisfied."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+            "reasoning": "The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3 when substituting its judgment for the Board's legislative functions. Argument II instead addresses procedural due process under Jennings v. Dade County and the impartiality of the Board."
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 5.0,
+      "positive_total": 150.0,
+      "unclamped": 0.03333333333333333,
+      "clamped": 0.03333333333333333
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+              "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+                  "reasoning": "The response expressly identifies the correct second-assignment mechanism: a \"PETITION FOR WRIT OF CERTIORARI\" seeking \"Second-Tier Review of a Circuit Court Order Entered in Its Review Capacity,\" filed in the District Court of Appeal of Florida, Sixth District. Its jurisdiction section likewise states that the circuit court\u2019s final order acting in its review capacity is reviewable by certiorari in that court."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+                  "reasoning": "The document is itself a complete Petition for Writ of Certiorari filed in the Sixth District Court of Appeal, but it does not present its arguments as a list of discrete 'assignments of error' and does not have a 'second assignment' that specifically discusses or justifies the appropriate appellate mechanism (i.e., that a Petition for Writ of Certiorari to the 6th DCA is the correct vehicle to challenge the circuit court's order granting first-tier certiorari). The jurisdictional section merely cites Art. V \u00a74(b)(3) and Rule 9.030(b)(2)(B) as the basis for invoking jurisdiction, but this is framed as the 'Basis for Invoking Jurisdiction' section of the petition itself, not as a discrete assignment of error identifying the correct procedural mechanism for appeal. There is no numbered 'assignments' section at all in the document."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "identifies_in_the_second_assignment_that_the_appropriate_mechani",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.",
+                  "reasoning": "The response identifies and utilizes a Petition for Writ of Certiorari to the Sixth District Court of Appeal as the appropriate mechanism to seek review of the Circuit Court's Order Granting Petition for Writ of Certiorari (second-tier certiorari review under Florida Rule of Appellate Procedure 9.030(b)(2)(B))."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"identifies_in_the_second_assignment_that_the_appropriate_mechani\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.\",\n      \"reasoning\": \"2/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"identifies_in_the_second_assignment_that_the_appropriate_mechani\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.\",\n          \"reasoning\": \"The response expressly identifies the correct second-assignment mechanism: a \\\"PETITION FOR WRIT OF CERTIORARI\\\" seeking \\\"Second-Tier Review of a Circuit Court Order Entered in Its Review Capacity,\\\" filed in the District Court of Appeal of Florida, Sixth District. Its jurisdiction section likewise states that the circuit court\\u2019s final order acting in its review capacity is reviewable by certiorari in that court.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"identifies_in_the_second_assignment_that_the_appropriate_mechani\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.\",\n          \"reasoning\": \"The document is itself a complete Petition for Writ of Certiorari filed in the Sixth District Court of Appeal, but it does not present its arguments as a list of discrete 'assignments of error' and does not have a 'second assignment' that specifically discusses or justifies the appropriate appellate mechanism (i.e., that a Petition for Writ of Certiorari to the 6th DCA is the correct vehicle to challenge the circuit court's order granting first-tier certiorari). The jurisdictional section merely cites Art. V \\u00a74(b)(3) and Rule 9.030(b)(2)(B) as the basis for invoking jurisdiction, but this is framed as the 'Basis for Invoking Jurisdiction' section of the petition itself, not as a discrete assignment of error identifying the correct procedural mechanism for appeal. There is no numbered 'assignments' section at all in the document.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"identifies_in_the_second_assignment_that_the_appropriate_mechani\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies in the second assignment that the appropriate mechanism to appeal the Order Granting Writ of Certiorari is a Petition for Writ of Certiorari to the 6th District Court of Appeals.\",\n          \"reasoning\": \"The response identifies and utilizes a Petition for Writ of Certiorari to the Sixth District Court of Appeal as the appropriate mechanism to seek review of the Circuit Court's Order Granting Petition for Writ of Certiorari (second-tier certiorari review under Florida Rule of Appellate Procedure 9.030(b)(2)(B)).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "The second assignment (Argument II, concerning the Jennings/due-process ruling) does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval. That point is made in the first assignment regarding airport-compatibility evidence, not the second."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "The document does not organize its arguments as 'assignments' with a labeled 'second assignment.' Its second argument section (Argument II) addresses the Jennings/due process ruling, not expert testimony or competent substantial evidence supporting the Board's approval. The discussion of expert testimony as competent substantial evidence supporting the Board's rezoning decision appears instead under Argument I.C (addressing whether evidence was 'fully considered'), not in a second assignment of error. Thus the specific criterion\u2014that the second assignment states expert testimony is competent substantial evidence supporting the Board's approval\u2014is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_expert_testimony_on_the_rec",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "The second assignment of error (Argument Section II) addresses due process and ex parte communications under *Jennings*; it does not state that expert testimony on the record is competent substantial evidence supporting the Board's approval of the rezoning."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_expert_testimony_on_the_rec\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_expert_testimony_on_the_rec\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"The second assignment (Argument II, concerning the Jennings/due-process ruling) does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval. That point is made in the first assignment regarding airport-compatibility evidence, not the second.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_expert_testimony_on_the_rec\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"The document does not organize its arguments as 'assignments' with a labeled 'second assignment.' Its second argument section (Argument II) addresses the Jennings/due process ruling, not expert testimony or competent substantial evidence supporting the Board's approval. The discussion of expert testimony as competent substantial evidence supporting the Board's rezoning decision appears instead under Argument I.C (addressing whether evidence was 'fully considered'), not in a second assignment of error. Thus the specific criterion\\u2014that the second assignment states expert testimony is competent substantial evidence supporting the Board's approval\\u2014is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_expert_testimony_on_the_rec\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"The second assignment of error (Argument Section II) addresses due process and ex parte communications under *Jennings*; it does not state that expert testimony on the record is competent substantial evidence supporting the Board's approval of the rezoning.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+                  "reasoning": "The response does not state, in a second assignment or otherwise, that the circuit court failed to apply the 'fairly debatable' standard to a legislative decision. Instead, it consistently characterizes the rezoning as quasi-judicial and argues under first-tier/second-tier certiorari standards, competent substantial evidence, and due process."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+                  "reasoning": "The document contains no 'second assignment' discussing a 'fairly debatable' standard of review for a legislative decision to construct a water treatment plant on county property. The brief's arguments (I-V) focus on FAA advisory circulars, Jennings due process, predetermination, and the reversal remedy, but never mention the 'fairly debatable' standard of review at all, nor frame the plant construction as a legislative decision subject to that standard."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.",
+                  "reasoning": "The response does not state in the second assignment of error (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to a legislative decision to construct a water treatment plant. Instead, the petition frames the rezoning as a quasi-judicial decision governed by the competent substantial evidence / Snyder standard."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_2\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.\",\n          \"reasoning\": \"The response does not state, in a second assignment or otherwise, that the circuit court failed to apply the 'fairly debatable' standard to a legislative decision. Instead, it consistently characterizes the rezoning as quasi-judicial and argues under first-tier/second-tier certiorari standards, competent substantial evidence, and due process.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.\",\n          \"reasoning\": \"The document contains no 'second assignment' discussing a 'fairly debatable' standard of review for a legislative decision to construct a water treatment plant on county property. The brief's arguments (I-V) focus on FAA advisory circulars, Jennings due process, predetermination, and the reversal remedy, but never mention the 'fairly debatable' standard of review at all, nor frame the plant construction as a legislative decision subject to that standard.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to construct a water treatment plant on its own property.\",\n          \"reasoning\": \"The response does not state in the second assignment of error (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to a legislative decision to construct a water treatment plant. Instead, the petition frames the rezoning as a quasi-judicial decision governed by the competent substantial evidence / Snyder standard.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+                  "reasoning": "The response does not state in its second assignment that the circuit court erred by failing to apply the fairly debatable standard to the County's legislative decision to enter the Kingston Settlement. It discusses the Kingston settlement only as part of a predetermination argument and asserts that planning, acquisition, and settlement activities did not disqualify the Board, without invoking or applying the fairly debatable standard."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+                  "reasoning": "The document does not use an 'assignment of error' structure at all; it is organized into Arguments I-V. There is no mention of a 'fairly debatable standard' anywhere in the document. While Argument III discusses the Kingston Settlement in the context of a 'predetermination' theory, it does not frame this as an assignment of error about failing to apply the fairly debatable standard of review to a legislative decision to enter into the settlement. The analysis instead argues about planning functions, proprietary/legislative activities not being prejudgment, and reliance on materials outside the record, but never invokes the 'fairly debatable' standard of review concept."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.",
+                  "reasoning": "The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to the county's legislative decision to enter into the Kingston Settlement. Argument II focuses entirely on the misapplication of Jennings v. Dade County and procedural due process concerning an on-the-record motion."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_3\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.\",\n          \"reasoning\": \"The response does not state in its second assignment that the circuit court erred by failing to apply the fairly debatable standard to the County's legislative decision to enter the Kingston Settlement. It discusses the Kingston settlement only as part of a predetermination argument and asserts that planning, acquisition, and settlement activities did not disqualify the Board, without invoking or applying the fairly debatable standard.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.\",\n          \"reasoning\": \"The document does not use an 'assignment of error' structure at all; it is organized into Arguments I-V. There is no mention of a 'fairly debatable standard' anywhere in the document. While Argument III discusses the Kingston Settlement in the context of a 'predetermination' theory, it does not frame this as an assignment of error about failing to apply the fairly debatable standard of review to a legislative decision to enter into the settlement. The analysis instead argues about planning functions, proprietary/legislative activities not being prejudgment, and reliance on materials outside the record, but never invokes the 'fairly debatable' standard of review concept.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by failing to apply the fairly debatable standard of review to the county's legislative decision to enter into the Kingston Settlement to resolve pending litigation.\",\n          \"reasoning\": \"The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by failing to apply the 'fairly debatable' standard of review to the county's legislative decision to enter into the Kingston Settlement. Argument II focuses entirely on the misapplication of Jennings v. Dade County and procedural due process concerning an on-the-record motion.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+                  "reasoning": "The response does not state, in a second assignment or otherwise, that the circuit court erred by finding FAA Advisory Circular No. 150/5190-7 (Dec. 7, 2023) incorporated into Lee County Land Development Code \u00a7 34-1102 (2025). It instead discusses different advisory circulars, including AC 150/5190-4B (Sept. 16, 2022) and AC 150/5200-33C."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+                  "reasoning": "The document's second assignment of error (Argument II) concerns the circuit court's application of Jennings v. Dade County to a commissioner's on-the-record motion, not anything about FAA advisory circulars being incorporated into LDC \u00a7 34-1102. The argument about FAA advisories and LDC \u00a7 34-1102 appears as Argument I (the first assignment), not the second. Furthermore, the specific advisory circular named in the criterion\u2014No. 150/5190-7, 'Minimum Standards for Commercial Aeronautical Activities' (Dec. 7, 2023)\u2014does not appear anywhere in the document; the circulars actually cited are AC 150/5200-33C and AC 150/5190-4B. Thus the criterion is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \u00a7 34-1102 (2025).",
+                  "reasoning": "The response does not mention Fed. Aviation Admin. Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), anywhere in the petition. Furthermore, the second assignment of error (Argument II) addresses procedural due process under Jennings v. Dade County rather than incorporation of FAA advisory circulars into the Land Development Code."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_4\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \\u00a7 34-1102 (2025).\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \\u00a7 34-1102 (2025).\",\n          \"reasoning\": \"The response does not state, in a second assignment or otherwise, that the circuit court erred by finding FAA Advisory Circular No. 150/5190-7 (Dec. 7, 2023) incorporated into Lee County Land Development Code \\u00a7 34-1102 (2025). It instead discusses different advisory circulars, including AC 150/5190-4B (Sept. 16, 2022) and AC 150/5200-33C.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \\u00a7 34-1102 (2025).\",\n          \"reasoning\": \"The document's second assignment of error (Argument II) concerns the circuit court's application of Jennings v. Dade County to a commissioner's on-the-record motion, not anything about FAA advisory circulars being incorporated into LDC \\u00a7 34-1102. The argument about FAA advisories and LDC \\u00a7 34-1102 appears as Argument I (the first assignment), not the second. Furthermore, the specific advisory circular named in the criterion\\u2014No. 150/5190-7, 'Minimum Standards for Commercial Aeronautical Activities' (Dec. 7, 2023)\\u2014does not appear anywhere in the document; the circulars actually cited are AC 150/5200-33C and AC 150/5190-4B. Thus the criterion is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by finding that Fed. Aviation Admin., Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), is incorporated into Lee County Fla. Land Development Code \\u00a7 34-1102 (2025).\",\n          \"reasoning\": \"The response does not mention Fed. Aviation Admin. Advisory Circular No. 150/5190-7, Minimum Standards for Commercial Aeronautical Activities (Dec. 7, 2023), anywhere in the petition. Furthermore, the second assignment of error (Argument II) addresses procedural due process under Jennings v. Dade County rather than incorporation of FAA advisory circulars into the Land Development Code.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+              "reasoning": "1/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+                  "reasoning": "The petition\u2019s second substantive assignment/argument, Section IV, expressly states that the circuit court exceeded its certiorari jurisdiction by \"Reversing\" the Board\u2019s decision. It explains that the circuit court\u2019s decretal paragraph stated the Board\u2019s decision was \"REVERSED\" and argues that certiorari permits only quashal, not reversal."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+                  "reasoning": "The document organizes its claims as 'Arguments' I through V, not as 'assignments of error.' The second argument (Argument II) addresses the Jennings due process issue regarding the on-the-record motion, not the circuit court's purported reversal of the Board's decision. The reversal/remedy issue is instead addressed in Argument IV ('The Circuit Court Exceeded Its Certiorari Jurisdiction by Reversing the Board's Decision'). Thus, the second assignment/argument does not state that the circuit court erred by purporting to reverse the Board's rezoning decision."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_b_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\u2019s rezoning decision.",
+                  "reasoning": "The response argues that the circuit court erred by purporting to reverse the Board's decision in Section IV (the fourth assignment of error), rather than in the second assignment (Section II, which addresses due process under Jennings)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_5\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\\u2019s rezoning decision.\",\n      \"reasoning\": \"1/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\\u2019s rezoning decision.\",\n          \"reasoning\": \"The petition\\u2019s second substantive assignment/argument, Section IV, expressly states that the circuit court exceeded its certiorari jurisdiction by \\\"Reversing\\\" the Board\\u2019s decision. It explains that the circuit court\\u2019s decretal paragraph stated the Board\\u2019s decision was \\\"REVERSED\\\" and argues that certiorari permits only quashal, not reversal.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\\u2019s rezoning decision.\",\n          \"reasoning\": \"The document organizes its claims as 'Arguments' I through V, not as 'assignments of error.' The second argument (Argument II) addresses the Jennings due process issue regarding the on-the-record motion, not the circuit court's purported reversal of the Board's decision. The reversal/remedy issue is instead addressed in Argument IV ('The Circuit Court Exceeded Its Certiorari Jurisdiction by Reversing the Board's Decision'). Thus, the second assignment/argument does not state that the circuit court erred by purporting to reverse the Board's rezoning decision.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_b_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by purporting to reverse the Board\\u2019s rezoning decision.\",\n          \"reasoning\": \"The response argues that the circuit court erred by purporting to reverse the Board's decision in Section IV (the fourth assignment of error), rather than in the second assignment (Section II, which addresses due process under Jennings).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+                  "reasoning": "The document\u2019s second argument/assignment is the Jennings due-process issue. The Dusseau competent-substantial-evidence/reweighing contention appears in Argument I.C and elsewhere, not in the second assignment. Thus it does not state in the second assignment that the circuit court erred by ignoring competent substantial evidence supporting approval contrary to Dusseau."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+                  "reasoning": "The petition is organized into numbered 'Arguments' (I through V), not 'assignments of error,' so there is no 'second assignment' as such. While Dusseau is cited and discussed (in the Standard of Review section and within Argument I.C regarding reweighing evidence), it is not presented as a distinct second assignment of error specifically arguing that the circuit court ignored competent substantial evidence supporting approval. Instead, the Dusseau-based argument is folded into Argument I, which primarily focuses on the FAA advisory circulars being non-binding and the court misapplying airport compatibility law, with the 'reweighing evidence' point as a subsection (I.C). The document does not frame a standalone 'second assignment' matching the criterion's description before moving to due process/Jennings issues (which actually constitutes Argument II). Thus the specific structural and substantive requirement of the criterion is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_by",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\u2019rs, 794 So.2d 1270 (Fla. 2001).",
+                  "reasoning": "The argument that the circuit court erred by ignoring/reweighing competent substantial evidence supporting the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm'rs, 794 So. 2d 1270 (Fla. 2001) is raised in the first assignment of error (Argument I.C), not the second assignment. The second assignment of error (Argument II) addresses procedural due process and Jennings v. Dade County."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_by\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\\u2019rs, 794 So.2d 1270 (Fla. 2001).\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_by\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\\u2019rs, 794 So.2d 1270 (Fla. 2001).\",\n          \"reasoning\": \"The document\\u2019s second argument/assignment is the Jennings due-process issue. The Dusseau competent-substantial-evidence/reweighing contention appears in Argument I.C and elsewhere, not in the second assignment. Thus it does not state in the second assignment that the circuit court erred by ignoring competent substantial evidence supporting approval contrary to Dusseau.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_by\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\\u2019rs, 794 So.2d 1270 (Fla. 2001).\",\n          \"reasoning\": \"The petition is organized into numbered 'Arguments' (I through V), not 'assignments of error,' so there is no 'second assignment' as such. While Dusseau is cited and discussed (in the Standard of Review section and within Argument I.C regarding reweighing evidence), it is not presented as a distinct second assignment of error specifically arguing that the circuit court ignored competent substantial evidence supporting approval. Instead, the Dusseau-based argument is folded into Argument I, which primarily focuses on the FAA advisory circulars being non-binding and the court misapplying airport compatibility law, with the 'reweighing evidence' point as a subsection (I.C). The document does not frame a standalone 'second assignment' matching the criterion's description before moving to due process/Jennings issues (which actually constitutes Argument II). Thus the specific structural and substantive requirement of the criterion is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_by\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred by ignoring the competent substantial evidence on the record that supported the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm\\u2019rs, 794 So.2d 1270 (Fla. 2001).\",\n          \"reasoning\": \"The argument that the circuit court erred by ignoring/reweighing competent substantial evidence supporting the approval contrary to Dusseau v. Metro. Dade Cnty. Bd. of Cnty. Comm'rs, 794 So. 2d 1270 (Fla. 2001) is raised in the first assignment of error (Argument I.C), not the second assignment. The second assignment of error (Argument II) addresses procedural due process and Jennings v. Dade County.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+                  "reasoning": "The response does argue that the circuit court erred by treating FAA Advisory Circulars as binding law, but it presents that contention as Argument I (and Ground III below), not as the second assignment. The second assignment/Argument II concerns the on-the-record motion and due process under Jennings."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+                  "reasoning": "The document does argue that the circuit court erred in treating FAA Advisory Circulars as binding/mandatory law (Argument I, Sections A-C), but this argument is presented as the FIRST assignment of error, not the second. The second assignment of error (Argument II) addresses the Jennings due process/ex parte communication issue, not the FAA Advisory Circulars. Therefore the criterion, which specifically requires this argument to appear in the 'second assignment,' is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_i_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.",
+                  "reasoning": "The response argues that the circuit court erred in treating Federal Aviation Administration Advisory Circulars as binding law under its first assignment of error (Argument I), rather than in the second assignment (which instead addresses due process under Jennings)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_i_2\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_i_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.\",\n          \"reasoning\": \"The response does argue that the circuit court erred by treating FAA Advisory Circulars as binding law, but it presents that contention as Argument I (and Ground III below), not as the second assignment. The second assignment/Argument II concerns the on-the-record motion and due process under Jennings.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_i_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.\",\n          \"reasoning\": \"The document does argue that the circuit court erred in treating FAA Advisory Circulars as binding/mandatory law (Argument I, Sections A-C), but this argument is presented as the FIRST assignment of error, not the second. The second assignment of error (Argument II) addresses the Jennings due process/ex parte communication issue, not the FAA Advisory Circulars. Therefore the criterion, which specifically requires this argument to appear in the 'second assignment,' is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_i_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in treating Federal Aviation Authority Advisory Circulars as binding law.\",\n          \"reasoning\": \"The response argues that the circuit court erred in treating Federal Aviation Administration Advisory Circulars as binding law under its first assignment of error (Argument I), rather than in the second assignment (which instead addresses due process under Jennings).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+                  "reasoning": "The second assignment argues that the circuit court misapplied Jennings because no undisclosed ex parte communication was identified, but it does not state that the court erred in finding communications with staff to be ex parte communications under Lee County Land Development Code \u00a7 2-191 (2025). The petition does not cite or discuss \u00a7 2-191 or staff communications in that assignment."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+                  "reasoning": "The document's second argument (Assignment II) addresses the circuit court's erroneous application of Jennings v. Dade County to a commissioner's on-the-record motion, framing it as an ex parte communication issue. However, the document never mentions Lee County Fla. Land Development Code \u00a7 2-191, nor does it address a finding that communications with staff constitute ex parte communications. There is no reference to staff communications or \u00a7 2-191 anywhere in the petition. The criterion is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_erred_in",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025).",
+                  "reasoning": "The second assignment of error (Section II) addresses whether an on-the-record motion violated due process under Jennings v. Dade County and discusses section 286.0115, Florida Statutes. It does not state or argue that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \u00a7 2-191 (2025)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_in\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \\u00a7 2-191 (2025).\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_in\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \\u00a7 2-191 (2025).\",\n          \"reasoning\": \"The second assignment argues that the circuit court misapplied Jennings because no undisclosed ex parte communication was identified, but it does not state that the court erred in finding communications with staff to be ex parte communications under Lee County Land Development Code \\u00a7 2-191 (2025). The petition does not cite or discuss \\u00a7 2-191 or staff communications in that assignment.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_in\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \\u00a7 2-191 (2025).\",\n          \"reasoning\": \"The document's second argument (Assignment II) addresses the circuit court's erroneous application of Jennings v. Dade County to a commissioner's on-the-record motion, framing it as an ex parte communication issue. However, the document never mentions Lee County Fla. Land Development Code \\u00a7 2-191, nor does it address a finding that communications with staff constitute ex parte communications. There is no reference to staff communications or \\u00a7 2-191 anywhere in the petition. The criterion is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_erred_in\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \\u00a7 2-191 (2025).\",\n          \"reasoning\": \"The second assignment of error (Section II) addresses whether an on-the-record motion violated due process under Jennings v. Dade County and discusses section 286.0115, Florida Statutes. It does not state or argue that the circuit court erred in finding that communications with staff are ex parte communications pursuant to Lee County Fla. Land Development Code \\u00a7 2-191 (2025).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+                  "reasoning": "The response does not state, in its second assignment or elsewhere, that the circuit court violated separation of powers under article III, section 3 of the Florida Constitution by substituting its judgment for the Board while the Board exercised legislative functions. It discusses improper reweighing/substitution of judgment in the context of quasi-judicial certiorari review, but does not invoke the specified constitutional separation-of-powers theory."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+                  "reasoning": "The document's second argument heading (Section II) addresses the Jennings due process issue, not separation of powers under Fla. Const. art. III, \u00a7 3. There is no mention anywhere in the document of separation of powers, Article III, Section 3 of the Florida Constitution, or an argument that the circuit court substituted its judgment for the Board's legislative function in violation of separation of powers. While Section I does discuss the circuit court reweighing evidence and substituting its judgment (citing Dusseau, FP&L, Omnipoint), this is framed as applying the wrong law under certiorari standards, not as a separation of powers violation, and it is not labeled as the 'second assignment of error.' The actual second assignment (Section II) concerns Jennings/due process, not separation of powers. Thus the criterion is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_circuit_court_s_erred_b",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.",
+                  "reasoning": "The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by violating the separation of powers under Fla. Const. art. III, \u00a7 3 when substituting its judgment for the Board's legislative functions. Argument II instead addresses procedural due process under Jennings v. Dade County and the impartiality of the Board."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_circuit_court_s_erred_b\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \\u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_s_erred_b\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \\u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.\",\n          \"reasoning\": \"The response does not state, in its second assignment or elsewhere, that the circuit court violated separation of powers under article III, section 3 of the Florida Constitution by substituting its judgment for the Board while the Board exercised legislative functions. It discusses improper reweighing/substitution of judgment in the context of quasi-judicial certiorari review, but does not invoke the specified constitutional separation-of-powers theory.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_s_erred_b\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \\u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.\",\n          \"reasoning\": \"The document's second argument heading (Section II) addresses the Jennings due process issue, not separation of powers under Fla. Const. art. III, \\u00a7 3. There is no mention anywhere in the document of separation of powers, Article III, Section 3 of the Florida Constitution, or an argument that the circuit court substituted its judgment for the Board's legislative function in violation of separation of powers. While Section I does discuss the circuit court reweighing evidence and substituting its judgment (citing Dusseau, FP&L, Omnipoint), this is framed as applying the wrong law under certiorari standards, not as a separation of powers violation, and it is not labeled as the 'second assignment of error.' The actual second assignment (Section II) concerns Jennings/due process, not separation of powers. Thus the criterion is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_circuit_court_s_erred_b\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the circuit court's erred by violating the separation of powers under Fla. Const. art. III, \\u00a7 3,  when it substituted its judgement for that of the Board in exercising its legislative functions.\",\n          \"reasoning\": \"The response does not state in the second assignment (or anywhere in the petition) that the circuit court erred by violating the separation of powers under Fla. Const. art. III, \\u00a7 3 when substituting its judgment for the Board's legislative functions. Argument II instead addresses procedural due process under Jennings v. Dade County and the impartiality of the Board.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "In the second assignment of error (Argument II), the response states that the Board adopted the Hearing Examiner's record-based findings, but it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's rezoning approval."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "The document is organized as Arguments I\u2013V (not as 'assignments of error'), and there is no statement in any section\u2014especially not in what would correspond to a 'second assignment' (Argument II, which addresses the Jennings due process issue)\u2014asserting that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's approval. The brief does discuss the Hearing Examiner's recommendation and the Board's adoption of it, but this point appears in connection with the record generally (e.g., Section I.C discussing competent substantial evidence of airport compatibility) rather than as a specific assertion tied to a 'second assignment' of error. The criterion is therefore not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_hearing_examiner_s_reco",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "In the second assignment of error (Argument Section II), the brief notes that the Board adopted the Hearing Examiner's record-based findings and references the general standard that a quasi-judicial rezoning is upheld if supported by competent substantial evidence under Snyder. However, it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's decision."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_hearing_examiner_s_reco\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_hearing_examiner_s_reco\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"In the second assignment of error (Argument II), the response states that the Board adopted the Hearing Examiner's record-based findings, but it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's rezoning approval.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_hearing_examiner_s_reco\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"The document is organized as Arguments I\\u2013V (not as 'assignments of error'), and there is no statement in any section\\u2014especially not in what would correspond to a 'second assignment' (Argument II, which addresses the Jennings due process issue)\\u2014asserting that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's approval. The brief does discuss the Hearing Examiner's recommendation and the Board's adoption of it, but this point appears in connection with the record generally (e.g., Section I.C discussing competent substantial evidence of airport compatibility) rather than as a specific assertion tied to a 'second assignment' of error. The criterion is therefore not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_hearing_examiner_s_reco\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the Hearing Examiner's recommendation of approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"In the second assignment of error (Argument Section II), the brief notes that the Board adopted the Hearing Examiner's record-based findings and references the general standard that a quasi-judicial rezoning is upheld if supported by competent substantial evidence under Snyder. However, it does not state that the Hearing Examiner's recommendation of approval itself constitutes competent substantial evidence supporting the Board's decision.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "In the second assignment (Argument II), the response notes that the Board considered staff recommendations and that the resolution adopted record-based findings, but it does not state that a staff report recommending approval constituted competent substantial evidence supporting the Board's approval of the rezoning."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "The document's second argument section (Argument II) addresses the Jennings due-process/ex parte issue, not a claim that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. While the brief mentions the Board's recital that it considered 'recommendations of the staff' in the factual background and in Argument I's discussion of competent substantial evidence for airport compatibility, it never frames the staff report's approval recommendation as competent substantial evidence in a 'second assignment' or any specific numbered assignment of error. There is no distinct argument heading or discussion stating that the staff report recommending approval is itself competent substantial evidence supporting the rezoning. Thus the criterion is not satisfied."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "states_in_the_second_assignment_that_the_staff_report_recommendi",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.",
+                  "reasoning": "In the second assignment of error (Argument Section II), the petition mentions that the Resolution recites consideration of 'the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony' and cites Snyder regarding competent substantial evidence, but it never states that the staff report recommending approval is competent substantial evidence that supports the Board's approval."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"states_in_the_second_assignment_that_the_staff_report_recommendi\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_staff_report_recommendi\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"In the second assignment (Argument II), the response notes that the Board considered staff recommendations and that the resolution adopted record-based findings, but it does not state that a staff report recommending approval constituted competent substantial evidence supporting the Board's approval of the rezoning.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_staff_report_recommendi\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"The document's second argument section (Argument II) addresses the Jennings due-process/ex parte issue, not a claim that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. While the brief mentions the Board's recital that it considered 'recommendations of the staff' in the factual background and in Argument I's discussion of competent substantial evidence for airport compatibility, it never frames the staff report's approval recommendation as competent substantial evidence in a 'second assignment' or any specific numbered assignment of error. There is no distinct argument heading or discussion stating that the staff report recommending approval is itself competent substantial evidence supporting the rezoning. Thus the criterion is not satisfied.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"states_in_the_second_assignment_that_the_staff_report_recommendi\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.\",\n          \"reasoning\": \"In the second assignment of error (Argument Section II), the petition mentions that the Resolution recites consideration of 'the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony' and cites Snyder regarding competent substantial evidence, but it never states that the staff report recommending approval is competent substantial evidence that supports the Board's approval.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}

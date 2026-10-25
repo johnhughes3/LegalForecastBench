@@ -107,6 +107,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** penalty clear (1/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum states that DCI2018-10023 was formally withdrawn on September 13, 2023, and describes the prior case as having remained open through that period (including the Petition’s allegation that it was left open until 2023). This conveys that the matter remained active/open until that date.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo only notes that DCI2018-10023 was 'formally withdrawn' on September 13, 2023 (per the Petition), listing this as a discrete event in the procedural history table. It does not affirmatively assert that the application remained continuously active from its 2018/2019 filing until that date; it merely cites the withdrawal date as the end of the matter's procedural life. Thus the response does not commit the specific failure of stating that DCI2018-10023 remained active until September 13, 2023.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first assignment (or ground) that DCI2018-10023 remained active until September 13, 2023. The only mention of September 13, 2023 is in the factual timeline table noting when DCI2018-10023 was formally withdrawn.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -214,6 +228,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly recommends that, pending a stay ruling, the County direct staff to suspend zoning-dependent site work and later reiterates that the County Manager and LCU should suspend such work. This states that County construction activities at the subject property should cease, at least temporarily.
+- `anthropic/claude-sonnet-5`: value `1.0` — In the Executive Summary (the first major section, functioning as the 'first assignment' of recommendations), the memo explicitly states: 'Pending a stay ruling, direct staff to suspend site work that depends on the quashed zoning, and to inventory all permits, development orders, and contracts issued or let in reliance on Resolution Z-23-035.' This is reiterated later in the Recommendation section ('Manage construction risk now... direct the County Manager and LCU to suspend zoning-dependent site work at the SEAWRF site'). This amounts to advising the County to cease/suspend construction activities at the subject property, which is the failure criterion described. Therefore the response does commit the failure.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that the County should cease construction activities at the subject property. Instead, it advises that ongoing construction carries legal risks and recommends seeking a stay while temporarily suspending only zoning-dependent site work pending a stay ruling.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -303,6 +331,20 @@ Evidence the model quoted (check against the source):
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `20`.
+- `openai/gpt-5.6-terra`: value `1.0` — In the first numbered recommendation in the Executive Summary, the memorandum expressly recommends that the County file a petition for second-tier certiorari in the Sixth District Court of Appeal within 30 days of rendition, with a stated conservative deadline of November 24, 2025. The later Recommendation section reiterates this instruction.
+- `anthropic/claude-sonnet-5`: value `1.0` — In Section VI (Recommendation), the very first action item explicitly advises the Board to authorize the County Attorney to file a petition for writ of certiorari (i.e., an appeal) with the Sixth District Court of Appeal within the applicable deadline (no later than November 24, 2025, i.e., within 30 days of rendition), which satisfies the requirement that the first assignment/recommendation state the County should file a timely appeal with the Sixth District/Circuit Court of Appeal.
+- `gemini/gemini-3.8-flash`: value `1.0` — Under the first recommendation/action item, the memorandum explicitly advises the County to file a timely petition for second-tier certiorari (appeal) in the Sixth District Court of Appeal within 30 days of rendition (specifically noting no later than November 24, 2025).
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -383,6 +425,20 @@ Evidence the model quoted (check against the source):
 - states_in_the_first_assignment_that_the_county_should_remand_the: “States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.”
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The first recommended action is to file second-tier certiorari and seek a stay. Although the memorandum proposes preparing a parallel contingency rehearing and discusses a possible new Hearing Examiner/Board hearing, it does not state in the first assignment that the County should remand the case to the Hearing Examiner to address the Order's deficiencies while the appeal is pending.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document never frames an 'assignment' (as in an appellate brief's assignments of error) advocating that the County remand the case to the Hearing Examiner to cure the deficiencies identified in the Order while an appeal is pending. Instead, the memo's primary recommended action (and the first of its numbered recommendations) is to pursue second-tier certiorari in the Sixth DCA, with a stay motion, and only as a parallel/contingency measure (Option 3, to be used 'if appellate relief is denied, or after the Sixth District acts') does it suggest holding a new quasi-judicial hearing before the Hearing Examiner and Board. This contingency rehearing is explicitly not framed as occurring simultaneously with a pending appeal, and it is not labeled or treated as a 'first assignment.' Thus the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state in the first assignment (or first recommendation/option) that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order while an appeal is pending. Instead, the first recommendation is to file a petition for second-tier certiorari in the Sixth District Court of Appeal.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -490,6 +546,20 @@ Authorities the model cited:
 - Fla. Stat. § 163.3167(10) (2024): Protects an unappealed development order only against later invalidation of the underlying land development regulations for deficient approval standards; it does not affect timely certiorari. ([link](https://www.flsenate.gov/Laws/Statutes/2024/163.3167))
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state, in any assignment or elsewhere, that under Fla. Stat. § 163.3167(10) (2025) the project's development order may not be invalidated by a subsequent judicial determination because the appeal period expired. It instead treats the zoning approval as quashed and development orders/permits as exposed to challenge.
+- `anthropic/claude-sonnet-5`: value `0.0` — The memo never cites or discusses Fla. Stat. § 163.3167(10) (2025) or the concept that a development order cannot be invalidated by a subsequent judicial determination because the appeal period has expired. The document's 'first assignment' (Ground I analysis) addresses Jennings-based due process/bias arguments and § 286.0115, not § 163.3167(10). Chapter 163 is only mentioned generically as part of the Petition's cited statutes, with no substantive discussion of subsection (10) or its finality/timeliness protection. Thus the specific legal criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not cite or discuss Fla. Stat. § 163.3167(10) (2025), nor does it state that the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal of the development order has expired.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -608,6 +678,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The memorandum does not state that, under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020. Instead, it states that DCI2018-10023 was formally withdrawn on September 13, 2023.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses DCI2018-10023 and its withdrawal date as September 13, 2023 (citing Pet. 16), not February 13, 2020. There is no mention of Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), nor any statement that DCI2018-10023 was considered withdrawn on February 13, 2020. The criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), nor does it state that DCI2018-10023 was considered withdrawn on February 13, 2020 (it only notes that DCI2018-10023 was formally withdrawn on September 13, 2023).
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -685,6 +769,20 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The second assignment (Argument II, concerning the Jennings/due-process ruling) does not state that expert testimony in the record constitutes competent substantial evidence supporting the Board's rezoning approval. That point is made in the first assignment regarding airport-compatibility evidence, not the second.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document does not organize its arguments as 'assignments' with a labeled 'second assignment.' Its second argument section (Argument II) addresses the Jennings/due process ruling, not expert testimony or competent substantial evidence supporting the Board's approval. The discussion of expert testimony as competent substantial evidence supporting the Board's rezoning decision appears instead under Argument I.C (addressing whether evidence was 'fully considered'), not in a second assignment of error. Thus the specific criterion—that the second assignment states expert testimony is competent substantial evidence supporting the Board's approval—is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The second assignment of error (Argument Section II) addresses due process and ex parte communications under *Jennings*; it does not state that expert testimony on the record is competent substantial evidence supporting the Board's approval of the rezoning.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Not defective
 - **AI reasoning:** Wrong
@@ -759,6 +857,20 @@ Rulings on the blind findings above:
 - **GPT-6 Sol F1 → not_a_defect:** Overturned. The Resolution recites that the Hearing Examiner 'recommended APPROVAL of the request with conditions,' that the Board considered 'the recommendations of the staff, the Hearing Examiner,' and that the Board 'adopts the recommendation of the Hearing Examiner, including the following findings.' The Petition quotes the applicant's planner presenting a Johnson Engineering airport-buffer exhibit at the hearing. A ready-to-file brief can therefore identify the staff recommendation, the Hearing Examiner recommendation, and expert testimony as competent substantial evidence from the supplied record without inventing transcript specifics. Arguing that the first-tier court applied the wrong law by disregarding supporting evidence is a standard second-tier ground and is consistent with the second-tier limits Sol cites. I did not reread Dusseau. These criteria nonetheless ask for ordinary advocacy that the record supports.
 
 [Full reconciliation](../tasks/lrb-certiorari-quasi-judicial-land-use-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — In the second assignment (Argument II), the response notes that the Board considered staff recommendations and that the resolution adopted record-based findings, but it does not state that a staff report recommending approval constituted competent substantial evidence supporting the Board's approval of the rezoning.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document's second argument section (Argument II) addresses the Jennings due-process/ex parte issue, not a claim that the staff report recommending approval constitutes competent substantial evidence supporting the Board's approval. While the brief mentions the Board's recital that it considered 'recommendations of the staff' in the factual background and in Argument I's discussion of competent substantial evidence for airport compatibility, it never frames the staff report's approval recommendation as competent substantial evidence in a 'second assignment' or any specific numbered assignment of error. There is no distinct argument heading or discussion stating that the staff report recommending approval is itself competent substantial evidence supporting the rezoning. Thus the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — In the second assignment of error (Argument Section II), the petition mentions that the Resolution recites consideration of 'the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony' and cites Snyder regarding competent substantial evidence, but it never states that the staff report recommending approval is competent substantial evidence that supports the Board's approval.
+
+Links: [run record](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-certiorari-quasi-judicial-land-use-assignment-2/opus55-low/reward-details.json).
 
 </details>
 
