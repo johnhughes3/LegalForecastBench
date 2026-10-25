@@ -1869,13 +1869,14 @@ Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** No
+- **Environment:** Correct
 - **Environment explanation:**
-- **Note and source locator:**
+- **Note and source locator:** The rubric penalizes models for stating that the 2023 Illinois Annual Report Statistics report a 60.5% clearance rate in Cook County, Illinois. But that document is provided in the environment and does indeed report the rate given as the clearance rate for all cases. In our test runs, Opus and Luna were both penalized incorrectly for noting this figure and then explaining why the 60.5% clearance rate for "all cases" was less relevant than civil-case data, the relevant category here. While some lawyers prefer not to raise bad facts that the other side has not raised, here, the defendants' opening brief squarely presents the 60.5% statistic to the Court -- so any competent opposition would respond to that argument. There is no reason to penalize a model for doing so.
+- Sources: 2023 Annual Report Statistical Summary.pdf, p. 21 (all-case clearance table: Cook County 60.5%) and p. 22 (civil category: Cook 97.9%, 18th Circuit 96.3%); Defendants Motion to Transfer.pdf, PDF p. 6 ("Defendants accordingly rely principally on the clearance-rate comparison above"). Native runs, both penalized 3/3 (-30 of 73 positive points): [Opus 5.5 (low)](../model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md), under the heading "Defendants rely on the wrong statistic," names the 60.5% all-case figure and then gives the civil rates (97.9% and 96.3%), earning +2 on criteria 19 and 20; [GPT-6 Luna (xhigh)](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) says the all-case figure gives Defendants "some support" but has "limited" weight because it "expressly covers all case types," and notes the report has no comparable Cook time-to-verdict data for civil jury cases over $50,000. The companion assignment 1 penalty (criterion 25, -30) has the same wording problem; its justification says the 60.5% figure "is not applicable to Civil Cases."
 <!-- review:end -->
 
 ## 17. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_3
