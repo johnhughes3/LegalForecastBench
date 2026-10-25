@@ -145,6 +145,7 @@
     "tests/test_jev_workflow.py",
     "tests/test_jev_workflow_failures.py",
     "tests/test_legalreasonbench_audit.py",
+    "tests/test_legalreasonbench_review_sample.py",
     "tests/test_license_terms.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",

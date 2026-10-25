@@ -1927,6 +1927,23 @@
         "nonblank_line_count": 289,
         "top_level_definition_count": 14
       },
+      "scripts/legalreasonbench_review_sample.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "render_item",
+        "largest_symbol_lines": 97,
+        "layer": "entrypoint",
+        "line_count": 669,
+        "nonblank_line_count": 586,
+        "top_level_definition_count": 25
+      },
       "scripts/pangram_site.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
