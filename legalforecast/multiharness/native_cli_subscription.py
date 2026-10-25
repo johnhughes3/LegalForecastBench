@@ -193,6 +193,16 @@ def validate_auth_only_config_root(
             raise AuthProfileError(
                 f"{executable} {role} auth metadata could not be inspected"
             ) from exc
+        if entry.name == ".claude.json.lock" and executable == "claude":
+            if (
+                entry.is_symlink()
+                or not stat.S_ISDIR(metadata.st_mode)
+                or any(entry.iterdir())
+            ):
+                raise AuthProfileError(
+                    "Claude vendor lock must be an empty non-symlink directory"
+                )
+            continue
         if entry.name == "backups" and executable == "claude":
             _validate_claude_backups(entry)
             continue

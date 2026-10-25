@@ -34,7 +34,7 @@ CLAUDE_CONFIG_DIR="$PWD/run-auth/solver" claude auth login
 CLAUDE_CONFIG_DIR="$PWD/run-auth/judge" claude auth login
 ```
 
-Each role directory must contain the vendor-created `.credentials.json` file. The CLI also creates `.claude.json`, its lock file, and timestamped state files under `backups/`; these vendor state files are allowed. Histories, settings, plugins, skills, commands, memory, and project instructions remain excluded. The runner checks that census and owner-only permissions without reading credential bytes, rejects shared/nested role directories and overlap with benchmark paths, and runs vendor status under the same filesystem boundary. It accepts only a `claude.ai` login whose status names a subscription. It rejects CI and does not accept `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a fallback.
+Each role directory must contain the vendor-created `.credentials.json` file. The CLI also creates `.claude.json`, its empty lock directory, and timestamped state files under `backups/`; these vendor state files are allowed. Histories, settings, plugins, skills, commands, memory, and project instructions remain excluded. The runner checks that census and owner-only permissions without reading credential bytes, rejects shared/nested role directories and overlap with benchmark paths, and runs vendor status under the same filesystem boundary. It accepts only a `claude.ai` login whose status names a subscription. It rejects CI and does not accept `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` as a fallback.
 
 Record the exact executable identity without reading credentials:
 
