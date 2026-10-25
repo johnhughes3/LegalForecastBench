@@ -51,6 +51,14 @@ def test_community_timeout_reaches_solver_and_judge_specs(
         evaluator_private_root=request.evaluator_private_root,
         pin=request.pin,
     )
+    # PATH presence is checked before the captured execute boundary. Provide
+    # fixture executables rather than depending on locally installed vendors.
+    monkeypatch.setenv("PATH", "/usr/bin")
+    request.evaluator_bin_dir.mkdir()
+    for executable in ("claude", "codex"):
+        binary = request.evaluator_bin_dir / executable
+        binary.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+        binary.chmod(0o700)
     runtime = build_community_subscription_runtime(request)
     observed: list[RunSpec] = []
 
