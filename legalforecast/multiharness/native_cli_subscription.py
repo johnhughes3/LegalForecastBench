@@ -177,7 +177,7 @@ def validate_auth_only_config_root(
     if allowed is None:
         raise AuthProfileError("subscription presence supports claude or codex")
     names = {entry.name for entry in entries}
-    state_names = (
+    state_names: set[str] = (
         {".claude.json", ".claude.json.lock", "backups"}
         if executable == "claude"
         else set()
