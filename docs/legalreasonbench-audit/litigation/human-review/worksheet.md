@@ -2325,6 +2325,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly states that Iowa Code § 704.6 makes justification unavailable to a person participating in a forcible felony, and applies that rule to Patton. It specifically relies on Patton’s admission that he conspired with others to commit a forcible felony by planning a shooting, concluding that justification was categorically unavailable to him.
+- `anthropic/claude-sonnet-5`: value `1.0` — The answer states that Patton participated in a forcible felony (conspiracy to commit a forcible felony per his plea admission) and explicitly concludes that under Iowa Code § 704.6(1), the justification defense 'is not available' to one participating in a forcible felony, applying this directly to Patton via his conspiracy admission. This directly satisfies the criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — In Section II.B.1.a, the response cites Patton's state guilty plea to conspiracy to commit a forcible felony (planning to engage in a shooting) and argues under Iowa Code § 704.6(1) that this demonstrates he was participating in a forcible felony, which categorically precludes a justification defense.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2412,6 +2426,20 @@ Evidence the model quoted (check against the source):
 - rubric justification, criterion_23: “Because that involved a different shooting, it's not relevant to whether Patton should receive a justification instruction for the May 10, 2020 shooting.”
 
 [Full reconciliation](../tasks/lrb-vicar-trial-jury-instructions-assignment-1/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-5`.
+- `openai/gpt-5.6-terra`: value `1.0` — The drafting notes mention Patton's state-court plea materials and identify the Count XX petition as "intimidation with a dangerous weapon" under Iowa Code § 708.6.
+- `anthropic/claude-sonnet-5`: value `1.0` — The draft explicitly discusses Patton's state plea document and notes that it contains two petitions: 'In the Count VIII petition (conspiracy to commit a forcible felony...)... The Count XX petition (intimidation with a dangerous weapon, § 708.6) covers a different event, a shooting on April 13, 2020.' This directly references that Patton's state plea included a guilty plea petition for intimidation with a dangerous weapon (Count XX), even though the author says the argument relies only on Count VIII. Because the document does mention this fact, the failure criterion is triggered (Pass under the original failure test), which corresponds to a 'yes' answer under this reformulated schema (the response does mention the Count XX intimidation plea).
+- `gemini/gemini-3.8-flash`: value `0.0` — The response avoids the failure. It does not argue or state in its legal analysis that Patton pled guilty to intimidation with a dangerous weapon; in fact, Drafting Note 2 explicitly clarifies that Count XX covers a separate April 13, 2020 incident and properly limits the argument to Patton's Count VIII conspiracy admission.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/reward-details.json).
 
 </details>
 
@@ -2532,6 +2560,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses Patton's assertion that Nelson fired first and argues that the first-shot issue is legally immaterial, but it does not state that the evidence lacked proof of who fired first on May 10, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses who fired first only in the context of Patton's argument that Nelson fired first and bushes, treating it as legally irrelevant under the justification framework. It never states that there was a lack of evidence proving who fired first on May 10, 2020; rather it assumes/accepts the premise that Nelson fired first (or that it doesn't matter) without discussing evidentiary insufficiency on that point.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020; rather, it assumes or addresses Patton's claim that Nelson fired first and argues that who fired first is legally immaterial.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2626,6 +2668,20 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses the chase, Nelson waiting in bushes, and the exchange of gunfire, but it does not state that Nelson's car was already stopped when Patton fired.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document extensively discusses the chase, the shooting, and the circumstances of Patton firing at Nelson's car, but nowhere does it state that Nelson's car was already stopped when Patton fired his gun. In fact, the narrative describes an ongoing multi-mile vehicle chase with windows rolled down as the cars approached each other, and references Nelson waiting in bushes, but does not mention the car being stationary at the moment of firing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Nelson's car was already stopped when Patton fired his gun.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -2717,6 +2773,20 @@ Rulings on the blind findings above:
 - **Claude Opus 5.5 O3 → not_a_defect:** Overturned. Opus noted that the native 'final complete legal deliverable' instruction cuts the other way. In my view it decides the question. The solver must write a complete deliverable that builds on response1.md, and the verifier reads only response2.md. An insert-only supplement is therefore not the requested deliverable. Restating the retreat facts in applying Kuhse is required, not unrequested. No permissible earlier answer is excluded.
 
 [Full reconciliation](../tasks/lrb-vicar-trial-jury-instructions-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** met (2/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response states that the Trailblazer was the pursuing vehicle and that the OTB group could have stopped following Nelson at any point during the multi-mile chase, describing this as an obvious safe alternative. This conveys that the group could have driven away rather than continue the pursuit.
+- `anthropic/claude-sonnet-5`: value `1.0` — The brief explicitly states that the OTB group had the option to leave the scene, e.g., 'At any point during the multi-mile chase, the OTB group could simply have stopped following Nelson' and 'He could have stayed at the mall. He could have let Nelson drive away... He and the group could have stopped the chase at any point over several miles,' which conveys that the OTB group could have driven away rather than pursuing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions that Nelson drove away and that the OTB group could have stopped following or broken off the chase, but it never states that the OTB group could have driven away.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/reward-details.json).
 
 </details>
 

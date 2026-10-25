@@ -1,0 +1,1399 @@
+{
+  "correctness": {
+    "score": 0.3333333333333333,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "criterion_1",
+        "value": 1.0,
+        "raw": true,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 5.0,
+        "description": "Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+        "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"The defendant bears the initial burden of producing sufficient evidence to support the instruction.\").",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+            "reasoning": "The response expressly identifies that Patton bears the initial burden of producing sufficient evidence to support a justification instruction. It states: \u201cThe defendant bears the initial burden of producing sufficient evidence to support the instruction,\u201d and applies that rule directly to Patton, concluding that he \u201cnever met his \u2018initial burden.\u2019\u201d"
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+            "reasoning": "The response explicitly states in Part II.B.4.b: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction.' (citing Delay, 320 N.W.2d at 834), quoting Kuhse.pdf at 9. It further elaborates that 'Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt,' and applies this to Patton, concluding 'Because Patton never met his \"initial burden,\" the State's burden to disprove justification never arose.' This directly and clearly identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction, satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+            "reasoning": "The response explicitly states in Section II.B.4.b and Section E that the defendant (Patton) bears the initial burden of producing sufficient evidence to support the justification instruction before the burden shifts to the prosecution to disprove justification."
+          }
+        ]
+      },
+      {
+        "name": "criterion_2",
+        "value": 1.0,
+        "raw": true,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 5.0,
+        "description": "Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+        "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt.\").",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Rule"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+            "reasoning": "The response expressly states that Patton bears the initial burden of producing substantial evidence of justification and that only after he satisfies that threshold does the burden shift to the State to prove lack of justification beyond a reasonable doubt. It further concludes that because Patton did not meet that initial burden, the State's burden never arose."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+            "reasoning": "The document explicitly states in Part II.B.4.b, quoting Kuhse: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction... Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt.' It further applies this to Patton, stating he never met his 'initial burden,' so the State's burden never arose. This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+            "reasoning": "In section II.B.4.b, the response explicitly identifies that a defendant must first produce substantial/sufficient evidence supporting justification before the burden shifts to the State/government to disprove justification beyond a reasonable doubt, and applies this rule directly to Patton."
+          }
+        ]
+      },
+      {
+        "name": "criterion_3",
+        "value": 0.0,
+        "raw": false,
+        "weight": 25.0,
+        "signed_score": 25.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+        "source": "Facts p. 7 (Facts.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+            "reasoning": "The response discusses evidence that Nelson fired first, hid in bushes, and that a gun battle followed, but it does not state that the only evidence supporting self-defense was that Nelson also fired a gun."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+            "reasoning": "The document discusses Patton's self-defense evidence in terms of Nelson firing first, hiding in the bushes, and Shafer being shot, but it never frames or states that the only evidence supporting Patton's self-defense claim is that Nelson also fired a gun. The analysis treats multiple facts as part of Patton's argument without characterizing Nelson's gunfire as the sole piece of self-defense evidence."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+            "reasoning": "The response does not state that the only evidence of self-defense is that Nelson also fired a gun; instead, it notes that Patton pointed to multiple facts (e.g., Nelson hiding in the bushes, firing first, and Shafer being shot during the exchange) and argues that evidence of gunfire in both directions is insufficient."
+          }
+        ]
+      },
+      {
+        "name": "criterion_4",
+        "value": 0.0,
+        "raw": false,
+        "weight": 25.0,
+        "signed_score": 25.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+        "source": "Facts p. 7 (Facts.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+            "reasoning": "The response discusses Patton's assertion that Nelson fired first and argues that the first-shot issue is legally immaterial, but it does not state that the evidence lacked proof of who fired first on May 10, 2020."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+            "reasoning": "The document discusses who fired first only in the context of Patton's argument that Nelson fired first and bushes, treating it as legally irrelevant under the justification framework. It never states that there was a lack of evidence proving who fired first on May 10, 2020; rather it assumes/accepts the premise that Nelson fired first (or that it doesn't matter) without discussing evidentiary insufficiency on that point."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+            "reasoning": "The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020; rather, it assumes or addresses Patton's claim that Nelson fired first and argues that who fired first is legally immaterial."
+          }
+        ]
+      },
+      {
+        "name": "criterion_5",
+        "value": 1.0,
+        "raw": true,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 5.0,
+        "description": "Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+        "source": "Facts p. 7 (Facts.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+            "reasoning": "The response states that as the cars approached 31st and Clark Streets, \u201cPatton and Shafer rolled down the back windows,\u201d which was before the shooting involving Nelson."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+            "reasoning": "The document explicitly states: 'As the cars approached 31st and Clark Streets, Patton and Shafer rolled down the back windows.' This describes the OTB group rolling down windows before reaching Nelson (during the pursuit, before the shooting at Nelson began), satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+            "reasoning": "The response explicitly mentions multiple times that Patton and Shafer (members of the OTB group) rolled down the windows as the vehicles closed in and approached 31st and Clark Streets before reaching Nelson and before shooting began."
+          }
+        ]
+      },
+      {
+        "name": "criterion_6",
+        "value": 1.0,
+        "raw": true,
+        "weight": 5.0,
+        "signed_score": 5.0,
+        "polarity": "positive",
+        "contribution": 5.0,
+        "description": "Mentions that Patton was hanging out the window with a firearm.",
+        "source": "Facts pp. 7-8 (Facts.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+            "reasoning": "The response expressly states that a police dash camera recorded Patton \"hanging out of the Trailblazer window shooting his gun,\" which mentions he was hanging out the window with a firearm."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+            "reasoning": "The document explicitly states: 'A police dash camera recorded Patton \"hanging out of the Trailblazer window shooting his gun.\"' This appears multiple times in the response (e.g., Part II.B.1.a and Part II.D.2), satisfying the criterion that it mentions Patton hanging out the window with a firearm."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+            "reasoning": "The response explicitly mentions that a police dash camera recorded Patton 'hanging out of the Trailblazer window shooting his gun.'"
+          }
+        ]
+      },
+      {
+        "name": "criterion_7",
+        "value": 0.0,
+        "raw": false,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Mentions that Nelson's car was already stopped when Patton fired his gun.",
+        "source": "Facts pp. 7-8 (Facts.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+            "reasoning": "The response discusses the chase, Nelson waiting in bushes, and the exchange of gunfire, but it does not state that Nelson's car was already stopped when Patton fired."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+            "reasoning": "The document extensively discusses the chase, the shooting, and the circumstances of Patton firing at Nelson's car, but nowhere does it state that Nelson's car was already stopped when Patton fired his gun. In fact, the narrative describes an ongoing multi-mile vehicle chase with windows rolled down as the cars approached each other, and references Nelson waiting in bushes, but does not mention the car being stationary at the moment of firing."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+            "reasoning": "The response does not mention that Nelson's car was already stopped when Patton fired his gun."
+          }
+        ]
+      },
+      {
+        "name": "criterion_8",
+        "value": 1.0,
+        "raw": true,
+        "weight": 15.0,
+        "signed_score": 15.0,
+        "polarity": "positive",
+        "contribution": 15.0,
+        "description": "States that the OTB group could have driven away.",
+        "source": "Facts pp. 7-8 (Facts.pdf) (Nelson's car was stopped; Nelson was outside of the car; the OTB group remained in a moving car)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+            "reasoning": "The response states that the Trailblazer was the pursuing vehicle and that the OTB group could have stopped following Nelson at any point during the multi-mile chase, describing this as an obvious safe alternative. This conveys that the group could have driven away rather than continue the pursuit."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+            "reasoning": "The brief explicitly states that the OTB group had the option to leave the scene, e.g., 'At any point during the multi-mile chase, the OTB group could simply have stopped following Nelson' and 'He could have stayed at the mall. He could have let Nelson drive away... He and the group could have stopped the chase at any point over several miles,' which conveys that the OTB group could have driven away rather than pursuing."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+            "reasoning": "The response mentions that Nelson drove away and that the OTB group could have stopped following or broken off the chase, but it never states that the OTB group could have driven away."
+          }
+        ]
+      },
+      {
+        "name": "criterion_9",
+        "value": 0.0,
+        "raw": false,
+        "weight": 30.0,
+        "signed_score": 30.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+        "source": "Facts pp. 6-8 (Facts.pdf) (Patton was armed with a gun, they chased Nelson across the city, the OTB group rolled the windows of the Trailblazer down before being fired upon.).",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+            "reasoning": "The draft strongly argues that Patton planned the shooting, pursued Nelson, and lacked justification, but it does not state that the only reasonable inference from Patton\u2019s actions is that he intended to fire regardless of what Nelson did."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+            "reasoning": "The document extensively argues that Patton was the aggressor, provoked the confrontation, had no reasonable alternative, and that no reasonable jury could find his response was disproportionate or that justification applied. However, it never states or argues that 'the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did' \u2014 i.e., it does not frame Patton's premeditated intent to shoot as independent of Nelson's conduct in that specific way. The closest statements concern provocation, lack of evidentiary foundation for self-defense elements, and disproportionality, but not this specific inference about intent to fire regardless of Nelson's actions."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+            "reasoning": "The response argues that Patton was seeking confrontation, planned the shooting, and fired at his intended target, but it never states that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did."
+          }
+        ]
+      },
+      {
+        "name": "criterion_10",
+        "value": 1.0,
+        "raw": true,
+        "weight": 10.0,
+        "signed_score": 10.0,
+        "polarity": "positive",
+        "contribution": 10.0,
+        "description": "States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+        "source": "State v. Kuhse, No. 18-0765, slip op. at 9 (Iowa Apr. 8, 2020) (\"The defendant bears the initial burden of producing sufficient evidence to support the instruction.\").",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"Please supplement your brief with relevant legal analysis of State v. Kuhse.\"",
+        "metadata": {
+          "irac_section": "Conclusion"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+            "reasoning": "The response expressly states that Patton bore the initial burden of producing substantial evidence supporting justification and that he \"did not\" meet it. It repeatedly concludes that he lacked an evidentiary foundation for the defense and therefore was not entitled to a justification instruction."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+            "reasoning": "The response explicitly and repeatedly argues that Patton failed to put forth substantial/sufficient evidence of self-defense (justification) to warrant the instruction. For example, it states he 'cannot establish an evidentiary foundation for any element of justification,' concludes 'he was not entitled to the instruction under either standard,' and in the Kuhse section states 'Patton never met his initial burden' of producing substantial evidence to support the justification theory, so no instruction was required. This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_10",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+            "reasoning": "The response explicitly states and argues that Patton bore the initial burden of producing substantial evidence of justification (self-defense) and failed to satisfy that burden to support submitting the instruction to the jury (see especially Section II.B.4)."
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 45.0,
+      "positive_total": 135.0,
+      "unclamped": 0.3333333333333333,
+      "clamped": 0.3333333333333333
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_1",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+                  "reasoning": "The response expressly identifies that Patton bears the initial burden of producing sufficient evidence to support a justification instruction. It states: \u201cThe defendant bears the initial burden of producing sufficient evidence to support the instruction,\u201d and applies that rule directly to Patton, concluding that he \u201cnever met his \u2018initial burden.\u2019\u201d"
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+                  "reasoning": "The response explicitly states in Part II.B.4.b: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction.' (citing Delay, 320 N.W.2d at 834), quoting Kuhse.pdf at 9. It further elaborates that 'Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt,' and applies this to Patton, concluding 'Because Patton never met his \"initial burden,\" the State's burden to disprove justification never arose.' This directly and clearly identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction, satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.",
+                  "reasoning": "The response explicitly states in Section II.B.4.b and Section E that the defendant (Patton) bears the initial burden of producing sufficient evidence to support the justification instruction before the burden shifts to the prosecution to disprove justification."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_1\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.\",\n          \"reasoning\": \"The response expressly identifies that Patton bears the initial burden of producing sufficient evidence to support a justification instruction. It states: \\u201cThe defendant bears the initial burden of producing sufficient evidence to support the instruction,\\u201d and applies that rule directly to Patton, concluding that he \\u201cnever met his \\u2018initial burden.\\u2019\\u201d\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.\",\n          \"reasoning\": \"The response explicitly states in Part II.B.4.b: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction.' (citing Delay, 320 N.W.2d at 834), quoting Kuhse.pdf at 9. It further elaborates that 'Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt,' and applies this to Patton, concluding 'Because Patton never met his \\\"initial burden,\\\" the State's burden to disprove justification never arose.' This directly and clearly identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction, satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that Patton bears the initial burden of producing sufficient evidence to support the justification instruction.\",\n          \"reasoning\": \"The response explicitly states in Section II.B.4.b and Section E that the defendant (Patton) bears the initial burden of producing sufficient evidence to support the justification instruction before the burden shifts to the prosecution to disprove justification.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_10",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+                  "reasoning": "The response expressly states that Patton bore the initial burden of producing substantial evidence supporting justification and that he \"did not\" meet it. It repeatedly concludes that he lacked an evidentiary foundation for the defense and therefore was not entitled to a justification instruction."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+                  "reasoning": "The response explicitly and repeatedly argues that Patton failed to put forth substantial/sufficient evidence of self-defense (justification) to warrant the instruction. For example, it states he 'cannot establish an evidentiary foundation for any element of justification,' concludes 'he was not entitled to the instruction under either standard,' and in the Kuhse section states 'Patton never met his initial burden' of producing substantial evidence to support the justification theory, so no instruction was required. This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_10",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.",
+                  "reasoning": "The response explicitly states and argues that Patton bore the initial burden of producing substantial evidence of justification (self-defense) and failed to satisfy that burden to support submitting the instruction to the jury (see especially Section II.B.4)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_10\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.\",\n          \"reasoning\": \"The response expressly states that Patton bore the initial burden of producing substantial evidence supporting justification and that he \\\"did not\\\" meet it. It repeatedly concludes that he lacked an evidentiary foundation for the defense and therefore was not entitled to a justification instruction.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.\",\n          \"reasoning\": \"The response explicitly and repeatedly argues that Patton failed to put forth substantial/sufficient evidence of self-defense (justification) to warrant the instruction. For example, it states he 'cannot establish an evidentiary foundation for any element of justification,' concludes 'he was not entitled to the instruction under either standard,' and in the Kuhse section states 'Patton never met his initial burden' of producing substantial evidence to support the justification theory, so no instruction was required. This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_10\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States Patton failed to put forth substantial evidence of self-defense to support the submission of a justification instruction.\",\n          \"reasoning\": \"The response explicitly states and argues that Patton bore the initial burden of producing substantial evidence of justification (self-defense) and failed to satisfy that burden to support submitting the instruction to the jury (see especially Section II.B.4).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_2",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+                  "reasoning": "The response expressly states that Patton bears the initial burden of producing substantial evidence of justification and that only after he satisfies that threshold does the burden shift to the State to prove lack of justification beyond a reasonable doubt. It further concludes that because Patton did not meet that initial burden, the State's burden never arose."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+                  "reasoning": "The document explicitly states in Part II.B.4.b, quoting Kuhse: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction... Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt.' It further applies this to Patton, stating he never met his 'initial burden,' so the State's burden never arose. This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.",
+                  "reasoning": "In section II.B.4.b, the response explicitly identifies that a defendant must first produce substantial/sufficient evidence supporting justification before the burden shifts to the State/government to disprove justification beyond a reasonable doubt, and applies this rule directly to Patton."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_2\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.\",\n          \"reasoning\": \"The response expressly states that Patton bears the initial burden of producing substantial evidence of justification and that only after he satisfies that threshold does the burden shift to the State to prove lack of justification beyond a reasonable doubt. It further concludes that because Patton did not meet that initial burden, the State's burden never arose.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.\",\n          \"reasoning\": \"The document explicitly states in Part II.B.4.b, quoting Kuhse: 'The defendant bears the initial burden of producing sufficient evidence to support the instruction... Once that threshold is met, the burden shifts to the State to prove lack of justification beyond a reasonable doubt.' It further applies this to Patton, stating he never met his 'initial burden,' so the State's burden never arose. This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that only once Patton presents substantial evidence of self-defense does the burden shift to the government to disprove justification.\",\n          \"reasoning\": \"In section II.B.4.b, the response explicitly identifies that a defendant must first produce substantial/sufficient evidence supporting justification before the burden shifts to the State/government to disprove justification beyond a reasonable doubt, and applies this rule directly to Patton.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_3",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+                  "reasoning": "The response discusses evidence that Nelson fired first, hid in bushes, and that a gun battle followed, but it does not state that the only evidence supporting self-defense was that Nelson also fired a gun."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+                  "reasoning": "The document discusses Patton's self-defense evidence in terms of Nelson firing first, hiding in the bushes, and Shafer being shot, but it never frames or states that the only evidence supporting Patton's self-defense claim is that Nelson also fired a gun. The analysis treats multiple facts as part of Patton's argument without characterizing Nelson's gunfire as the sole piece of self-defense evidence."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.",
+                  "reasoning": "The response does not state that the only evidence of self-defense is that Nelson also fired a gun; instead, it notes that Patton pointed to multiple facts (e.g., Nelson hiding in the bushes, firing first, and Shafer being shot during the exchange) and argues that evidence of gunfire in both directions is insufficient."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_3\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.\",\n          \"reasoning\": \"The response discusses evidence that Nelson fired first, hid in bushes, and that a gun battle followed, but it does not state that the only evidence supporting self-defense was that Nelson also fired a gun.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.\",\n          \"reasoning\": \"The document discusses Patton's self-defense evidence in terms of Nelson firing first, hiding in the bushes, and Shafer being shot, but it never frames or states that the only evidence supporting Patton's self-defense claim is that Nelson also fired a gun. The analysis treats multiple facts as part of Patton's argument without characterizing Nelson's gunfire as the sole piece of self-defense evidence.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the only evidence of self-defense is that Nelson also fired a gun.\",\n          \"reasoning\": \"The response does not state that the only evidence of self-defense is that Nelson also fired a gun; instead, it notes that Patton pointed to multiple facts (e.g., Nelson hiding in the bushes, firing first, and Shafer being shot during the exchange) and argues that evidence of gunfire in both directions is insufficient.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_4",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+                  "reasoning": "The response discusses Patton's assertion that Nelson fired first and argues that the first-shot issue is legally immaterial, but it does not state that the evidence lacked proof of who fired first on May 10, 2020."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+                  "reasoning": "The document discusses who fired first only in the context of Patton's argument that Nelson fired first and bushes, treating it as legally irrelevant under the justification framework. It never states that there was a lack of evidence proving who fired first on May 10, 2020; rather it assumes/accepts the premise that Nelson fired first (or that it doesn't matter) without discussing evidentiary insufficiency on that point."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.",
+                  "reasoning": "The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020; rather, it assumes or addresses Patton's claim that Nelson fired first and argues that who fired first is legally immaterial."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_4\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.\",\n          \"reasoning\": \"The response discusses Patton's assertion that Nelson fired first and argues that the first-shot issue is legally immaterial, but it does not state that the evidence lacked proof of who fired first on May 10, 2020.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.\",\n          \"reasoning\": \"The document discusses who fired first only in the context of Patton's argument that Nelson fired first and bushes, treating it as legally irrelevant under the justification framework. It never states that there was a lack of evidence proving who fired first on May 10, 2020; rather it assumes/accepts the premise that Nelson fired first (or that it doesn't matter) without discussing evidentiary insufficiency on that point.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that there was a lack of evidence proving who fired first on May 10, 2020.\",\n          \"reasoning\": \"The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020; rather, it assumes or addresses Patton's claim that Nelson fired first and argues that who fired first is legally immaterial.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_5",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+                  "reasoning": "The response states that as the cars approached 31st and Clark Streets, \u201cPatton and Shafer rolled down the back windows,\u201d which was before the shooting involving Nelson."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+                  "reasoning": "The document explicitly states: 'As the cars approached 31st and Clark Streets, Patton and Shafer rolled down the back windows.' This describes the OTB group rolling down windows before reaching Nelson (during the pursuit, before the shooting at Nelson began), satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.",
+                  "reasoning": "The response explicitly mentions multiple times that Patton and Shafer (members of the OTB group) rolled down the windows as the vehicles closed in and approached 31st and Clark Streets before reaching Nelson and before shooting began."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_5\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.\",\n          \"reasoning\": \"The response states that as the cars approached 31st and Clark Streets, \\u201cPatton and Shafer rolled down the back windows,\\u201d which was before the shooting involving Nelson.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.\",\n          \"reasoning\": \"The document explicitly states: 'As the cars approached 31st and Clark Streets, Patton and Shafer rolled down the back windows.' This describes the OTB group rolling down windows before reaching Nelson (during the pursuit, before the shooting at Nelson began), satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the OTB group had rolled the windows down before reaching Nelson.\",\n          \"reasoning\": \"The response explicitly mentions multiple times that Patton and Shafer (members of the OTB group) rolled down the windows as the vehicles closed in and approached 31st and Clark Streets before reaching Nelson and before shooting began.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_6",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+                  "reasoning": "The response expressly states that a police dash camera recorded Patton \"hanging out of the Trailblazer window shooting his gun,\" which mentions he was hanging out the window with a firearm."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+                  "reasoning": "The document explicitly states: 'A police dash camera recorded Patton \"hanging out of the Trailblazer window shooting his gun.\"' This appears multiple times in the response (e.g., Part II.B.1.a and Part II.D.2), satisfying the criterion that it mentions Patton hanging out the window with a firearm."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Patton was hanging out the window with a firearm.",
+                  "reasoning": "The response explicitly mentions that a police dash camera recorded Patton 'hanging out of the Trailblazer window shooting his gun.'"
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_6\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Patton was hanging out the window with a firearm.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Patton was hanging out the window with a firearm.\",\n          \"reasoning\": \"The response expressly states that a police dash camera recorded Patton \\\"hanging out of the Trailblazer window shooting his gun,\\\" which mentions he was hanging out the window with a firearm.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Patton was hanging out the window with a firearm.\",\n          \"reasoning\": \"The document explicitly states: 'A police dash camera recorded Patton \\\"hanging out of the Trailblazer window shooting his gun.\\\"' This appears multiple times in the response (e.g., Part II.B.1.a and Part II.D.2), satisfying the criterion that it mentions Patton hanging out the window with a firearm.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Patton was hanging out the window with a firearm.\",\n          \"reasoning\": \"The response explicitly mentions that a police dash camera recorded Patton 'hanging out of the Trailblazer window shooting his gun.'\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_7",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+                  "reasoning": "The response discusses the chase, Nelson waiting in bushes, and the exchange of gunfire, but it does not state that Nelson's car was already stopped when Patton fired."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+                  "reasoning": "The document extensively discusses the chase, the shooting, and the circumstances of Patton firing at Nelson's car, but nowhere does it state that Nelson's car was already stopped when Patton fired his gun. In fact, the narrative describes an ongoing multi-mile vehicle chase with windows rolled down as the cars approached each other, and references Nelson waiting in bushes, but does not mention the car being stationary at the moment of firing."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.",
+                  "reasoning": "The response does not mention that Nelson's car was already stopped when Patton fired his gun."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_7\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.\",\n          \"reasoning\": \"The response discusses the chase, Nelson waiting in bushes, and the exchange of gunfire, but it does not state that Nelson's car was already stopped when Patton fired.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.\",\n          \"reasoning\": \"The document extensively discusses the chase, the shooting, and the circumstances of Patton firing at Nelson's car, but nowhere does it state that Nelson's car was already stopped when Patton fired his gun. In fact, the narrative describes an ongoing multi-mile vehicle chase with windows rolled down as the cars approached each other, and references Nelson waiting in bushes, but does not mention the car being stationary at the moment of firing.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that Nelson's car was already stopped when Patton fired his gun.\",\n          \"reasoning\": \"The response does not mention that Nelson's car was already stopped when Patton fired his gun.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_8",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+              "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+                  "reasoning": "The response states that the Trailblazer was the pursuing vehicle and that the OTB group could have stopped following Nelson at any point during the multi-mile chase, describing this as an obvious safe alternative. This conveys that the group could have driven away rather than continue the pursuit."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+                  "reasoning": "The brief explicitly states that the OTB group had the option to leave the scene, e.g., 'At any point during the multi-mile chase, the OTB group could simply have stopped following Nelson' and 'He could have stayed at the mall. He could have let Nelson drive away... He and the group could have stopped the chase at any point over several miles,' which conveys that the OTB group could have driven away rather than pursuing."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the OTB group could have driven away.",
+                  "reasoning": "The response mentions that Nelson drove away and that the OTB group could have stopped following or broken off the chase, but it never states that the OTB group could have driven away."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_8\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the OTB group could have driven away.\",\n      \"reasoning\": \"2/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the OTB group could have driven away.\",\n          \"reasoning\": \"The response states that the Trailblazer was the pursuing vehicle and that the OTB group could have stopped following Nelson at any point during the multi-mile chase, describing this as an obvious safe alternative. This conveys that the group could have driven away rather than continue the pursuit.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the OTB group could have driven away.\",\n          \"reasoning\": \"The brief explicitly states that the OTB group had the option to leave the scene, e.g., 'At any point during the multi-mile chase, the OTB group could simply have stopped following Nelson' and 'He could have stayed at the mall. He could have let Nelson drive away... He and the group could have stopped the chase at any point over several miles,' which conveys that the OTB group could have driven away rather than pursuing.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the OTB group could have driven away.\",\n          \"reasoning\": \"The response mentions that Nelson drove away and that the OTB group could have stopped following or broken off the chase, but it never states that the OTB group could have driven away.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_9",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+                  "reasoning": "The draft strongly argues that Patton planned the shooting, pursued Nelson, and lacked justification, but it does not state that the only reasonable inference from Patton\u2019s actions is that he intended to fire regardless of what Nelson did."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+                  "reasoning": "The document extensively argues that Patton was the aggressor, provoked the confrontation, had no reasonable alternative, and that no reasonable jury could find his response was disproportionate or that justification applied. However, it never states or argues that 'the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did' \u2014 i.e., it does not frame Patton's premeditated intent to shoot as independent of Nelson's conduct in that specific way. The closest statements concern provocation, lack of evidentiary foundation for self-defense elements, and disproportionality, but not this specific inference about intent to fire regardless of Nelson's actions."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.",
+                  "reasoning": "The response argues that Patton was seeking confrontation, planned the shooting, and fired at his intended target, but it never states that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_9\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.\",\n          \"reasoning\": \"The draft strongly argues that Patton planned the shooting, pursued Nelson, and lacked justification, but it does not state that the only reasonable inference from Patton\\u2019s actions is that he intended to fire regardless of what Nelson did.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.\",\n          \"reasoning\": \"The document extensively argues that Patton was the aggressor, provoked the confrontation, had no reasonable alternative, and that no reasonable jury could find his response was disproportionate or that justification applied. However, it never states or argues that 'the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did' \\u2014 i.e., it does not frame Patton's premeditated intent to shoot as independent of Nelson's conduct in that specific way. The closest statements concern provocation, lack of evidentiary foundation for self-defense elements, and disproportionality, but not this specific inference about intent to fire regardless of Nelson's actions.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.\",\n          \"reasoning\": \"The response argues that Patton was seeking confrontation, planned the shooting, and fired at his intended target, but it never states that the only reasonable inference from Patton's actions is that he intended to fire regardless of what Nelson did.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}
