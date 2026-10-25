@@ -311,7 +311,10 @@ def render_item(i: int, row: Json, inputs: Json, line: int, review: str) -> list
         "",
         blockquote(crit["criterion"]),
         "",
-        f"Upstream `source` field: {one_line(crit.get('source') or 'not given')}",
+        "**Rubric author's source note** (upstream `source` field, which explains "
+        "the authority or record the criterion rests on):",
+        "",
+        blockquote(crit.get("source") or "Not given."),
         "",
         "Earlier same-matter prompts: "
         + (", ".join(prior) if prior else "none (first assignment in the matter)")
