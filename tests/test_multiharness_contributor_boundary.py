@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from legalforecast.multiharness import contributor_boundary
 from legalforecast.multiharness._landlock_exec import path_beneath_struct_size
 from legalforecast.multiharness.contributor_boundary import (
     CONTRIBUTOR_NATIVE_BOUNDARY,
@@ -148,3 +149,40 @@ def test_landlock_wrapper_allows_in_scope_scratch_write(tmp_path: Path) -> None:
         )
         == HOSTILE_IN_SCOPE
     )
+
+
+def test_system_resolver_symlink_target_readable_without_sibling_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    resolver_directory = tmp_path / "system-resolver"
+    resolver_directory.mkdir()
+    target = resolver_directory / "stub-resolv.conf"
+    target.write_text("nameserver 192.0.2.1\n", encoding="utf-8")
+    private = resolver_directory / "private.txt"
+    private.write_text("synthetic private data", encoding="utf-8")
+    resolver_link = tmp_path / "resolv.conf"
+    resolver_link.symlink_to(target)
+    monkeypatch.setattr(
+        contributor_boundary,
+        "_SYSTEM_RESOLVER_FILES",
+        (str(resolver_link),),
+    )
+    for path, expected in ((resolver_link, True), (private, False)):
+        argv = (
+            sys.executable,
+            str(_FAKE_CLI),
+            "--mode",
+            "read-probe",
+            "--path",
+            str(path),
+        )
+        wrapped, _identity = wrap_argv_for_contributor_boundary(
+            argv, scratch_root=scratch
+        )
+        completed = subprocess.run(
+            wrapped, cwd=scratch, capture_output=True, timeout=10, check=False
+        )
+        record = json.loads(completed.stdout)
+        assert record["ok"] is expected, completed.stderr.decode()
