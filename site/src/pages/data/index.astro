@@ -1,5 +1,6 @@
 ---
 import CiteBox from "../../components/CiteBox.astro";
+import Tip from "../../components/Tip";
 import {
 	benchmarkSnapshots,
 	formatBytes,
@@ -100,7 +101,7 @@ const datasetLd = datasetNode({
 						<tr>
 							<td class={cell}><a class={link} href={s.upstream}>{s.benchmark}</a><div class="mt-1 text-xs text-ink-3">{s.rights} · <a class={link} href={s.license_url}>{s.license}</a> · <a class={link} href={s.audit}>our audit</a></div></td>
 							<td class={cell}><code class="break-all text-xs">{s.commit}</code><div class="mt-1 text-xs text-ink-3">committed {s.committed}</div></td>
-							<td class={cell}><a class={link} href={snapshotFileUrl(s.archive)} download>{s.archive}</a> ({formatBytes(s.bytes)})<div class="mt-1 text-xs text-ink-3">SHA-256 <code class="break-all">{s.sha256}</code></div></td>
+							<td class={cell}><a class={link} href={snapshotFileUrl(s.archive)} download>{s.archive}</a> ({formatBytes(s.bytes)})<div class="mt-1 text-xs text-ink-3">SHA-256 <code class="break-all">{s.sha256}</code></div><div class="mt-1 text-xs text-ink-3">Also at the <a class={link} href={s.upstream_commit_url}>original commit upstream</a> · <Tip tip={benchmarkSnapshots.mirror_note}><span class="underline decoration-dotted underline-offset-2">why a copy?</span></Tip></div></td>
 						</tr>
 					))}
 				</tbody>
