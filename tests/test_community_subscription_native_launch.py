@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 from typing import Literal
 
@@ -36,28 +37,33 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     )
     for executable in ("claude", "codex"):
         binary = binary_root / executable
+        # Use the system shell rather than PATH-selected Python: hosted runners
+        # can select a second toolcache interpreter outside the contained paths.
+        terminal = json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": False,
+                "modelUsage": {"claude-sonnet-fixture": {"inputTokens": 2}},
+                "structured_output": {"verdict": "pass"},
+            }
+        )
         binary.write_text(
-            "#!/usr/bin/env python3\n"
-            "import json, sys\n"
-            "args = sys.argv[1:]\n"
-            "if args == ['--version']:\n"
-            "    print('1.2.3')\n"
-            "elif '--help' in args:\n"
-            f"    print({flags!r})\n"
-            "elif args == ['auth', 'status', '--json']:\n"
-            "    print(json.dumps({'loggedIn': True, 'authMethod': 'claude.ai', "
-            "'subscriptionType': 'max'}))\n"
-            "elif args == ['login', 'status']:\n"
-            "    print('Logged in using ChatGPT', file=sys.stderr)\n"
-            "else:\n"
-            "    sys.stdin.read()\n"
-            "    print(json.dumps({'type': 'result', 'subtype': 'success', "
-            "'is_error': False, 'modelUsage': {'claude-sonnet-fixture': "
-            "{'inputTokens': 2}}, 'structured_output': {'verdict': 'pass'}}))\n",
+            "#!/bin/sh\n"
+            'case "$*" in\n'
+            "  --version) printf '%s\\n' '1.2.3' ;;\n"
+            f"  *--help*) printf '%s\\n' {shlex.quote(flags)} ;;\n"
+            "  'auth status --json') printf '%s\\n' "
+            '\'{"loggedIn":true,"authMethod":"claude.ai",'
+            '"subscriptionType":"max"}\' ;;\n'
+            "  'login status') printf '%s\\n' 'Logged in using ChatGPT' >&2 ;;\n"
+            "  *) cat >/dev/null\n"
+            f"     printf '%s\\n' {shlex.quote(terminal)} ;;\n"
+            "esac\n",
             encoding="utf-8",
         )
         binary.chmod(0o700)
-    role_roots = []
+    role_roots: list[Path] = []
     for role, filename in (
         ("solver", "auth.json" if harness == "codex" else ".credentials.json"),
         ("judge", ".credentials.json"),
@@ -93,11 +99,11 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     assert isinstance(service, LocalCliExecutionService)
     assert service.executable_pin is not None
     assert service.executable_pin.required_flags == ()
-    assert original.adapter.execution_service.executable_pin is not None
-    assert original.adapter.execution_service.executable_pin.required_flags
-    assert service.executable_pin.sha256 == (
-        original.adapter.execution_service.executable_pin.sha256
-    )
+    original_service = original.adapter.execution_service
+    assert isinstance(original_service, LocalCliExecutionService)
+    assert original_service.executable_pin is not None
+    assert original_service.executable_pin.required_flags
+    assert service.executable_pin.sha256 == original_service.executable_pin.sha256
     workspace = request.run_root / "solver-workspace"
     workspace.mkdir(parents=True)
     receipt = service.execute(
@@ -110,7 +116,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
             stdin_bytes=b"fixture prompt",
         )
     )
-    assert receipt.status == "succeeded"
+    assert receipt.status == "succeeded", receipt.stderr
     assert json.loads(receipt.stdout)["subtype"] == "success"
     # Invoke the runner's actual bound judge callable, not a separately built judge.
     response = runtime.evaluator_runner._provider_call(_production_judge_call(tmp_path))
