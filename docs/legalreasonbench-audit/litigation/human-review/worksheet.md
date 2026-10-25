@@ -2544,13 +2544,14 @@ Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** No
+- **Environment:** Correct
 - **Environment explanation:**
-- **Note and source locator:**
+- **Note and source locator:** The rubric penalizes mentioning that Patton pled guilty in state court to intimidation with a dangerous weapon, because that incident relates to a different event than the one at issue on his appeal. The rubric seems intended to test the model's ability to distinguish the events and understand that the earlier incident is unrelated. However, it is misspecified because it penalizes any mention of the issue. Opus was penalized merely for including a drafting note that flagged for the attorney that it had decided *not* to rely on the other incident because it was unrelated. A competent lawyer could also mention the defendant's prior convictions as part of the factual background about the case or introduction to who the defendant is, while making clear that those other incidents are not part of the appeal at issue, so I do not think penalizing a model for merely mentioning the defendant's priors is correct.
+- Sources: Patton State Plea.pdf (scanned; read from the visual transcription): PDF p. 2, Count XX, intimidation with a dangerous weapon ("On or about April 13, 2020 ... I did discharging a gun into the vehicle of another person"); PDF p. 5, Count VIII, conspiracy for the May 10, 2020 shooting at issue (Facts.pdf, "on May 10, 2020, two more shootings occurred"). Rubric justification: the April 13 plea "involved a different shooting" and is "not relevant." [Opus 5.5 (low)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md), Drafting Note 2: the Count XX petition "covers a *different* event, a shooting on April 13, 2020. I rely only on the Count VIII admission"; penalty triggered 2/3 (-5). [GPT-6 Luna (xhigh)](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md) did not mention Count XX; penalty clear.
 <!-- review:end -->
 
 ## 23. OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case — criterion_4
