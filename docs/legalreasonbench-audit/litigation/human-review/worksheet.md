@@ -4,7 +4,7 @@ A simple random sample of 25 of the 63 litigation criteria that either blind AI 
 
 Items are grouped by assignment for reading; the order has no effect on which criteria were drawn. The AI findings and the later reconciliation are collapsed to keep entries readable. That is a convenience, not reviewer blinding: open them whenever useful, and test their arguments against the pinned upstream files and the governing authority. Quotations in the AI reports are leads, not sources.
 
-Source limits: the extracted text is a convenience copy of the pinned upstream files. PDF extraction used no OCR, DOCX locators are not original pagination, and the AI visual transcriptions and figure descriptions linked below supplement scanned or image-only documents without guaranteeing complete capture (see the [audit README](../README.md)). No solver responses or benchmark grades exist for these assignments: the audit submitted no responses to the benchmark's judges.
+Source limits: the extracted text is a convenience copy of the pinned upstream files. PDF extraction used no OCR, DOCX locators are not original pagination, and the AI visual transcriptions and figure descriptions linked below supplement scanned or image-only documents without guaranteeing complete capture (see the [audit README](../README.md)). Saved solver answers and native benchmark grades, when available, appear in the model-run blocks below. An absent block means no run is published for that criterion. Judge votes and reasoning are AI assessments; they do not replace the human review fields.
 
 ## 1. Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners — states_in_the_first_assignment_that_dci2018_10023_remained_activ
 

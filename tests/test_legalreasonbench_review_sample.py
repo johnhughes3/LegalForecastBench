@@ -239,6 +239,34 @@ def test_render_copies_reviewer_fields_unchanged(
     assert sampler.render_worksheet(record, [row], reviews) == once
 
 
+def test_model_grades_render_outside_preserved_human_review(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(ROOT)
+    row = sampler.population(_rows())[0]
+    record = {
+        "sample_size": 1,
+        "population_size": 63,
+        "seed": sampler.SEED,
+        "sample": [{**row, "rubric_line": 7}],
+    }
+    grades = (
+        "<details><summary>Native model-run grades</summary>Judge reasoning.</details>"
+    )
+
+    def model_grades(*_args: object) -> str:
+        return grades
+
+    monkeypatch.setattr(sampler, "run_block", model_grades)
+    review = sampler.blank_review().replace(
+        "- **Note and source locator:**", "- **Note and source locator:** Keep my note."
+    )
+    text = sampler.render_worksheet(record, [row], {sampler.key(row): review})
+    assert text.count(grades) == 1
+    assert text.index(grades) < text.index(sampler.REVIEW_START)
+    assert sampler.split_items(text) == [(sampler.key(row), review)]
+
+
 @pytest.mark.parametrize("existing", ["sample.json", "worksheet.md"])
 def test_draw_refuses_to_overwrite_a_prior_draw(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, existing: str
