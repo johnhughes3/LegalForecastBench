@@ -240,3 +240,31 @@ def test_draw_refuses_to_overwrite_a_prior_draw(
     with pytest.raises(SystemExit, match="refusing to overwrite"):
         sampler.cmd_draw()
     assert (tmp_path / existing).read_text(encoding="utf-8") == "reviewer verdicts"
+
+
+def test_committed_sample_is_the_protocol_draw(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(ROOT)
+    record, sample = sampler.frozen_sample()
+    pop = sampler.population(_rows())
+    assert record["population_size"] == 63
+    assert record["ordering"] == sampler.ORDERING
+    assert record["method"] == sampler.METHOD
+    assert record["dataset_revision_check"]["matches_pinned_revision"]
+    assert [sampler.key(r) for r in sample] == sorted(
+        sampler.key(r) for r in random.Random(20261024).sample(pop, 25)
+    )
+
+
+def test_committed_worksheet_is_blank_current_and_not_tallied(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(ROOT)
+    record, sample = sampler.frozen_sample()
+    blocks = sampler.checked_reviews(sample)
+    assert set(blocks) == {sampler.blank_review()}
+    text = (sampler.REVIEW_DIR / "worksheet.md").read_text(encoding="utf-8")
+    assert sampler.render_worksheet(record, sample) == text
+    with pytest.raises(SystemExit) as exit_info:
+        sampler.cmd_tally()
+    assert exit_info.value.code == 1
+    assert "No estimate: 25 of 25 items are incomplete" in capsys.readouterr().out

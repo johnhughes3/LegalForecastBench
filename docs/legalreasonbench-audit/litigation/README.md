@@ -5,6 +5,8 @@
 
 The warning above is copied from the Harvey audit. Here it applies to the LegalReasonBench audit as well. No findings in this directory have been verified by a human.
 
+The [human-review protocol](human-review/README.md) draws a simple random sample of 25 of the 63 criteria that either blind report flagged, with a blank [worksheet](human-review/worksheet.md) for the project author's review. Until its verdicts are recorded and tallied there, no human verdict exists.
+
 This audit asks whether litigation assignments in micro1's public sample show the rubric defect classes examined in the [Harvey LAB audit](../../harvey-lab-audit/litigation-dispute-resolution/README.md). It does not correct scores or estimate an error rate for the withheld full benchmark.
 
 The source is [LegalReasonBench (micro1)](https://www.micro1.ai/benchmark/legal-reason-bench), pinned to [dataset revision `1bfa904c8f255925baf2610c0f86aa7c05d94ed9`](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/tree/1bfa904c8f255925baf2610c0f86aa7c05d94ed9). The revision was read from the Hugging Face dataset API on October 17, 2026 UTC. The [pinned dataset card](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/README.md) declares CC BY 4.0; see the [upstream license and attribution](UPSTREAM-LICENSE.txt).
@@ -78,6 +80,8 @@ The extraction used pandoc 3.1.3, pypdf 6.21.0, and fonttools 4.67.0. Replaying 
 - [citation-check/results/lrb-vicar-trial-jury-instructions.md](citation-check/results/lrb-vicar-trial-jury-instructions.md)
 - [comparison-to-harvey.md](comparison-to-harvey.md)
 - [comparison.md](comparison.md)
+- [human-review/README.md](human-review/README.md)
+- [human-review/worksheet.md](human-review/worksheet.md)
 - [in-scope.md](in-scope.md)
 - [prompts/README.md](prompts/README.md)
 - [prompts/audit-prompts.md](prompts/audit-prompts.md)

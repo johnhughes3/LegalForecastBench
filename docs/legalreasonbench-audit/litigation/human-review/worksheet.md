@@ -986,7 +986,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 12. Plaintiff's Response - Forum Non Conveniens, assignment 1:  — criterion_2
+## 12. Plaintiff's Response - Forum Non Conveniens, assignment 1 — criterion_2
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json#L14) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-1/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-1/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1058,7 +1058,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 13. Plaintiff's Response - Forum Non Conveniens, assignment 1:  — criterion_22
+## 13. Plaintiff's Response - Forum Non Conveniens, assignment 1 — criterion_22
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json#L214) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-1/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-1/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1145,7 +1145,7 @@ Authorities the model cited:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 14. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_1
+## 14. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_1
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L4) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1222,7 +1222,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 15. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_11
+## 15. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_11
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L104) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1315,7 +1315,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 16. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_18
+## 16. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_18
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L174) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1421,7 +1421,7 @@ Evidence the model quoted (check against the source):
 - **Note and source locator:**
 <!-- review:end -->
 
-## 17. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_3
+## 17. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_3
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L24) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1498,7 +1498,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 18. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_6
+## 18. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_6
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L54) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1575,7 +1575,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 19. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_8
+## 19. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_8
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L74) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
@@ -1652,7 +1652,7 @@ Rulings on the blind findings above:
 - **Note and source locator:**
 <!-- review:end -->
 
-## 20. Plaintiff's Response - Forum Non Conveniens, assignment 2:  — criterion_9
+## 20. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_9
 
 [Criterion in pinned rubric](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json#L84) · [Pinned task instructions](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/instruction.md) · [Prompt with earlier prompts and attachment list](../tasks/lrb-forum-non-conveniens-response-assignment-2/instruction.md) · [Task audit page](../tasks/lrb-forum-non-conveniens-response-assignment-2/README.md) · [Matter citation check](../citation-check/results/lrb-forum-non-conveniens-response.md)
 
