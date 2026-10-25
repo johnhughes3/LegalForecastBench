@@ -337,6 +337,7 @@ def run_community_subscription_harvey_lab(
             require_production_provenance=True,
             evaluator_execution_service=selected.judge_service,
             use_prepared_projection=True,
+            use_external_containment=True,
         )
         if not isinstance(result, CodexCliHarveyLabMeasurementResult):
             raise CommunitySubscriptionOperatorError(

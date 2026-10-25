@@ -204,7 +204,7 @@ class CodexCliInvocationPlan:
             "json": "true",
             "model": self.requested_model,
             "reasoning_effort": self.reasoning_effort,
-            "sandbox": CODEX_SANDBOX_MODE,
+            "sandbox": self.argv[self.argv.index("--sandbox") + 1],
             "skip_git_repo_check": "true",
             "strict_config": "true",
             "subcommand": "exec",

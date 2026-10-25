@@ -116,7 +116,9 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     boundary = _JudgeBoundaryDouble()
     runtime = _subscription_runtime(solver=_SolverDouble(), boundary=boundary, env=env)
     service = LocalCliExecutionService(
-        auth_profile=CONTRIBUTOR_SUBSCRIPTION, parent_env=env
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        parent_env=env,
+        filesystem_scope="linux_landlock_fs.v1",
     )
     runtime = replace(
         runtime,
@@ -204,3 +206,8 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     assert "--ignore-user-config" in executed[0].argv
     assert "--ignore-rules" in executed[0].argv
     assert "--ephemeral" in executed[0].argv
+    assert (
+        executed[0].argv[executed[0].argv.index("--sandbox") + 1]
+        == "danger-full-access"
+    )
+    assert "Landlock" in executed[0].stdin_bytes.decode()

@@ -36,6 +36,10 @@ from legalforecast.multiharness.codex_cli import (
 from legalforecast.multiharness.codex_cli_harvey_lab_guards import (
     require_solver_success,
 )
+from legalforecast.multiharness.codex_cli_harvey_lab_invocation import (
+    externally_contained_plan,
+    lab_solver_prompt,
+)
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
     harvey_lab_issuer_policy_sha256,
@@ -153,6 +157,7 @@ def run_codex_cli_clean_native_harvey_lab(
     evaluator_execution_service: LocalCliExecutionService | None = None,
     require_production_provenance: bool = False,
     use_prepared_projection: bool = False,
+    use_external_containment: bool = False,
 ) -> CodexCliHarveyLabPipelineResult | CodexCliHarveyLabMeasurementResult:
     """Project a LAB task, run contained Codex CLI, discover, and score."""
 
@@ -222,7 +227,11 @@ def run_codex_cli_clean_native_harvey_lab(
         )
     task = projection.manifest.tasks[0]
     task_dir = projection.solver_root / task.relative_path
-    prompt = _lab_solver_prompt(instructions=task_dir / INSTRUCTIONS_NAME, task=task)
+    prompt = lab_solver_prompt(
+        instructions=task_dir / INSTRUCTIONS_NAME,
+        task=task,
+        externally_contained=use_external_containment,
+    )
     sandbox_root.mkdir(parents=True, exist_ok=True)
     _stage_solver_visible_task(task_dir, sandbox_root)
     resolved_output = require_harvey_lab_sandbox_hosts(
@@ -245,6 +254,8 @@ def run_codex_cli_clean_native_harvey_lab(
         local_cli_manifest=local_cli_manifest,
         auth_profile=adapter.auth_profile,
     )
+    if use_external_containment:
+        plan = externally_contained_plan(plan, service)
     if "--approve-for-me" in plan.argv or "--ask-for-approval" in plan.argv:
         raise CodexCliAdapterError(
             "clean-native Codex Harvey LAB invocation must stay non-interactive"
@@ -420,30 +431,6 @@ def run_codex_cli_clean_native_harvey_lab(
         baseline_score_value=(
             score.score_value if require_production_provenance else None
         ),
-    )
-
-
-def _lab_solver_prompt(*, instructions: Path, task: HarveyLabProjectedTask) -> str:
-    if not instructions.is_file():
-        raise CodexCliAdapterError(
-            "projected Harvey LAB task is missing instructions.txt"
-        )
-    body = instructions.read_text(encoding="utf-8").strip()
-    if not body:
-        raise CodexCliAdapterError(
-            "projected Harvey LAB instructions must be non-empty"
-        )
-    declaration = (
-        "Write the expected deliverables " + ", ".join(task.expected_deliverables)
-        if task.expected_deliverables
-        else "Write every deliverable requested by the task"
-    )
-    return (
-        f"{body}\n\n"
-        "Read solver-visible materials under task/ in the working directory. "
-        f"{declaration} into the output directory under the "
-        "working directory. Use only the native Codex workspace-write sandbox. "
-        "Do not use MCP tools."
     )
 
 
