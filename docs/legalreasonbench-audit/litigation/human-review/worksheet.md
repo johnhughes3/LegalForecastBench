@@ -2370,6 +2370,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** met (3/3). **Contribution:** `15`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response explicitly states that Patton admitted conspiring to commit a forcible felony by planning a shooting and concludes that Iowa Code § 704.6(1) makes justification unavailable to a participant in that forcible felony.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly states that Patton's admitted conspiracy to commit a forcible felony (Count VIII, Iowa Code §706.1/706.3) establishes participation in a forcible felony, and that under Iowa Code §704.6(1), justification is unavailable to a participant in a forcible felony. It directly ties this conspiracy conviction/admission to the preclusion of the justification defense, satisfying the criterion.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly states that Patton pleaded guilty to conspiracy to commit a forcible felony (planning to engage in a shooting) and explains that under Iowa Code § 704.6(1), participating in a forcible felony precludes the justification defense.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** met (3/3). **Contribution:** `15`.
@@ -2474,6 +2482,14 @@ Evidence the model quoted (check against the source):
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not mention that Patton pled guilty in state court to intimidation with a dangerous weapon. It discusses his state-court plea petition only as to conspiracy to commit a forcible felony by planning a shooting.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response discusses Patton's state-court plea petition, but it describes the plea as being to Count VIII, conspiracy to commit a forcible felony under Iowa Code sections 706.1 and 706.3, with an admission to planning a shooting. It does not mention a guilty plea to 'intimidation with a dangerous weapon.' Therefore the specific failure described in the criterion is not present.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Patton pled guilty in state court to intimidation with a dangerous weapon; it only discusses his plea to conspiracy to commit a forcible felony.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** **PENALTY TRIGGERED** (2/3). **Contribution:** `-5`.
@@ -2605,6 +2621,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses evidence that Nelson opened fire and states that the analysis does not turn on who fired first, but it does not mention a lack of evidence proving who fired first on May 10, 2020.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the sequence of events and states that Nelson opened fire as the Trailblazer approached, treating this as an established fact rather than noting any lack of evidence about who fired first. It never asserts that the record is unclear or lacking proof as to who fired the first shot; instead it argues the issue of who fired first is legally immaterial given the forcible-felony bar. Thus it does not satisfy the specified criterion.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that there was a lack of evidence proving who fired first on May 10, 2020. Instead, it suggests that Nelson opened fire and notes that the legal standard does not turn on who fired the first shot.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -2713,6 +2737,14 @@ Rulings on the blind findings above:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses the pursuit, the Trailblazer approaching, and incoming fire, but does not state that Nelson's car was already stopped when Patton fired his gun.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the pursuit, shots exchanged, and Nelson firing as the Trailblazer approached, but it does not mention that Nelson's car was already stopped when Patton fired his gun. No statement in the text indicates the car's stopped status at the time of firing.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not mention that Nelson's car was already stopped when Patton fired his gun.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -2821,6 +2853,14 @@ Rulings on the blind findings above:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response describes the OTB group pursuing Nelson and Allison after they fled, but it does not state that the OTB group could have driven away.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document discusses the pursuit, provocation, and forcible-felony bar but never states that the OTB group (Patton/Shafer/Mallory/the group pursuing Nelson) could have driven away rather than pursuing. There is no statement about an option to drive away instead of continuing pursuit.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response discusses the pursuit, failure to withdraw, and the duty-to-retreat provision, but it does not state that the OTB group could have driven away.
+
+Links: [run record](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** met (2/3). **Contribution:** `15`.
