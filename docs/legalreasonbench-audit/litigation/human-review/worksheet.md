@@ -1125,6 +1125,20 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (1/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response identifies that Dr. Smith’s affidavit does not establish a concrete inconvenience from litigating in Cook County: it states that the affidavit does not explain any specific travel, scheduling, or trial-management burden and argues that conclusory convenience assertions are insufficient. Although that particular point is principally discussed with a Guerine citation, the response also frames the overall burden under Langenhorst.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion requires identifying that Dr. Smith's affidavit fails to state that Cook County itself would be inconvenient for him to litigate (as Langenhorst requires showing the chosen forum is inconvenient to the movant, not merely that the alternative is more convenient). The response instead states that Dr. Smith's affidavit says trial in DuPage 'would be substantially more convenient for him,' and critiques the affidavit for lacking detail about specific travel/scheduling burdens, rather than noting that the affidavit never addresses or shows Cook County is inconvenient for him. The Langenhorst-specific point about failure to show inconvenience of the chosen forum (Cook) is not made; the closest discussion cites Guerine's general standard rather than pinpointing this specific deficiency in Smith's affidavit under Langenhorst. Thus the specific criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response notes that Dr. Smith's affidavit does not explain a specific travel or scheduling burden (citing Guerine), but it fails to identify that Dr. Smith's affidavit does not state/indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (2006).
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Not defective
 - **AI reasoning:** Wrong
@@ -1217,6 +1231,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** penalty clear (0/3). **Contribution:** `-0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that Cook County lacks interest in adjudicating the controversy over care rendered by DuPage-based providers. Instead, it repeatedly argues that Cook has a meaningful local interest through the infant’s treatment, deterioration, and death there, while acknowledging that DuPage has a substantial interest in the alleged delivery-care negligence.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response never asserts that Cook County lacks interest in adjudicating a controversy over care rendered by DuPage-based providers. In fact, it explicitly argues the opposite throughout Sections 1, 6, and 7, citing Bradbury to assert that Cook has a genuine local interest because the decedent received extensive treatment, deteriorated, and died there, and that this Cook County nexus is material to the wrongful-death and survival claims. The response repeatedly pushes back against Defendants' claim that Cook is 'unrelated' or lacks interest, rather than adopting that position itself. Thus the described failure (claiming Cook lacks interest) is not present.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that Cook County lacks an interest in adjudicating the controversy. Instead, it repeatedly emphasizes and argues that Cook County has a legitimate local interest because the infant was treated, deteriorated, and died in Cook County, relying on Bradbury to refute the defendants' argument that Cook County lacks interest.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-1/gpt6luna-xhigh/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1295,6 +1323,20 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it does not state that it is supported by his affidavit or that he provided care to Baby Davis. It expressly notes that the supplied record does not establish each listed physician’s role or participation.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document lists Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it never states that the response is supported by an affidavit of Liam Vance, nor does it mention any affidavit from him. No affidavit from Liam Vance is referenced anywhere in the document, so the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Liam Vance (in fact, it notes that the record does not set out each physician's role, expected testimony, or participation).
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
 
 </details>
 
@@ -1392,6 +1434,20 @@ Rulings on the blind findings above:
 - **Claude Opus 5.5 O2 → mixed; for this criterion not_a_defect:** A Kane County residence affidavit is supported and satisfies the criterion. Overall ruling: Agree on criterion 12 and disagree on criterion 11. Criterion 11 is satisfied by a supported residence affidavit. Criterion 12 requires a sworn statement of inconvenience that has no record basis, and its 'as required under Langenhorst' framing misdescribes where Langenhorst places the burden. I do not rely on Opus's sequential-dependency argument. The assignment-1 rubric's criterion 11 already expected a recommendation for an inconvenience affidavit from Sara. Assignment 2's instruction to include the affidavits 'you referenced' therefore follows the earlier rubric, and the dependency is not an independent ground.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response does not state that it is supported by an affidavit of plaintiff Sara Davis. It discusses affidavits from Dr. Smith and the hospital administrator, but identifies no affidavit by Sara Davis.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document never mentions or cites an affidavit of Sara Davis supporting the response. It references the Complaint, Dr. Smith's affidavit, and the Hospital Administrator's affidavit, but there is no statement that the response is supported by Sara Davis's own affidavit.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not state that it is supported by an affidavit of the plaintiff, Sara Davis; in fact, it repeatedly notes that there is no affidavit or evidence in the record establishing Sara Davis's residence or convenience.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
 
 </details>
 
@@ -1505,6 +1561,20 @@ Evidence the model quoted (check against the source):
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** **PENALTY TRIGGERED** (3/3). **Contribution:** `-30`.
+- `openai/gpt-5.6-terra`: value `1.0` — Assignment #2 states that the 2023 report gives an all-case clearance rate of 60.5% for Cook County: “the all-case clearance rate was 60.5% for Cook County.” This matches the specified failure.
+- `anthropic/claude-sonnet-5`: value `1.0` — The document explicitly states: 'The 2023 report gives Defendants some support: the all-case clearance rate was 60.5% for Cook County and 99.0% for the 18th Circuit...' citing the 2023 Annual Report Statistical Summary, pp. 19, 21. This directly matches the failure criterion of stating a 60.5% clearance rate in Cook County, Illinois from the 2023 Illinois Annual Report Statistics.
+- `gemini/gemini-3.8-flash`: value `1.0` — Under the 'Court congestion' heading in Section IV, the response explicitly states that according to the 2023 report (referencing the 2023 Annual Report Statistical Summary), 'the all-case clearance rate was 60.5% for Cook County', thereby committing the specified failure.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1583,6 +1653,20 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Caleb Montgomery as one of five Cook County physicians, but it does not state that Assignment #2 is supported by his affidavit or that he provided care to Baby Davis at Cook County Hospital. It also does not mention an affidavit from Caleb Montgomery at all.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document lists Caleb Montgomery as one of five Cook County physicians identified by name, but it does not cite or reference any affidavit by Caleb Montgomery, nor does it state that the response is supported by such an affidavit. In fact, the brief explicitly states that 'the supplied record does not set out each physician's role, expected testimony, precise residence, willingness to appear, or scheduling burden,' indicating no affidavit from Montgomery exists or is relied upon in the response.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Caleb Montgomery as one of five Cook County physicians with whom counsel has spoken, but it does not state that the response is supported by an affidavit of Caleb Montgomery.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
 
 </details>
 
@@ -1667,6 +1751,20 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Liam Vance as one of five Cook County physicians but does not state that his affidavit indicates DuPage County would be an inconvenient forum for him to litigate the case. Indeed, it acknowledges that the supplied record does not establish each physician’s specific role, residence, willingness to appear, or scheduling burden.
+- `anthropic/claude-sonnet-5`: value `0.0` — The document only mentions Liam Vance as one of five Cook County physicians with whom counsel spoke, without any discussion of an affidavit by him stating that DuPage County would be inconvenient for him to litigate the case, nor any Langenhorst-specific analysis tied to his affidavit. The criterion requires identification of such an affidavit, which is absent from the response.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2 (or an affidavit/discussion thereof) identifying that an affidavit by Liam Vance indicates DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1748,6 +1846,20 @@ Rulings on the blind findings above:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response identifies Caleb Montgomery only as one of five Cook County physicians with whom counsel has spoken. It does not discuss or cite an affidavit from Caleb Montgomery, nor does it state that his affidavit indicates DuPage County would be an inconvenient forum for him to litigate the case as contemplated by Langenhorst.
+- `anthropic/claude-sonnet-5`: value `0.0` — The provided document is Plaintiff's Response in Opposition to Defendants' Motion to Transfer Venue (apparently Assignment #1). It mentions Caleb Montgomery only as one of five Cook County physicians plaintiff's counsel has spoken with, with no discussion of any affidavit by him addressing the inconvenience of DuPage County as a forum for him, nor any citation to Langenhorst for that specific point. There is no Assignment #2 content in this file addressing that requirement.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response does not include Assignment #2, nor does it identify or discuss an affidavit by Caleb Montgomery stating that DuPage County would be an inconvenient forum for him to litigate the case under Langenhorst v. Norfolk S. Ry. Co.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
@@ -1826,6 +1938,20 @@ Rulings on the blind findings above:
 - **GPT-6 Sol G1 → not_a_defect:** Overturned. The prompt instructs: 'Please include all affidavits and information you referenced from Assignment #1.' It also supplies the five physicians' names. The assignment-1 email gives the factual basis for their affidavits: the doctors 'are all Cook County residents and are willing to testify,' but testifying 'in DuPage rather than Cook County' would be inconvenient. Drafting those five affidavits from facts the supervising partner relayed, for the witnesses to review and sign, is ordinary litigation practice and is what the prompt requests. It is not fabrication of evidence. A response that drafts the affidavits and states that the brief is supported by them, with execution pending if it chooses to say so, satisfies criteria 1-10. Langenhorst faults the absence of affidavits that the forum would be inconvenient for witnesses, so the affidavit content matches the uploaded law. The criteria do not depend on any permissible assignment-1 answer being excluded. The prompt itself directs the affidavits.
 
 [Full reconciliation](../tasks/lrb-forum-non-conveniens-response-assignment-2/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response names Maya Linwood among five Cook County physicians but expressly states that the supplied record does not establish each physician’s scheduling burden or other individual convenience facts. It does not identify or discuss an affidavit by Maya Linwood stating that DuPage County would be an inconvenient forum for her, as required by the criterion.
+- `anthropic/claude-sonnet-5`: value `0.0` — The provided document is Plaintiff's Response in Opposition to the Motion to Transfer Venue (apparently Assignment #1). It mentions Maya Linwood only as one of five Cook County physicians identified by plaintiff's counsel, with no affidavit by her and no discussion of her finding DuPage County inconvenient as required under Langenhorst. There is no 'Assignment #2' content addressing an affidavit by Maya Linwood regarding forum inconvenience, so the criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions Maya Linwood as one of five Cook County physicians, but it does not identify or state that an affidavit by Maya Linwood indicates that DuPage County would be an inconvenient forum for her to litigate this case under Langenhorst. In fact, it expressly asserts that the record does not set out her willingness to appear or scheduling burden.
+
+Links: [run record](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/reward-details.json).
 
 </details>
 

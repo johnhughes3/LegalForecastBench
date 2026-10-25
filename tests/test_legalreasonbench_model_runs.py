@@ -333,6 +333,40 @@ def test_import_refuses_wrong_model_identity(tmp_path: Path) -> None:
     assert not output.exists()
 
 
+def test_import_discloses_agent_exception_without_copying_private_message(
+    tmp_path: Path,
+) -> None:
+    source, _scope = _source(tmp_path)
+    runs_root = tmp_path / "runs"
+    _trial(runs_root / "gpt6luna-xhigh")
+    result_path = runs_root / "gpt6luna-xhigh" / "job" / "trial-1" / "result.json"
+    result = json.loads(result_path.read_text())
+    result["step_results"] = [
+        {
+            "step_name": "assignment-1",
+            "exception_info": {
+                "exception_type": "NonZeroAgentExitCodeError",
+                "exception_message": "private command and runtime output",
+            },
+        }
+    ]
+    result_path.write_text(json.dumps(result))
+    output = tmp_path / "published"
+    summary = lrb.import_runs(
+        runs_root=runs_root,
+        source_index=source,
+        scope_index=None,
+        output=output,
+    )
+    page = (
+        output / "lrb-test-matter-assignment-1" / "gpt6luna-xhigh" / "README.md"
+    ).read_text()
+    assert summary["complete"] == 1
+    assert "NonZeroAgentExitCodeError" in page
+    assert "does not imply a clean agent exit" in page
+    assert "private command" not in page
+
+
 def test_partial_answer_is_published_without_inventing_grades(tmp_path: Path) -> None:
     source, _scope = _source(tmp_path)
     runs_root = tmp_path / "runs"

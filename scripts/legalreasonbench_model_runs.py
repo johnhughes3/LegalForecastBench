@@ -366,7 +366,7 @@ def _answer_path(step: Path) -> Path | None:
     return present[0] if present else None
 
 
-def _validate_identity(trial: Path, condition: str) -> None:
+def _validate_identity(trial: Path, condition: str) -> Json:
     expected = next((item for item in CONDITIONS if item[0] == condition), None)
     if expected is None:
         raise NativeRunError(f"unknown condition {condition}")
@@ -391,6 +391,25 @@ def _validate_identity(trial: Path, condition: str) -> None:
         raise NativeRunError(
             "Harbor result model identity is unavailable or mismatched"
         )
+    return result
+
+
+def _agent_exception(result: Json, assignment: Assignment) -> str | None:
+    """Expose the exception type without publishing commands or private logs."""
+    steps = result.get("step_results", [])
+    if not _is_list(steps):
+        return None
+    for step in steps:
+        if (
+            not _is_object(step)
+            or step.get("step_name") != f"assignment-{assignment.number}"
+        ):
+            continue
+        exception = step.get("exception_info")
+        if _is_object(exception):
+            name = exception.get("exception_type")
+            return str(name) if name else "native agent exception"
+    return None
 
 
 def read_native_run(trial: Path, assignment: Assignment, condition: str) -> Json:
@@ -399,7 +418,7 @@ def read_native_run(trial: Path, assignment: Assignment, condition: str) -> Json
         raise NativeRunError(f"unknown condition {condition}")
     # Identity is an import boundary: never publish another model's answer or
     # grades under the requested condition, even as an incomplete panel.
-    _validate_identity(trial, condition)
+    result = _validate_identity(trial, condition)
     step = trial / "steps" / f"assignment-{assignment.number}"
     response: Path | None = None
     reward_path = step / "verifier" / "reward.json"
@@ -442,6 +461,7 @@ def read_native_run(trial: Path, assignment: Assignment, condition: str) -> Json
         "details": details,
         "status": status,
         "error": error,
+        "agent_exception": _agent_exception(result, assignment),
     }
 
 
@@ -567,6 +587,7 @@ def run_block(
         links = [
             f"[{name}]({relative_prefix}model-runs/{task}/{slug}/{filename})"
             for name, filename in (
+                ("run record", "README.md"),
                 ("answer", "response.md"),
                 ("reward", "reward.json"),
                 ("details", "reward-details.json"),
@@ -673,6 +694,13 @@ def _readme(run: Json) -> str:
         + ".",
         "",
     ]
+    if run.get("agent_exception"):
+        lines += [
+            f"**Native agent diagnostic:** `{run['agent_exception']}`. "
+            "The saved response and native grading files are retained unchanged. "
+            "A complete grade panel does not imply a clean agent exit.",
+            "",
+        ]
     if run["status"] != "complete":
         lines += [
             f"**Grade panel:** {run['status']}; no criterion failure is assigned.",
