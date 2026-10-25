@@ -35,6 +35,9 @@
     "scripts/harvey_citation_check.py": [
       "pptx"
     ],
+    "scripts/legalreasonbench_extract.py": [
+      "pypdf"
+    ],
     "tests/hermes_anthropic_probe.py": [
       "httpx",
       "requests",
@@ -51,6 +54,12 @@
     ],
     "tests/test_harvey_lab_evaluator.py": [
       "hashlib"
+    ],
+    "tests/test_legalreasonbench_audit.py": [
+      "legalreasonbench_citations",
+      "legalreasonbench_extract",
+      "legalreasonbench_render",
+      "legalreasonbench_report"
     ],
     "tests/test_resume_cli.py": [
       "hashlib"
@@ -84,6 +93,7 @@
     "legalforecast/multiharness/process_containment.py",
     "legalforecast/multiharness/tier0_evaluator_wrapper.py",
     "legalforecast/multiharness/tier0_runner.py",
+    "scripts/build_legalreasonbench_audit.py",
     "scripts/harvey_citation_check.py",
     "scripts/harvey_citation_sample.py",
     "scripts/pangram_site.py",
@@ -133,6 +143,7 @@
     "tests/test_integrated_fixture_pipeline.py",
     "tests/test_jev_workflow.py",
     "tests/test_jev_workflow_failures.py",
+    "tests/test_legalreasonbench_audit.py",
     "tests/test_license_terms.py",
     "tests/test_local_cli_adapter_manifest.py",
     "tests/test_local_cli_contracts.py",

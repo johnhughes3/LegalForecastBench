@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path, PurePosixPath
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
@@ -38,6 +39,7 @@ INDEX_RELATIVE = "docs/README.md"
 SELF_INDEXED_DIRS = (
     "docs/multiharness",
     "docs/harvey-lab-audit/litigation-dispute-resolution",
+    "docs/legalreasonbench-audit/litigation",
 )
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
@@ -106,6 +108,7 @@ def _resolve_in_repo(path_part: str, base: Path = DOCS_DIR) -> str | None:
     whenever they happen to exist on the machine running the tests.
     """
 
+    path_part = unquote(path_part)
     if PurePosixPath(path_part).is_absolute():
         return None
     resolved = (base / path_part).resolve()

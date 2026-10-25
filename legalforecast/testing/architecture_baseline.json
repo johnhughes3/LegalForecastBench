@@ -1876,6 +1876,23 @@
         "nonblank_line_count": 217,
         "top_level_definition_count": 9
       },
+      "scripts/build_legalreasonbench_audit.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "scripts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "scripts",
+        "largest_symbol": "main",
+        "largest_symbol_lines": 48,
+        "layer": "entrypoint",
+        "line_count": 77,
+        "nonblank_line_count": 65,
+        "top_level_definition_count": 1
+      },
       "scripts/harvey_citation_check.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",
@@ -2327,6 +2344,24 @@
         "line_count": 687,
         "nonblank_line_count": 621,
         "top_level_definition_count": 19
+      },
+      "tests/test_legalreasonbench_audit.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "tests",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path",
+          "watch"
+        ],
+        "lane_owner": "tests",
+        "largest_symbol": "test_sequential_extraction_carries_prompts_and_attachments",
+        "largest_symbol_lines": 88,
+        "layer": "test",
+        "line_count": 632,
+        "nonblank_line_count": 577,
+        "top_level_definition_count": 21
       },
       "tests/test_live_model_solver.py": {
         "cycle_id": "",

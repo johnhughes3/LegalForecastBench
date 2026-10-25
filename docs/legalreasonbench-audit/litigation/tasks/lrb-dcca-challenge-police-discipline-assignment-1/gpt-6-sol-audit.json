@@ -1,0 +1,54 @@
+{
+  "model": "GPT-6 Sol (gpt-6-sol)",
+  "reasoning_effort": "high",
+  "dataset_revision": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+  "task": "lrb-dcca-challenge-police-discipline-assignment-1",
+  "criteria_total": 9,
+  "coverage": "Reviewed the upstream common role prompt and all 9 criteria, the first-step instruction, and the three attached PDFs in full (Final Notice, Award, comparator memorandum). No external law is necessary for the documentary discrepancies. The case names and facts are fictional and treated as the assigned record.",
+  "findings": [
+    {
+      "id": "F1",
+      "status": "problematic",
+      "category": "source_conflict",
+      "criteria": [
+        "criterion_8"
+      ],
+      "title": "Comparator dates fall within the memorandum’s stated coverage period",
+      "explanation": "The memorandum says its records cover calendar years 2018 through 2021. Its four incidents occurred in August 2018, November 2019, May 2020, and March 2021; every termination also occurred by October 2021. There is no stated-year conflict to identify. A truthful answer that declines to invent one loses this high-value criterion.",
+      "evidence": [
+        {
+          "source": "comparator_discipline_cases.pdf, p. 1 ¶ 1",
+          "quote": "records covering calendar years 2018 through 2021"
+        },
+        {
+          "source": "comparator_discipline_cases.pdf, p. 1 ¶¶ 2-5",
+          "quote": "In August 2018 ... In November 2019 ... In May 2020 ... In March 2021"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Remove the criterion unless a real contradictory coverage date is documented."
+    },
+    {
+      "id": "F2",
+      "status": "arguable",
+      "category": "unrequested_requirement",
+      "criteria": [
+        "criterion_7"
+      ],
+      "title": "Citation error is peripheral to the requested factor reconstruction",
+      "explanation": "The Award says the material facts are in Final Notice paragraphs 5 through 12 although the factual sequence begins at paragraph 4. That is a genuine citation imprecision. The assignment asks for MPD’s twelve factor findings and substantive departures by the arbitrator; a careful answer could identify every substantive departure without calling out this harmless pointer error. Awarding 30 points for that callout may reject the requested analysis.",
+      "evidence": [
+        {
+          "source": "braddock_arbitration_award.pdf, p. 1 ¶ 3",
+          "quote": "material facts ... are set out in the Final Notice at paragraphs 5 through 12"
+        },
+        {
+          "source": "final_notice_adverse_action_braddock.pdf, p. 1 ¶ 4",
+          "quote": "At approximately 9:40 p.m. on October 3, 2023"
+        }
+      ],
+      "authorities": [],
+      "suggested_fix": "Treat citation verification as optional or separately requested, not an essential departure."
+    }
+  ]
+}

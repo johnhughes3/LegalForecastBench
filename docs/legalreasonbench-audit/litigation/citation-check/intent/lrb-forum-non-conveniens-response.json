@@ -1,0 +1,225 @@
+{
+  "matter": "lrb-forum-non-conveniens-response",
+  "records": [
+    {
+      "ref": "FNC-0049",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_6 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0050",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_6 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0051",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_7"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_7 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0052",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_7"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_7 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0053",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_8"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_8 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0054",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_8"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_8 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0055",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_9"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_9 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0056",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_9"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_9 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0057",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_10"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_10 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0058",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_10"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_10 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0060",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_12"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_12 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0061",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_12"
+      ],
+      "explanation": "The defect is in the rubric itself: assignment-2 criterion_12 awards points for identifying the affidavit as showing DuPage would be inconvenient 'as required under Langenhorst', so a model that tracks Langenhorst accurately (burden on the defendant; no plaintiff-affidavit requirement) can still satisfy the factual part but is credited for adopting the overstated legal attribution. No instruction or criterion asks the model to check this attribution. Judgment-dependent: if 'as required' is read loosely as 'as relevant under', the defect is minor."
+    },
+    {
+      "ref": "FNC-0101",
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Error in the opposing motion (Guerine's holding stated as when transfer is 'warranted' rather than when granting transfer is an abuse of discretion). Assignment-1's instruction to identify weaknesses in each argument covers it generally. Assignment-1 criterion_19 only rewards noting that defendants distinguished Guerine on multi-county witnesses; it neither targets the inversion nor rewards relying on it. Environment-level problem; no rubric defect implied."
+    },
+    {
+      "ref": "FNC-0107",
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Error in the opposing motion (Garman dissent's use of AOIC statistics presented as Langenhorst's reliance). Assignment-1's critique instruction covers it generally, and assignment-1 criteria 24-29 and assignment-2 criteria 17-20 address the congestion argument on other grounds (congestion is insignificant; civil clearance rates; Cook time-to-verdict not reported), but none targets the dissent attribution. No criterion rewards relying on it. Environment-level; no rubric defect implied."
+    },
+    {
+      "ref": "FNC-0115",
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [
+        "assignment-1 criterion_7"
+      ],
+      "rewards_reliance": [],
+      "explanation": "Assignment 1 generally asks for weaknesses. Criterion_7 specifically rewards the correct Bradbury disposition, affirmance of denial, and thus bears on the motion's 'reversed course' phrasing. Criterion_1 rewards the separate affidavit contrast, not identification or correction of the disposition error; remove it from this row's targeted-by-criteria list. No criterion rewards the erroneous disposition.",
+      "first_intent": {
+        "ref": "FNC-0115",
+        "targeted_by_instructions": true,
+        "targeted_by_criteria": [
+          "assignment-1 criterion_7",
+          "assignment-1 criterion_1"
+        ],
+        "rewards_reliance": [],
+        "explanation": "Planted or incidental error in the opposing motion. Assignment-1 asks the model to note what is weak in each argument. Criterion_7 rewards stating that Bradbury AFFIRMED the denial of transfer, which is the correct disposition and contradicts the motion's 'reversed course'; criterion_1 rewards contrasting the motion's affidavits with Bradbury's unsupported motion. Neither criterion asks the model to flag the misstatement as such. No criterion rewards relying on it."
+      },
+      "second_check_model": "gpt-6-sol",
+      "second_check_reasoning_effort": "high"
+    },
+    {
+      "ref": "FNC-0455",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only defect in a background statistical report (case-category definitions). No instruction or criterion concerns family-law case categories, and no criterion rewards relying on 750 ILCS 5/303. Implies no rubric defect."
+    },
+    {
+      "ref": "FNC-0456",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Environment-only defect in a background statistical report (case-category definitions). No instruction or criterion concerns family-law case categories, and no criterion rewards relying on 750 ILCS 5/303. Implies no rubric defect."
+    },
+    {
+      "ref": "FNC-0211",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0212",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0213",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0221",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0230",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0234",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0235",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0238",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Neither assignment instruction nor any of the 53 rubric criteria (29 in assignment 1, 24 in assignment 2) mentions this supervisory order, the Guerine appendix, the 'more than 30 times' passage, or supervisory orders generally. The only prompt hit on a party name is the memo author 'James Rogers'. Both prompts limit research to the uploaded files ('Do not rely on, reference, or infer any legal authority ... beyond what is contained in these uploaded files'), so a solver could not have checked the order and is not asked to. Assignment-1 criterion_8 cites 'First Am Bank v. Guerine.pdf at p.10', which includes the end of the appendix, but it rewards identifying Guerine's reversal of a transfer grant, not any appendix parenthetical. The Guerine criteria (assignment-1 criteria 8, 10, 19, 24, 29; assignment-2 criteria 14, 15, 16, 24) rest on the opinion's holding and factor analysis. No criterion rewards relying on this defect. I agree with Sol's all-false/empty proposal."
+    },
+    {
+      "ref": "FNC-0487",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The JTPA entry is a column-heading abbreviation in the probation glossary, not a grading target. The report-based criteria cite only pages 21, 22 and 163 (clearance rates, the Cook County time-lapse gap; assignment-1 criteria 25-28, assignment-2 criteria 18-20). No instruction or criterion mentions the JTPA, the glossary, or probation programs. I agree with Sol's all-false/empty proposal."
+    }
+  ]
+}

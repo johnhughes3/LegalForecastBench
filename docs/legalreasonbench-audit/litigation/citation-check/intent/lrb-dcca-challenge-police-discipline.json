@@ -1,0 +1,303 @@
+{
+  "matter": "lrb-dcca-challenge-police-discipline",
+  "records": [
+    {
+      "ref": "pd-0009",
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [
+        "assignment-2 criterion_2",
+        "assignment-3 criterion_6",
+        "assignment-5 criterion_7"
+      ],
+      "rewards_reliance": [
+        "assignment-2 criterion_2",
+        "assignment-3 criterion_6",
+        "assignment-5 criterion_7"
+      ],
+      "explanation": "Prompts and rubrics treat §1606.2 as an operative Douglas-factor constraint on sworn MPD discipline. Official §1600.2(g) excludes sworn members. MPD’s own order may support factor analysis, but it is a different authority.",
+      "initial_intent": {
+        "ref": "pd-0009",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-2 criterion_6"
+        ],
+        "explanation": "No instruction or criterion asks the model to notice that 6-B DCMR Chapter 16 excludes sworn MPD members (§ 1600.2(g)). The assignment 2 prompt directs the scope-of-review analysis 'under Douglas and D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017)', and criterion 6 (4 points) rewards stating that § 1606.2 requires the deciding official to balance the Douglas-type factors, so a model that points out the regulation does not govern MPD sworn-member discipline does not earn that criterion. Criteria 4, 5 and 8 cite § 1606.2 only as part of the uploaded set."
+      }
+    },
+    {
+      "ref": "pd-0066",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-2 criterion_4",
+        "assignment-2 criterion_5",
+        "assignment-5 criterion_8"
+      ],
+      "rewards_reliance": [
+        "assignment-2 criterion_4",
+        "assignment-2 criterion_5",
+        "assignment-5 criterion_8"
+      ],
+      "explanation": "Douglas explicitly requires agency proof of sanction-supporting facts, including consistency with other actions, in MSPB proceedings. A D.C. arbitral burden cannot be imported without another source, but the rubric treats the opposite as established by Douglas.",
+      "initial_intent": {
+        "ref": "pd-0066",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-2 criterion_4"
+        ],
+        "explanation": "Criterion 4 (26 points) rewards stating that no uploaded authority requires MPD to prove the comparability of its comparator cases and cites Douglas at 305-06 among its sources. Douglas (5 MSPB 324, 333-34) puts on the agency the burden of proving the facts behind its penalty, expressly including consistency with other agency actions, so a model that reads Douglas that way and says so does not earn this criterion. Whether that MSPB-level allocation binds an arbitrator is arguable, but the criterion as written asserts an absence the uploaded opinion contradicts."
+      }
+    },
+    {
+      "ref": "pd-0070",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-2 criterion_5"
+      ],
+      "rewards_reliance": [
+        "assignment-2 criterion_5"
+      ],
+      "explanation": "Douglas footnote 65 allows agency rebuttal after an appellant asserts disparity; it does not state a mandatory prima facie burden. The criterion should not reward an absolute rule in either direction.",
+      "initial_intent": {
+        "ref": "pd-0070",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-2 criterion_5"
+        ],
+        "explanation": "Penalty criterion 5 (-18 points) penalizes stating that the employee must make an initial showing of disparate treatment before the agency bears a comparator burden, on the premise that this rule comes from outside the uploaded materials; its source list includes Douglas at 305-06. Douglas itself describes a raise-then-rebut sequence (5 MSPB 331 n.65; 334), so a model that draws that structure from the uploaded Douglas opinion can be penalized."
+      }
+    },
+    {
+      "ref": "pd-0072",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "No instruction or criterion asks the model to notice that 6-B DCMR Chapter 16 excludes sworn MPD members (§ 1600.2(g)). The assignment 2 prompt directs the scope-of-review analysis 'under Douglas and D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017)', and criterion 6 (4 points) rewards stating that § 1606.2 requires the deciding official to balance the Douglas-type factors, so a model that points out the regulation does not govern MPD sworn-member discipline does not earn that criterion. Criteria 4, 5 and 8 cite § 1606.2 only as part of the uploaded set."
+    },
+    {
+      "ref": "pd-0073",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "No instruction or criterion asks the model to notice that 6-B DCMR Chapter 16 excludes sworn MPD members (§ 1600.2(g)). The assignment 2 prompt directs the scope-of-review analysis 'under Douglas and D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017)', and criterion 6 (4 points) rewards stating that § 1606.2 requires the deciding official to balance the Douglas-type factors, so a model that points out the regulation does not govern MPD sworn-member discipline does not earn that criterion. Criteria 4, 5 and 8 cite § 1606.2 only as part of the uploaded set."
+    },
+    {
+      "ref": "pd-0104",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-3 criterion_11"
+      ],
+      "rewards_reliance": [
+        "assignment-3 criterion_11"
+      ],
+      "explanation": "FOP requires deference to reasonable PERB interpretations; it does not say a terse explanation reduces deference. Criterion turns a plausible advocacy point into an attributed legal rule.",
+      "initial_intent": {
+        "ref": "pd-0104",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [
+          "assignment-3 criterion_11"
+        ],
+        "explanation": "Criterion 11 (6 points) rewards stating that PERB's unexplained rejection of MPD's arguments undermines the deference its interpretation would otherwise receive and cites FOP at PDF page 3. FOP states the deferential standards there and contains no such reduction-of-deference rule, so the criterion rewards a proposition the cited uploaded opinion does not support."
+      }
+    },
+    {
+      "ref": "pd-0123",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-4 criterion_4"
+      ],
+      "rewards_reliance": [],
+      "explanation": "Preservation is a real rule, but citation to §1-605.02(6) is wrong; §1-617.13(b) supplies it. Correct answers should retain the principle with the correct source.",
+      "initial_intent": {
+        "ref": "pd-0123",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "Criterion 4 of assignment 4 (16 points) rewards the preservation rule (objections not urged before PERB cannot be considered on review). The rule itself is correct and is in FOP at PDF page 5 via D.C. Code § 1-617.13(b); only the additional source pointer to § 1-605.02(6) is wrong. A model stating the rule correctly is not penalized, so no rubric defect follows from this source error."
+      }
+    },
+    {
+      "ref": "pd-0149",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-3 criterion_14",
+        "assignment-5 criterion_5",
+        "assignment-5 criterion_6"
+      ],
+      "rewards_reliance": [
+        "assignment-3 criterion_14"
+      ],
+      "explanation": "Fictional notice misnumbers the in-force MPD order’s conduct-unbecoming item. The notice’s recital can describe agency policy, but Grace/Misco require an explicit public policy grounded in law or precedent; treating the case-specific notice alone as that legal source is overconfident.",
+      "initial_intent": {
+        "ref": "pd-0149",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "No instruction or criterion addresses the General Order part number. Assignment 3 criteria 4 and 14 cite Final Notice ¶ 12 (which contains this citation) as the documented source of the deadly-force policy, but they reward identifying the policy, not the 'Part A-12' designation, so the misnumbering does not change scoring."
+      }
+    },
+    {
+      "ref": "pd-0151",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "No instruction or criterion asks the model to notice that 6-B DCMR Chapter 16 excludes sworn MPD members (§ 1600.2(g)). The assignment 2 prompt directs the scope-of-review analysis 'under Douglas and D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017)', and criterion 6 (4 points) rewards stating that § 1606.2 requires the deciding official to balance the Douglas-type factors, so a model that points out the regulation does not govern MPD sworn-member discipline does not earn that criterion. Criteria 4, 5 and 8 cite § 1606.2 only as part of the uploaded set."
+    },
+    {
+      "ref": "pd-0165",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [
+        "assignment-2 criterion_6"
+      ],
+      "explanation": "No instruction or criterion asks the model to notice that 6-B DCMR Chapter 16 excludes sworn MPD members (§ 1600.2(g)). The assignment 2 prompt directs the scope-of-review analysis 'under Douglas and D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017)', and criterion 6 (4 points) rewards stating that § 1606.2 requires the deciding official to balance the Douglas-type factors, so a model that points out the regulation does not govern MPD sworn-member discipline does not earn that criterion. Criteria 4, 5 and 8 cite § 1606.2 only as part of the uploaded set."
+    },
+    {
+      "ref": "pd-0289",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Garbled citation inside a real opinion's attachment copy (OCR or Justia print artifact, or an error in the original print). No instruction or criterion reaches this citation; it is an environment defect and does not imply a rubric defect."
+    },
+    {
+      "ref": "pd-0491",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Garbled citation inside a real opinion's attachment copy (OCR or Justia print artifact, or an error in the original print). No instruction or criterion reaches this citation; it is an environment defect and does not imply a rubric defect."
+    },
+    {
+      "ref": "pd-0513",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Garbled citation inside a real opinion's attachment copy (OCR or Justia print artifact, or an error in the original print). No instruction or criterion reaches this citation; it is an environment defect and does not imply a rubric defect."
+    },
+    {
+      "ref": "pd-0618",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Garbled citation inside a real opinion's attachment copy (OCR or Justia print artifact, or an error in the original print). No instruction or criterion reaches this citation; it is an environment defect and does not imply a rubric defect."
+    },
+    {
+      "ref": "pd-0643",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Garbled citation inside a real opinion's attachment copy (OCR or Justia print artifact, or an error in the original print). No instruction or criterion reaches this citation; it is an environment defect and does not imply a rubric defect."
+    },
+    {
+      "ref": "pd-0080",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [
+        "assignment-2 criterion_9"
+      ],
+      "rewards_reliance": [
+        "assignment-2 criterion_9"
+      ],
+      "explanation": "The assignment-2 prompt asks for scope-of-review and burden/preservation analysis with page and paragraph cites. It does not ask for the Award's citations to be audited; criterion 9's justification calls the item 'implied, though not directly requested'. Criterion 9 (+30 of 88 positive points, the largest item) rewards asserting that a correct M.S.P.R. pin corresponds to no page of the upload. A response that cites the standard correctly at upload pp. 332-333, or that explains the parallel pagination, is penalized or at best uncertain. This record does not decide whether the criterion should be removed or rewritten, and it makes no score correction.",
+      "prior_intent": {
+        "ref": "pd-0080",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [
+          "assignment-2 criterion_9"
+        ],
+        "rewards_reliance": [
+          "assignment-2 criterion_9"
+        ],
+        "explanation": "Criterion awards 30 points for treating Douglas 5 M.S.P.R. 306 as absent from attachment paginated 5 MSPB 313–346. They are parallel reporter pages, 5 MSPB 332 = 5 M.S.P.R. 306; reward would penalize correct citation handling."
+      }
+    },
+    {
+      "ref": "pd-0688",
+      "targeted_by_instructions": true,
+      "targeted_by_criteria": [
+        "assignment-5 criterion_1"
+      ],
+      "rewards_reliance": [
+        "assignment-5 criterion_1"
+      ],
+      "explanation": "§1-617.13(c) provides initial review of a final PERB order in Superior Court within 30 days, while FOP reached DCCA on appeal from Superior Court. Scenario asks for direct DCCA review; supplied record gives no service date or timely Superior Court filing, so timeliness and posture cannot be assumed. The November 2025 order and March 2026 advice date heighten this concern."
+    },
+    {
+      "ref": "pd-0696",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "A search of all five assignment prompts, criteria, and source fields found no reference to Lincoln National or 'manifest disregard'. The misquotation sits in an uploaded authority's Cf. parenthetical and does not change any graded proposition. A response that repeated FOP's parenthetical would carry the DCCA's wording, not the Eighth Circuit's, but no criterion rewards or penalizes that.",
+      "prior_intent": {
+        "ref": "pd-0696",
+        "targeted_by_instructions": false,
+        "targeted_by_criteria": [],
+        "rewards_reliance": [],
+        "explanation": "FOP’s exact quotation of Lincoln National differs from the Eighth Circuit original. The wording difference is small in substance and is not a grading target, but the quote should be marked MISQUOTED."
+      }
+    },
+    {
+      "ref": "pd-0580",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The Dennison citation appears only in footnote 9 of the attached Grace opinion. I fetched all five pinned rubric.json files for this matter: 9, 12, 16, 9 and 8 criteria for assignments 1 through 5. No criterion mentions Dennison, Franks, McCall, seniority or consent decrees. The criteria that cite Grace (for example assignment 3 criteria 4, 5, 13 and 14, and assignment 5 criteria 5 and 6) concern the explicit, well-defined and dominant public-policy standard for refusing to enforce an award. The upstream citation is verified, and the first check's flag came from misreading audit metadata, so there is nothing to target or reward."
+    },
+    {
+      "ref": "pd-0547",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "The wrong Statutes at Large page (259 for 257) is embedded in the authentic Grace opinion supplied as an attachment. No criterion in the five pinned rubrics mentions § 703(h), 42 U.S.C. § 2000e-2(h), Statutes at Large pages or seniority systems, and no assignment instruction asks for the Title VII session-law citation. No scoring correction is proposed."
+    },
+    {
+      "ref": "pd-0156",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Article 12, the collective bargaining agreement as an authority, or Final Notice ¶27. Assignment 1 criterion 1 cites Final Notice ¶26, not ¶27. Each step's prompt also confines the analysis to the uploaded materials ('If a document is not uploaded, it does not exist'), so the real agreements are outside the task universe. The Article 12 route is a scenario premise shared by the Final Notice and the Award, and it mirrors the pre-2020 Article 12 arbitration structure. It is not a rubric defect, and there is no basis to infer that it was deliberately targeted. No scoring correction is proposed."
+    },
+    {
+      "ref": "pd-0231",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions 5 U.S.C. § 7701(f) or consolidation. The '(f)(D' garble is in the attachment's OCR text layer only, and nothing rewards reliance on it."
+    },
+    {
+      "ref": "pd-0321",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Slowick, 'Slotvick', or remand for redetermination of sanction. The name garble is OCR-only, and nothing rewards reliance on it."
+    },
+    {
+      "ref": "pd-0395",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion mentions Bowman. Assignment 3 criterion 2 ('rationally indefensible' PERB standard) uses similar wording but concerns a different standard and authority. The citation is verified, so there is nothing to target."
+    },
+    {
+      "ref": "pd-0497",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Cafferello. Assignment 2 criteria 4, 5 and 8 cover the comparator burden allocation that Douglas note 65 also addresses: criterion 4 rewards noting that no uploaded authority requires MPD to prove comparability; criterion 5 penalizes stating an employee initial-showing rule as settled law; criterion 8 penalizes non-uploaded authority. Whether note 65's text bears on criterion 5's framing is a rubric question outside this citation check. None of these criteria targets the Cafferello citation or rewards reliance on it. The citation is verified, and the earlier flag came from the audit's own label."
+    },
+    {
+      "ref": "pd-0506",
+      "targeted_by_instructions": false,
+      "targeted_by_criteria": [],
+      "rewards_reliance": [],
+      "explanation": "Rubric sweep: I searched all five pinned rubric.json files (9, 12, 16, 9 and 8 criteria for assignments 1–5, at the pinned revision) and the five upstream assignment instructions. No criterion or instruction mentions Clark or the Court of Claims. The clipped year comes from the attachment's scan reproduction, and nothing rewards reliance on it."
+    }
+  ]
+}
