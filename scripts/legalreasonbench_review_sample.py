@@ -288,8 +288,9 @@ def render_item(i: int, row: Json, inputs: Json, line: int, review: str) -> list
         for p in as_list(inputs["prior_prompts"])
     ]
     return [
-        f"## {i}. {inputs['matter_title']}, assignment {inputs['assignment']}: "
-        f"{inputs['assignment_title']} — {cid}",
+        f"## {i}. {inputs['matter_title']}, assignment {inputs['assignment']}"
+        + (f": {inputs['assignment_title']}" if inputs["assignment_title"] else "")
+        + f" — {cid}",
         "",
         " · ".join(
             [
