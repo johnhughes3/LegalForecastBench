@@ -131,12 +131,16 @@ def prepare_clean_native_runner(
             capability,
         )
     return (
-        partial(
-            run_codex_cli_clean_native_harvey_lab,
-            adapter=adapter,
-            solver_executable_pin=executable_pin,
-            reasoning_effort=cast(
-                str, settings.get("reasoning_effort", CODEX_DEFAULT_REASONING_EFFORT)
+        cast(
+            partial[CodexCliHarveyLabPipelineResult],
+            partial(
+                run_codex_cli_clean_native_harvey_lab,
+                adapter=adapter,
+                solver_executable_pin=executable_pin,
+                reasoning_effort=cast(
+                    str,
+                    settings.get("reasoning_effort", CODEX_DEFAULT_REASONING_EFFORT),
+                ),
             ),
         ),
         capability,

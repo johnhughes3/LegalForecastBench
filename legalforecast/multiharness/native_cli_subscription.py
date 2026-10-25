@@ -241,10 +241,13 @@ def validate_role_config_separation(
     judge_root: Path,
     *,
     forbidden_paths: Sequence[Path],
+    solver_executable: str = "claude",
 ) -> tuple[Path, Path]:
     """Reject shared/nested role roots and overlap with benchmark paths."""
 
-    solver = validate_auth_only_config_root("claude", solver_root, role="solver")
+    solver = validate_auth_only_config_root(
+        solver_executable, solver_root, role="solver"
+    )
     judge = validate_auth_only_config_root("claude", judge_root, role="judge")
     if _paths_overlap(solver, judge):
         raise AuthProfileError("solver and judge config directories must be disjoint")

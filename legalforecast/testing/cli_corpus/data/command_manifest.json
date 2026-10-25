@@ -5586,6 +5586,65 @@
         },
         {
           "action": "store",
+          "choices": [
+            "claude-code",
+            "codex"
+          ],
+          "default": "claude-code",
+          "dest": "harness",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--harness"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "codex_version",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--codex-version"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": null,
+          "default": null,
+          "dest": "codex_sha256",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--codex-sha256"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
+          "choices": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "default": "medium",
+          "dest": "reasoning_effort",
+          "metavar": null,
+          "nargs": null,
+          "option_strings": [
+            "--reasoning-effort"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "action": "store",
           "choices": null,
           "default": null,
           "dest": "source_root",

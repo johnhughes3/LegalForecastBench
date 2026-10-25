@@ -12,6 +12,7 @@ import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
@@ -20,6 +21,10 @@ from legalforecast.multiharness.auth_binding import (
     require_execution_service_profile,
 )
 from legalforecast.multiharness.auth_profiles import AuthProfileError
+from legalforecast.multiharness.claude_code_harvey_lab_guards import (
+    require_authentic_prepared_private_material,
+    require_complete_production_evaluator,
+)
 from legalforecast.multiharness.codex_cli import (
     CODEX_CLI_EXECUTABLE,
     CODEX_DEFAULT_REASONING_EFFORT,
@@ -28,6 +33,9 @@ from legalforecast.multiharness.codex_cli import (
     classify_codex_execution,
     plan_contained_codex_exec,
 )
+from legalforecast.multiharness.codex_cli_harvey_lab_guards import (
+    require_solver_success,
+)
 from legalforecast.multiharness.harvey_lab_authorized_scoring import (
     HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
     harvey_lab_issuer_policy_sha256,
@@ -35,13 +43,20 @@ from legalforecast.multiharness.harvey_lab_authorized_scoring import (
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EVALUATOR_COMMAND_NAME,
+    EvaluatorProvenanceProvider,
     EvaluatorRunner,
     HarveyLabEvaluationHosts,
     HarveyLabEvaluationIdentity,
+    HarveyLabEvaluatorExecution,
     HarveyLabEvaluatorProvenance,
     HarveyLabIsolatedEvaluation,
     HarveyLabJudgeRequestBoundary,
+    execute_isolated_harvey_lab_evaluator,
     invoke_isolated_harvey_lab_evaluator,
+)
+from legalforecast.multiharness.harvey_lab_observed_score import (
+    HarveyLabObservedScore,
+    observed_harvey_lab_score,
 )
 from legalforecast.multiharness.harvey_lab_output_discovery import (
     HarveyLabOutputDiscoveryResult,
@@ -54,14 +69,14 @@ from legalforecast.multiharness.harvey_lab_projection import (
     HarveyLabPin,
     HarveyLabProjectedTask,
     HarveyLabProjectionResult,
+    harvey_lab_v1_1_pin,
     project_harvey_lab_suite,
+    verify_harvey_lab_projection,
+    verify_harvey_lab_source_pin,
 )
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
-    LocalCliFailureClass,
     RunSpec,
-    coerce_local_cli_failure_class,
-    is_local_cli_sandbox_denial,
 )
 from legalforecast.multiharness.local_cli_identity import (
     ExecutableIdentityPin,
@@ -89,6 +104,21 @@ class CodexCliHarveyLabPipelineResult:
     score: ScoreArtifact
 
 
+@dataclass(frozen=True, slots=True)
+class CodexCliHarveyLabMeasurementResult:
+    """Observed standalone Codex result without issuer/signing requirements."""
+
+    projection: HarveyLabProjectionResult
+    task: HarveyLabProjectedTask
+    solver_spec: RunSpec
+    solver_execution: ExecutionReceipt
+    discovery: HarveyLabOutputDiscoveryResult
+    evaluation: HarveyLabEvaluatorExecution
+    score: HarveyLabObservedScore
+    execution_mode: Literal["fixture", "production"]
+    baseline_score_value: int | None
+
+
 def run_codex_cli_clean_native_harvey_lab(
     *,
     adapter: CodexCliAdapter,
@@ -100,8 +130,8 @@ def run_codex_cli_clean_native_harvey_lab(
     quarantine_root: Path,
     overlay_root: Path,
     evaluator_working_directory: Path,
-    signer: Callable[[bytes], bytes],
-    issuer_public_key: Ed25519PublicKey,
+    signer: Callable[[bytes], bytes] | None = None,
+    issuer_public_key: Ed25519PublicKey | None = None,
     lab_task_id: str = ISSUE_196_LAB_TASK_ID,
     pin: HarveyLabPin | None = None,
     model: str = CODEX_LAB_DEFAULT_MODEL,
@@ -119,8 +149,11 @@ def run_codex_cli_clean_native_harvey_lab(
     judge_request_boundary: HarveyLabJudgeRequestBoundary | None = None,
     evaluator_runner: EvaluatorRunner | None = None,
     evaluator_provenance: HarveyLabEvaluatorProvenance | None = None,
+    evaluator_provenance_provider: EvaluatorProvenanceProvider | None = None,
+    evaluator_execution_service: LocalCliExecutionService | None = None,
     require_production_provenance: bool = False,
-) -> CodexCliHarveyLabPipelineResult:
+    use_prepared_projection: bool = False,
+) -> CodexCliHarveyLabPipelineResult | CodexCliHarveyLabMeasurementResult:
     """Project a LAB task, run contained Codex CLI, discover, and score."""
 
     service = adapter.execution_service
@@ -139,13 +172,47 @@ def run_codex_cli_clean_native_harvey_lab(
         )
     except AuthProfileError as exc:
         raise CodexCliAdapterError(str(exc)) from exc
-    projection = project_harvey_lab_suite(
-        source_root=source_root,
-        solver_root=solver_root,
-        evaluator_private_root=evaluator_private_root,
-        pin=pin,
-        lab_task_ids=(lab_task_id,),
+    require_complete_production_evaluator(
+        solver_service=service,
+        evaluator_execution_service=evaluator_execution_service,
+        judge_request_boundary=judge_request_boundary,
+        evaluator_runner=evaluator_runner,
+        evaluator_provenance=evaluator_provenance,
+        evaluator_provenance_provider=evaluator_provenance_provider,
+        require_production_provenance=require_production_provenance,
     )
+    if (signer is None) != (issuer_public_key is None):
+        raise CodexCliAdapterError(
+            "signer and issuer_public_key must be supplied together"
+        )
+    applied_pin = pin or harvey_lab_v1_1_pin()
+    if use_prepared_projection:
+        verify_harvey_lab_source_pin(source_root, applied_pin)
+        manifest = verify_harvey_lab_projection(solver_root)
+        if manifest.pin != applied_pin:
+            raise CodexCliAdapterError(
+                "prepared Harvey LAB projection does not match the selected pin"
+            )
+        require_authentic_prepared_private_material(
+            source_root=source_root,
+            evaluator_private_root=evaluator_private_root,
+            pin=applied_pin,
+            lab_task_id=lab_task_id,
+        )
+        projection = HarveyLabProjectionResult(
+            solver_root=solver_root.resolve(),
+            evaluator_private_root=evaluator_private_root.resolve(),
+            manifest=manifest,
+            tasks=(),
+        )
+    else:
+        projection = project_harvey_lab_suite(
+            source_root=source_root,
+            solver_root=solver_root,
+            evaluator_private_root=evaluator_private_root,
+            pin=applied_pin,
+            lab_task_ids=(lab_task_id,),
+        )
     if (
         len(projection.manifest.tasks) != 1
         or projection.manifest.tasks[0].lab_task_id != lab_task_id
@@ -208,10 +275,16 @@ def run_codex_cli_clean_native_harvey_lab(
     execution = solver_service.execute(spec)
     if after_solver is not None:
         execution = after_solver(spec, execution)
-    _require_solver_success(
+    require_solver_success(
         spec,
         execution,
         requested_model=plan.requested_model,
+    )
+    execution = replace(
+        execution,
+        served_model=classify_codex_execution(
+            execution, requested_model_name=model
+        ).served_model,
     )
     task_digest = _prefixed_digest_text(task.task_sha256)
     run_digest = spec.spec_sha256
@@ -232,11 +305,12 @@ def run_codex_cli_clean_native_harvey_lab(
     )
     if discovery.quarantined:
         raise CodexCliAdapterError("quarantined extras must not be scored")
+    evaluator_service = evaluator_execution_service or service
     wrapper_sha256 = "sha256:" + sha256_file(
         Path(
             _require_on_path(
                 evaluator_command,
-                service.parent_env,
+                evaluator_service.parent_env,
                 label="evaluator wrapper",
             )
         )
@@ -247,6 +321,7 @@ def run_codex_cli_clean_native_harvey_lab(
         overlay_root=overlay_root,
         working_directory=evaluator_working_directory,
         solver_projection_root=projection.solver_root,
+        evaluator_source_root=source_root,
     )
     identity = HarveyLabEvaluationIdentity(
         lab_task_id=task.lab_task_id,
@@ -258,45 +333,82 @@ def run_codex_cli_clean_native_harvey_lab(
         config_sha256=config_digest,
         pin=projection.manifest.pin,
     )
-    evaluation = invoke_isolated_harvey_lab_evaluator(
-        hosts=hosts,
-        sealed_manifest=discovery.sealed,
-        identity=identity,
-        execution_service=service,
-        signer=signer,
-        issuer_key_id=HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
-        issuer_policy_sha256=harvey_lab_issuer_policy_sha256(),
-        evaluator_command=evaluator_command,
-        timeout_seconds=applied_timeout,
-        measurement_id=measurement_id,
-        evaluation_attempt_id=evaluation_attempt_id,
-        attempt_nonce=attempt_nonce,
-        judge_request_boundary=judge_request_boundary,
-        evaluator_runner=evaluator_runner,
-        evaluator_provenance=evaluator_provenance,
-        require_production_provenance=require_production_provenance,
-    )
-    metric = build_harvey_lab_metric_definition(
-        rubric_sha256=evaluation.spec.rubric_sha256,
-        criteria_sha256=evaluation.spec.criteria_sha256,
-        aggregation_sha256=evaluation.spec.aggregation_sha256,
-        output_schema_sha256=evaluation.spec.judge_output_schema_sha256,
-        criterion_count=evaluation.criterion_count,
-    )
-    score = verify_authorized_harvey_lab_receipt(
-        evaluation.receipt.to_record(),
-        raw_result=evaluation.raw_result,
-        spec=evaluation.spec,
-        metric=metric,
-        issuer_public_key=issuer_public_key,
-        expected_measurement_id=evaluation.receipt.measurement_id,
-        expected_evaluation_attempt_id=evaluation.receipt.evaluation_attempt_id,
-        expected_attempt_nonce=evaluation.receipt.attempt_nonce,
-        expected_repeat_index=evaluation.receipt.repeat_index,
-        expected_deliverable_manifest_sha256=discovery.sealed.manifest_sha256,
-        expected_runtime_policy_sha256=evaluation.spec.runtime_policy_sha256,
-    )
-    return CodexCliHarveyLabPipelineResult(
+    if signer is None:
+        evaluation = execute_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=discovery.sealed,
+            identity=identity,
+            execution_service=evaluator_service,
+            evaluator_command=evaluator_command,
+            timeout_seconds=applied_timeout,
+            judge_request_boundary=judge_request_boundary,
+            evaluator_runner=evaluator_runner,
+            evaluator_provenance=evaluator_provenance,
+            evaluator_provenance_provider=evaluator_provenance_provider,
+            require_production_provenance=require_production_provenance,
+        )
+    else:
+        assert issuer_public_key is not None
+        evaluation = invoke_isolated_harvey_lab_evaluator(
+            hosts=hosts,
+            sealed_manifest=discovery.sealed,
+            identity=identity,
+            execution_service=evaluator_service,
+            signer=signer,
+            issuer_key_id=HARVEY_LAB_EVALUATOR_ISSUER_KEY_ID,
+            issuer_policy_sha256=harvey_lab_issuer_policy_sha256(),
+            evaluator_command=evaluator_command,
+            timeout_seconds=applied_timeout,
+            measurement_id=measurement_id,
+            evaluation_attempt_id=evaluation_attempt_id,
+            attempt_nonce=attempt_nonce,
+            judge_request_boundary=judge_request_boundary,
+            evaluator_runner=evaluator_runner,
+            evaluator_provenance=evaluator_provenance,
+            evaluator_provenance_provider=evaluator_provenance_provider,
+            require_production_provenance=require_production_provenance,
+        )
+    if isinstance(evaluation, HarveyLabIsolatedEvaluation):
+        metric = build_harvey_lab_metric_definition(
+            rubric_sha256=evaluation.spec.rubric_sha256,
+            criteria_sha256=evaluation.spec.criteria_sha256,
+            aggregation_sha256=evaluation.spec.aggregation_sha256,
+            output_schema_sha256=evaluation.spec.judge_output_schema_sha256,
+            criterion_count=evaluation.criterion_count,
+        )
+        assert issuer_public_key is not None
+        score: ScoreArtifact | HarveyLabObservedScore = (
+            verify_authorized_harvey_lab_receipt(
+                evaluation.receipt.to_record(),
+                raw_result=evaluation.raw_result,
+                spec=evaluation.spec,
+                metric=metric,
+                issuer_public_key=issuer_public_key,
+                expected_measurement_id=evaluation.receipt.measurement_id,
+                expected_evaluation_attempt_id=(
+                    evaluation.receipt.evaluation_attempt_id
+                ),
+                expected_attempt_nonce=evaluation.receipt.attempt_nonce,
+                expected_repeat_index=evaluation.receipt.repeat_index,
+                expected_deliverable_manifest_sha256=(discovery.sealed.manifest_sha256),
+                expected_runtime_policy_sha256=evaluation.spec.runtime_policy_sha256,
+            )
+        )
+    else:
+        score = observed_harvey_lab_score(evaluation)
+    if isinstance(evaluation, HarveyLabIsolatedEvaluation):
+        assert isinstance(score, ScoreArtifact)
+        return CodexCliHarveyLabPipelineResult(
+            projection=projection,
+            task=task,
+            solver_spec=spec,
+            solver_execution=execution,
+            discovery=discovery,
+            evaluation=evaluation,
+            score=score,
+        )
+    assert isinstance(score, HarveyLabObservedScore)
+    return CodexCliHarveyLabMeasurementResult(
         projection=projection,
         task=task,
         solver_spec=spec,
@@ -304,6 +416,10 @@ def run_codex_cli_clean_native_harvey_lab(
         discovery=discovery,
         evaluation=evaluation,
         score=score,
+        execution_mode=("production" if require_production_provenance else "fixture"),
+        baseline_score_value=(
+            score.score_value if require_production_provenance else None
+        ),
     )
 
 
@@ -357,51 +473,6 @@ def _stage_solver_visible_task(task_dir: Path, sandbox_root: Path) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target, follow_symlinks=False)
     return destination
-
-
-def _require_solver_success(
-    spec: RunSpec,
-    execution: ExecutionReceipt,
-    *,
-    requested_model: str,
-) -> None:
-    if execution.spec_sha256 != spec.spec_sha256:
-        raise CodexCliAdapterError("execution receipt does not bind the RunSpec")
-    envelope = classify_codex_execution(
-        execution,
-        requested_model_name=requested_model,
-    )
-    failure_text = "\n".join((execution.stdout, execution.stderr))
-    if execution.status == "timeout" or envelope.failure_class == (
-        LocalCliFailureClass.TIMEOUT.value
-    ):
-        raise CodexCliAdapterError(
-            "clean-native Codex CLI Harvey LAB run timed out",
-            failure_class=LocalCliFailureClass.TIMEOUT,
-        )
-    if envelope.failure_class == LocalCliFailureClass.SANDBOX_DENIAL.value or (
-        is_local_cli_sandbox_denial(failure_text)
-    ):
-        raise CodexCliAdapterError(
-            "clean-native Codex CLI Harvey LAB run hit a sandbox denial",
-            failure_class=LocalCliFailureClass.SANDBOX_DENIAL,
-        )
-    if envelope.failure_class is not None:
-        detail = (
-            execution.stderr.strip()
-            or execution.stdout.strip()
-            or envelope.failure_class
-        )
-        raise CodexCliAdapterError(
-            f"clean-native Codex CLI Harvey LAB run failed: {detail}",
-            failure_class=coerce_local_cli_failure_class(envelope.failure_class),
-        )
-    if execution.status != "succeeded" or execution.returncode not in {0, None}:
-        detail = execution.stderr.strip() or execution.stdout.strip() or "crash"
-        raise CodexCliAdapterError(
-            f"clean-native Codex CLI Harvey LAB run failed: {detail}",
-            failure_class=LocalCliFailureClass.CRASH,
-        )
 
 
 def _require_on_path(
