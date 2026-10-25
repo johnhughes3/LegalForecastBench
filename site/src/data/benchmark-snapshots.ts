@@ -6,6 +6,7 @@ export interface BenchmarkSnapshot {
 	benchmark: string;
 	audit: string;
 	upstream: string;
+	upstream_commit_url: string;
 	commit: string;
 	committed: string;
 	license: string;
@@ -21,6 +22,7 @@ export interface BenchmarkSnapshot {
 export const benchmarkSnapshots: {
 	doi: string;
 	record_url: string;
+	mirror_note: string;
 	verifier: { file: string; sha256: string };
 	snapshots: BenchmarkSnapshot[];
 } = manifest;
