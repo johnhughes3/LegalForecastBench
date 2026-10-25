@@ -13,7 +13,7 @@ Subcommands:
 
 ``tally``
     Recompute the draw, check the worksheet still lists it in order, apply the
-    stopping rule, and print the exact one-sided 95% lower bound.
+    stopping rule, and print the two-look-adjusted one-sided 95% lower bound.
 
 Example::
 
@@ -265,7 +265,12 @@ def write_draw(text_dir: Path | None) -> None:
 
 
 def lower_bound(population_size: int, n: int, confirmed: int) -> int:
-    """Smallest count of real errors in the population consistent at one-sided 95%."""
+    """Invert a 2.5% exact tail at each look for at least 95% joint coverage.
+
+    Bonferroni allocates 0.025 to each of the two possible sample sizes.
+    Their combined noncoverage probability is at most 0.05, even when
+    the first ten results determine whether the second ten are reviewed.
+    """
 
     def tail(errors: int) -> float:  # P(X >= confirmed) under the hypergeometric
         total = math.comb(population_size, n)
@@ -277,7 +282,7 @@ def lower_bound(population_size: int, n: int, confirmed: int) -> int:
             / total
         )
 
-    return next(e for e in range(population_size + 1) if tail(e) >= 0.05)
+    return next(e for e in range(population_size + 1) if tail(e) >= 0.025)
 
 
 def tally() -> None:
@@ -309,6 +314,7 @@ def tally() -> None:
         f"{confirmed} of {len(reviewed)} confirmed"
         f"{' (stopped after the first ten)' if stop else ''}; at least {bound} of "
         f"{len(pop)} ({100 * bound / len(pop):.1f}%) are real errors at one-sided 95%"
+        " (adjusted for two looks)"
     )
 
 

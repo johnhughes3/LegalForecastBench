@@ -399,7 +399,8 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
         type=float,
         metavar="FRACTION",
         help="exit 1 if the share of the document Pangram does not classify as "
-        "human-written (AI plus AI-assisted) exceeds this value (for example 0.03)",
+        "human-written (AI plus AI-assisted) exceeds this value (for example 0.03); "
+        "zero requires every returned segment to be classified human-written",
     )
     parser.add_argument(
         "--model",
@@ -499,6 +500,18 @@ def score(
         print(f"\n{note}")
     print(f"Document sent and any raw response: {out}")
     if result is not None and fail_above is not None:
+        if fail_above == 0:
+            # Continuous fractions retain residual probability even when every
+            # segment is classified human. A zero-tolerance gate means no
+            # nonhuman classifications, not zero probability mass.
+            windows = result.get("windows") or []
+            if not windows:
+                print("\nFAIL: Pangram returned no segment classifications.")
+                return 1
+            flagged = sum(map(is_flagged, windows))
+            status = "FAIL" if flagged else "PASS"
+            print(f"\n{status}: Pangram flags {flagged} of {len(windows)} windows.")
+            return int(flagged > 0)
         fraction = float(result.get("fraction_ai") or 0) + float(
             result.get("fraction_ai_assisted") or 0
         )
