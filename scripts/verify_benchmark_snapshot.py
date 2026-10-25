@@ -42,6 +42,7 @@ class VerificationError(Exception):
     """A snapshot failed one of the checks."""
 
 
+# contract-ratchet: allow standalone verifier for researchers; must not import this repo
 def sha256_file(path: Path) -> str:
     """Hex SHA-256 of a file, read in chunks."""
     digest = hashlib.sha256()

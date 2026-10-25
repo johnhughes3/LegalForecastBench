@@ -3,7 +3,7 @@
 	"record_url": "https://zenodo.org/records/23646922",
 	"verifier": {
 		"file": "verify_benchmark_snapshot.py",
-		"sha256": "803a118da4a371049d3edc37dbab8d83b74d02aa3ce57cabf7b7c835103dd93a"
+		"sha256": "8c080abcc81a3ccc48cc199fc73af16f0bdd0100ae9bf4261f1298b222263ce6"
 	},
 	"snapshots": [
 		{
