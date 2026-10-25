@@ -43,6 +43,10 @@ _SYSTEM_READ_ROOTS = (
     "/dev",
 )
 
+# Resolver configuration may point outside /etc (for example into /run).
+# Permit the file target, never its runtime directory or neighboring files.
+_SYSTEM_RESOLVER_FILES = ("/etc/resolv.conf",)
+
 
 class ContributorBoundaryError(RuntimeError):
     """Raised when the contributor-grade boundary cannot be established."""
@@ -191,7 +195,11 @@ def classify_hostile_probe(*, in_scope: bool, denied: bool, tampered: bool) -> s
 
 
 def _system_read_roots() -> tuple[Path, ...]:
-    return tuple(Path(root) for root in _SYSTEM_READ_ROOTS if Path(root).exists())
+    roots = tuple(Path(root) for root in _SYSTEM_READ_ROOTS if Path(root).exists())
+    resolver_targets = tuple(
+        Path(path).resolve() for path in _SYSTEM_RESOLVER_FILES if Path(path).is_file()
+    )
+    return (*roots, *resolver_targets)
 
 
 def _launch_read_paths(argv: Sequence[str]) -> tuple[Path, ...]:
