@@ -209,6 +209,68 @@ def build_community_subscription_runtime(
     )
 
 
+def preflight_community_subscription_runtime(
+    request: CommunitySubscriptionOperatorRequest,
+    runtime: CommunitySubscriptionRuntime,
+) -> CommunitySubscriptionRuntime:
+    """Check vendor capabilities, then retain byte identity for actual launches.
+
+    Native vendor help/version is the capability interface. The contained
+    executor's generic JSON identity probe is a different protocol; after
+    preflight, its launch pins retain version/digest without probe framing.
+    """
+
+    for service in (runtime.adapter.execution_service, runtime.judge_service):
+        if not isinstance(service, LocalCliExecutionService):
+            raise CommunitySubscriptionOperatorError("native runtime must be contained")
+        pin = service.executable_pin
+        if pin is None:
+            raise CommunitySubscriptionOperatorError(
+                "community subscription runtime has no executable pin"
+            )
+        try:
+            with tempfile.TemporaryDirectory(
+                prefix="lfb-community-native-preflight-"
+            ) as scratch:
+                preflight_native_cli(
+                    pin,
+                    scratch_root=Path(scratch),
+                    parent_env=service.parent_env,
+                )
+        except (LocalCliIdentityError, LocalCliProbeError) as exc:
+            raise CommunitySubscriptionOperatorError(
+                f"native {pin.basename} capability preflight failed before execution"
+            ) from exc
+    solver_service = runtime.adapter.execution_service
+    assert isinstance(solver_service, LocalCliExecutionService)
+    assert solver_service.executable_pin is not None
+    assert runtime.judge_service.executable_pin is not None
+    solver_service = replace(
+        solver_service,
+        executable_pin=replace(solver_service.executable_pin, required_flags=()),
+    )
+    judge_service = replace(
+        runtime.judge_service,
+        executable_pin=replace(runtime.judge_service.executable_pin, required_flags=()),
+    )
+    runner, boundary, provenance = build_subscription_judge(
+        service=judge_service,
+        model=request.judge_model,
+        run_root=request.run_root,
+        timeout_seconds=request.timeout_seconds,
+        pin=request.pin,
+        claude_sha256=request.claude_sha256,
+    )
+    return replace(
+        runtime,
+        adapter=replace(runtime.adapter, execution_service=solver_service),
+        judge_service=judge_service,
+        evaluator_runner=runner,
+        judge_boundary=boundary,
+        evaluator_provenance_provider=provenance,
+    )
+
+
 def run_community_subscription_harvey_lab(
     request: CommunitySubscriptionOperatorRequest,
     *,
@@ -224,30 +286,7 @@ def run_community_subscription_harvey_lab(
     request = replace(request, run_root=request.run_root.resolve())
     selected = runtime or build_community_subscription_runtime(request)
     if runtime is None:
-        for service in (selected.adapter.execution_service, selected.judge_service):
-            if not isinstance(service, LocalCliExecutionService):
-                raise CommunitySubscriptionOperatorError(
-                    "native runtime must be contained"
-                )
-            pin = service.executable_pin
-            if pin is None:
-                raise CommunitySubscriptionOperatorError(
-                    "community subscription runtime has no executable pin"
-                )
-            try:
-                with tempfile.TemporaryDirectory(
-                    prefix="lfb-community-native-preflight-"
-                ) as scratch:
-                    preflight_native_cli(
-                        pin,
-                        scratch_root=Path(scratch),
-                        parent_env=service.parent_env,
-                    )
-            except (LocalCliIdentityError, LocalCliProbeError) as exc:
-                raise CommunitySubscriptionOperatorError(
-                    f"native {pin.basename} capability preflight failed "
-                    "before execution"
-                ) from exc
+        selected = preflight_community_subscription_runtime(request, selected)
     request.run_root.mkdir(parents=True)
     if isinstance(selected.adapter, CodexCliAdapter):
         result = run_codex_cli_clean_native_harvey_lab(
@@ -311,5 +350,6 @@ __all__ = [
     "CommunitySubscriptionRuntime",
     "build_community_subscription_runtime",
     "observed_model_from_receipt",
+    "preflight_community_subscription_runtime",
     "run_community_subscription_harvey_lab",
 ]
