@@ -14,7 +14,9 @@ Source limits: the extracted text is a convenience copy of the pinned upstream f
 
 > States in the first assignment that DCI2018-10023 remained active until September 13, 2023.
 
-Upstream `source` field: Petition.docx at 19. "Procedurally, the 2019 zoning case was left open until September 13, 2023." This is incorrect because under Lee County Administrative Code 2-6, sec. 4.1 B., the case was considered withdrawn for not meeting the 6 month remand hearing deadline.
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Petition.docx at 19. "Procedurally, the 2019 zoning case was left open until September 13, 2023." This is incorrect because under Lee County Administrative Code 2-6, sec. 4.1 B., the case was considered withdrawn for not meeting the 6 month remand hearing deadline.
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -106,7 +108,7 @@ Authorities the model cited:
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
+- **Defect basis (Defective only):** Unambiguous objective error
 - **Defect arises from environment (Defective only):** No
 - **Environment:** Correct
 - **Environment explanation:**
@@ -122,7 +124,12 @@ Authorities the model cited:
 
 > States in the first assignment that the County should cease construction activities at the subject property.
 
-Upstream `source` field: LCU Project.pdf at 1 shows that construction has started, which means the county has spent time and money on design, permitting, procurement of contractors, etc. The facility is also necessary to serve increased demand for water and sewer service caused by population growth and has been planned since 2010 (LCU Project.pdf at 4.) In a similar case, the FL Supreme Court declined to delay construction of a public project based on zoning. See Parkway Towers Con. Ass'n v. Metropolitan Dade Cty., 295 So.2d 295 (Fla. 1974); https://law.justia.com/cases/florida/supreme-court/1974/44260-0.html#:~:text=This%20being,result "In this case it appears that on at least two occasions public hearings were held by the Metro County Commission on the question whether the construction of the subject holding facility for prisoners and the work release facility should go forward in the absence of a waiver therefor in the zoning ordinance and in each instance it was agreed by the Commission the construction should proceed. This being so, we feel no useful or practical purpose would be served in interrupting and delaying the construction until a zoning change is effected retroactively to accommodate the Commission's expressly resolved purpose when considered in connection with the fact that no direct conflict of decisions appears. To interrupt the construction now would cause needless expense and damage with no prospect or likelihood that the Commission would reach a different final result."
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> LCU Project.pdf at 1 shows that construction has started, which means the county has spent time and money on design, permitting, procurement of contractors, etc. The facility is also necessary to serve increased demand for water and sewer service caused by population growth and has been planned since 2010 (LCU Project.pdf at 4.)
+> In a similar case, the FL Supreme Court declined to delay construction of a public project based on zoning.
+> See Parkway Towers Con. Ass'n v. Metropolitan Dade Cty., 295 So.2d 295 (Fla. 1974); https://law.justia.com/cases/florida/supreme-court/1974/44260-0.html#:~:text=This%20being,result
+> "In this case it appears that on at least two occasions public hearings were held by the Metro County Commission on the question whether the construction of the subject holding facility for prisoners and the work release facility should go forward in the absence of a waiver therefor in the zoning ordinance and in each instance it was agreed by the Commission the construction should proceed. This being so, we feel no useful or practical purpose would be served in interrupting and delaying the construction until a zoning change is effected retroactively to accommodate the Commission's expressly resolved purpose when considered in connection with the fact that no direct conflict of decisions appears. To interrupt the construction now would cause needless expense and damage with no prospect or likelihood that the Commission would reach a different final result."
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -204,13 +211,14 @@ Authorities the model cited:
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
+- **Rubric verdict:** Defective
 - **AI reasoning:** _(Correct / Partly correct / Wrong)_
 - **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
 - **Defect arises from environment (Defective only):** _(Yes / No)_
 - **Environment:** _(Defective / Correct)_
 - **Environment explanation:**
-- **Note and source locator:**
+- **Note and source locator:** Confirmed. The rubric deducts 30 points if the memo being prepared for a municipality in a zoning dispute recommends stopping construction. The basis of this rubric is Parkway Towers Condominium Ass'n v. Metropolitan Dade County, 295 So. 2d 295 (Fla. 1974) (per curiam), which merely exercises discretion not to hear an appeal on certiorari. While it is true that the outcome in that particular case was that the municipality was allowed to proceed with construction, the court's reasoning, if anything, undercuts the rubric's reading: “Although we now consider our issuance of the writ of certiorari to have been improvident in this case, which results in our discharge thereof, it is nevertheless our view prospectively that zoning variations to accommodate county or municipal facility purposes should either have been anticipated in zoning ordinances before construction or operation of such facilities is commenced or, if this has not been done, construction should not be undertaken thereof until after due modification or change therefor is made in existing zoning ordinances.” Id. at 295–96. In other words, the very case the rubric relies on essentially says the opposite of what it claims and expresses the Florida Supreme Court's view that zoning issues should be fixed before construction occurs. The fact that some construction has begun is a relevant factor, but nothing in the environment establishes that it would be costly, impossible, or imprudent for the municipality to stop construction until the zoning issues are fixed properly to comply with the Court's opinion. Many prudent lawyers, relying on the Florida Supreme Court's guidance, might recommend addressing the zoning issue before continuing with construction, so this rubric fails a response many careful lawyers would prefer.
+- Source: [Parkway Towers, 295 So. 2d 295 (CourtListener)](https://www.courtlistener.com/opinion/1934327/parkway-towers-con-assn-v-metropolitan-dade-cty/).
 <!-- review:end -->
 
 ## 3. Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners — states_in_the_first_assignment_that_the_county_should_file_a_tim
@@ -221,7 +229,17 @@ Authorities the model cited:
 
 > States in the first assignment that the County should file a timely appeal with the 6th District Court of Appeals.
 
-Upstream `source` field: Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation. Florida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity "Jurisdiction of District Courts of Appeal. "b) Jurisdiction of District Courts of Appeal. . . . (2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review: (A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or (B) final orders of circuit courts acting in their review capacity." See also Map of Florida’s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation.
+> Florida Rule of Appellate Procedure 9.030(b)(2)(B); https://rules.floridaappellate.com/rule-9-030/#:~:text=b%29-,Jurisdiction,capacity
+> "Jurisdiction of District Courts of Appeal.
+> "b) Jurisdiction of District Courts of Appeal.
+> . . .
+> (2) Certiorari Jurisdiction.8 The certiorari jurisdiction of district courts of appeal may be sought to review:
+> (A) nonfinal orders of lower tribunals other than as prescribed by rule 9.130; or
+> (B) final orders of circuit courts acting in their review capacity."
+> See also Map of Florida’s Court Jurisdictions, available at https://flcourts-media.flcourts.gov/content/download/426177/file/ar-17-18-map-of-floridas-court-jurisdictions.pdf (last accessed Mar. 25, 2026).
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -297,7 +315,11 @@ Evidence the model quoted (check against the source):
 
 > States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.
 
-Upstream `source` field: Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation. Lee County Fla. Land Development Code § 34-83(a)(6) (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU#:~:text=The%20Board%20may%20remand%20a%20case%20back%20to%20the%20Hearing%20Examiner%20for%20further%20review%20of%20specific%20issues%2E%20The%20scope%20of%20the%20remanded%20hearing%20will%20be%20limited%20to%20the%20specific%20issues%20identified%20by%20the%20Board "The Board may remand a case back to the Hearing Examiner for further review of specific issues. The scope of the remanded hearing will be limited to the specific issues identified by the Board."
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Because the Order contains reversible errors, and because an appeal can be pursued parallel to a remand, this is the best recommendation.
+> Lee County Fla. Land Development Code § 34-83(a)(6) (2025); https://library.municode.com/fl/lee_county/codes/land_development_code?nodeId=LADECO_CH34ZO_ARTIIAD_DIV2BOCOCO_S34-83FUAU#:~:text=The%20Board%20may%20remand%20a%20case%20back%20to%20the%20Hearing%20Examiner%20for%20further%20review%20of%20specific%20issues%2E%20The%20scope%20of%20the%20remanded%20hearing%20will%20be%20limited%20to%20the%20specific%20issues%20identified%20by%20the%20Board
+> "The Board may remand a case back to the Hearing Examiner for further review of specific issues. The scope of the remanded hearing will be limited to the specific issues identified by the Board."
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -373,7 +395,10 @@ Evidence the model quoted (check against the source):
 
 > States in the first assignment that under Fla. Stat § 163.3167(10) (2025) the development order issued for the project may not be invalidated by a subsequent judicial determination because the timeframe for filing an appeal of the development order has expired.
 
-Upstream `source` field: Fla. Stat 163.3167(10) (2025); https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0163/Sections/0163.3167.html#:~:text=If,standards "If a local government grants a development order pursuant to its adopted land development regulations and the order is not the subject of a pending appeal and the timeframe for filing an appeal has expired, the development order may not be invalidated by a subsequent judicial determination that such land development regulations, or any portion thereof that is relevant to the development order, are invalid because of a deficiency in the approval standards"
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Fla. Stat 163.3167(10) (2025); https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0100-0199/0163/Sections/0163.3167.html#:~:text=If,standards
+> "If a local government grants a development order pursuant to its adopted land development regulations and the order is not the subject of a pending appeal and the timeframe for filing an appeal has expired, the development order may not be invalidated by a subsequent judicial determination that such land development regulations, or any portion thereof that is relevant to the development order, are invalid because of a deficiency in the approval standards"
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -475,7 +500,12 @@ Authorities the model cited:
 
 > States in the first assignment that under Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025), DCI2018-10023 was considered withdrawn on February 13, 2020.
 
-Upstream `source` field: Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025); https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf "If the six month deadline is not met because of action or inaction of the Applicant/Appellant, the application/appeal will be considered withdrawn." Remand occurred on August 13, 2029, and six months after that is February 13, 2020.
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Lee County, Fla. Admin. Code § 2-6, 4.1 B. (2025); https://www.leegov.com/bocc/Administrative%20Codes/AC-2-6.pdf
+> "If the six month deadline is not met because of action or inaction of the Applicant/Appellant, the
+> application/appeal will be considered withdrawn."
+> Remand occurred on August 13, 2029, and six months after that is February 13, 2020.
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -582,7 +612,10 @@ Authorities the model cited:
 
 > States in the second assignment that expert testimony on the record  is competent substantial evidence that supports the Board's approval of the rezoning.
 
-Upstream `source` field: City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D "Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony. These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D
+> "Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony.   These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md).
 
@@ -653,7 +686,10 @@ Rulings on the blind findings above:
 
 > States in the second assignment that the staff report recommending approval is competent substantial evidence that supports the Board's approval of the rezoning.
 
-Upstream `source` field: City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D "Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony. These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> City of Hialeah Gardens v. Miami-Dade Charter Found., Inc., 857 So.2d 202, 204-5 (Fla. 3d DCA 2003); https://caselaw.findlaw.com/court/fl-district-court-of-appeal/1254782.html#:~:text=Here%2C%20the,reached%2E%E2%80%9D
+> "Here, the testifying staff members utilized their professional experiences and personal observations, as well as Machado's application, site plan, and traffic study, as the basis for their testimony.   These record materials, along with the staff presentations, combined to provide evidence “sufficiently relevant and material that a reasonable mind would accept it as adequate to support the conclusion reached.”
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/instruction.md).
 
@@ -724,7 +760,9 @@ Rulings on the blind findings above:
 
 > Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.
 
-Upstream `source` field: Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 1, 3 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 1, 3 (Apr. 11, 2024) (comparator_discipline_cases.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -814,7 +852,9 @@ Evidence the model quoted (check against the source):
 
 > Identifies that no uploaded authority requires MPD to prove the comparability of its comparator cases.
 
-Upstream `source` field: D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017) (dcmr_title6b_1606.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, ¶ 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock), ¶¶ 2-5 (Apr. 11, 2024) (comparator_discipline_cases.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); D.C. Mun. Regs. tit. 6-B, § 1606.2 (2017) (dcmr_title6b_1606.pdf)
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md).
 
@@ -922,7 +962,9 @@ Authorities the model cited:
 
 > Identifies that the PERB Decision misstates the length of the suspension imposed by the Award.
 
-Upstream `source` field: Opinion No. 1904, PERB Case No. 25-A-09, ¶ 1 (D.C. Pub. Emp. Rels. Bd. Nov. 6, 2025) (perb_decision_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 10 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Opinion No. 1904, PERB Case No. 25-A-09, ¶ 1 (D.C. Pub. Emp. Rels. Bd. Nov. 6, 2025) (perb_decision_braddock.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at ¶ 10 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/instruction.md), [assignment 2](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/instruction.md).
 
@@ -995,7 +1037,9 @@ Rulings on the blind findings above:
 
 > Identifies in Assignment #1 an affidavit by John Smith, M.D. does not indicate that Cook County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006).
 
-Upstream `source` field: Defendants Motion to Transfer.pdf (Defendants Motion to Transfer.pdf at p.8) stating "Trial of this matter in the Circuit Court of DuPage County would be substantially more convenient for me, both as a party and as a fact witness, than trial in the Circuit Court of Cook County." and Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) (Langenhorst v. Norfolk Southern.pdf at p.10).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Defendants Motion to Transfer.pdf (Defendants Motion to Transfer.pdf at p.8) stating "Trial of this matter in the Circuit Court of DuPage County would be substantially more convenient for me, both as a party and as a fact witness, than trial in the Circuit Court of Cook County." and Langenhorst v. Norfolk S. Ry. Co., 219 Ill. 2d 430 (Ill. 2006) (Langenhorst v. Norfolk Southern.pdf at p.10).
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -1067,7 +1111,9 @@ Rulings on the blind findings above:
 
 > Mentions in Assignment #1 that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers.
 
-Upstream `source` field: Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Marys Hospital.pdf, p.4).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Marys Hospital.pdf, p.4).
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -1154,7 +1200,9 @@ Authorities the model cited:
 
 > States in Assignment #2 that the response is supported by the affidavit of Liam Vance, a physician who provided care to Baby Davis at Cook County Hospital.
 
-Upstream `source` field: Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1231,7 +1279,9 @@ Rulings on the blind findings above:
 
 > States in Assignment #2 that the response is supported by the affidavit of the plaintiff, Sara Davis.
 
-Upstream `source` field: Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1324,7 +1374,9 @@ Rulings on the blind findings above:
 
 > States in Assignment #2 that the 2023 Illinois Annual Report Statistics report a 60.5% clearance rate in Cook County, Illinois.
 
-Upstream `source` field: 2023 Annual Report Statistical Summary.pdf at p.21
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> 2023 Annual Report Statistical Summary.pdf at p.21
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1430,7 +1482,9 @@ Evidence the model quoted (check against the source):
 
 > States in Assignment #2 that the response is supported by the affidavit of Caleb Montgomery, a physician who provided care to Baby Davis at Cook County Hospital.
 
-Upstream `source` field: Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Bradbury v. St. Mary's Hospital of Kankakee, 273 Ill. App. 3d 555 (Ill. App. 1 Dist. 1995) (Bradbury v. St. Mary’s Hospital.pdf at p.3).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1507,7 +1561,9 @@ Rulings on the blind findings above:
 
 > Identifies in Assignment #2 that the affidavit by Liam Vance indicates that DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).
 
-Upstream `source` field: Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1584,7 +1640,9 @@ Rulings on the blind findings above:
 
 > Identifies in Assignment #2 that the affidavit by Caleb Montgomery indicates that DuPage County would be an inconvenient forum for him to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).
 
-Upstream `source` field: Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1661,7 +1719,9 @@ Rulings on the blind findings above:
 
 > Identifies in Assignment #2 that the affidavit by Maya Linwood indicates that DuPage County would be an inconvenient forum for her to litigate this case as required under Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006).
 
-Upstream `source` field: Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Langenhorst v. Norfolk S. Ry. Co. 219 Ill. 2d 430 (Ill. 2006), (Langenhorst v. Norfolk Southern.pdf at p.10).
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/instruction.md).
 
@@ -1738,7 +1798,9 @@ Rulings on the blind findings above:
 
 > States that Patton's commission of conspiracy to commit a forcible felony precludes a justification defense.
 
-Upstream `source` field: Patton State Plea p. 5 (Patton State Plea.pdf); Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf); Iowa Code ch. 706, § 706.1(1) (2020) (706.1.pdf).
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Patton State Plea p. 5 (Patton State Plea.pdf); Iowa Code ch. 704, § 704.6(1) (2020) (704.pdf); Iowa Code ch. 706, § 706.1(1) (2020) (706.1.pdf).
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -1856,7 +1918,9 @@ Authorities the model cited:
 
 > Mentions that Patton pled guilty in state court to intimidation with a dangerous weapon.
 
-Upstream `source` field: Patton State Plea pp. 1-3 (Patton State Plea.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Patton State Plea pp. 1-3 (Patton State Plea.pdf)
 
 Earlier same-matter prompts: none (first assignment in the matter).
 
@@ -1942,7 +2006,9 @@ Evidence the model quoted (check against the source):
 
 > Mentions that there was a lack of evidence proving who fired first on May 10, 2020.
 
-Upstream `source` field: Facts p. 7 (Facts.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Facts p. 7 (Facts.pdf)
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md).
 
@@ -2055,7 +2121,9 @@ Authorities the model cited:
 
 > Mentions that Nelson's car was already stopped when Patton fired his gun.
 
-Upstream `source` field: Facts pp. 7-8 (Facts.pdf)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Facts pp. 7-8 (Facts.pdf)
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md).
 
@@ -2145,7 +2213,9 @@ Rulings on the blind findings above:
 
 > States that the OTB group could have driven away.
 
-Upstream `source` field: Facts pp. 7-8 (Facts.pdf) (Nelson's car was stopped; Nelson was outside of the car; the OTB group remained in a moving car)
+**Rubric author's source note** (upstream `source` field, which explains the authority or record the criterion rests on):
+
+> Facts pp. 7-8 (Facts.pdf) (Nelson's car was stopped; Nelson was outside of the car; the OTB group remained in a moving car)
 
 Earlier same-matter prompts: [assignment 1](https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/instruction.md).
 
