@@ -203,6 +203,19 @@ def test_every_flagged_criterion_renders_with_blank_review_fields(
     assert text.count("<details><summary>Blind AI findings</summary>") == len(pop)
     assert text.count("<details><summary>Later reconciliation") == len(pop)
     assert "for this criterion" in text  # a mixed reconciliation ruling
+    assert text.count(sampler.REAL_CASE_LABEL) == len(pop)
+
+
+def test_every_flagged_matter_has_a_real_world_basis_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(ROOT)
+    matters = {
+        sampler.task_inputs(r["task"])["matter_id"] for r in sampler.population(_rows())
+    }
+    cases = sampler.load(sampler.REAL_CASES)
+    assert set(cases) == matters
+    assert all(isinstance(v, str) and v.strip() for v in cases.values())
 
 
 def test_render_copies_reviewer_fields_unchanged(
