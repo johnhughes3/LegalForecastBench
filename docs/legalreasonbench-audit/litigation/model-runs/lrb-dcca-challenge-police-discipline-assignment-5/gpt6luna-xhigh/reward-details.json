@@ -1,0 +1,1123 @@
+{
+  "correctness": {
+    "score": 0.8,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "criterion_1",
+        "value": 0.0,
+        "raw": false,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "States that MPD should petition the DCCA for review.",
+        "source": "D.C. Code \u00a7 1-605.02(6) (2016) (dc_code_1-605.02.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280 (1981) (douglas_v_veterans_admin.pdf); W.R. Grace & Co. v. Local Union 759, 461 U.S. 757 (1983) (wr_grace_v_rubber_workers.pdf); United Paperworkers Int'l Union v. Misco, Inc., 484 U.S. 29 (1987) (paperworkers_v_misco.pdf); Fraternal Ord. of Police/Dep't of Corr. Lab. Comm. v. D.C. Pub. Emp. Rels. Bd., 973 A.2d 174 (D.C. 2009) (fop_doc_labor_comm_v_perb_2009.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cclose with a recommendation on whether MPD should petition for review, stated as a definite position.\u201d",
+        "metadata": {
+          "irac_section": "Conclusion"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+            "reasoning": "The memorandum expressly recommends that MPD should not petition for review, both in the executive conclusion and recommendation. It therefore does not state that MPD should petition the D.C. Court of Appeals for review."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+            "reasoning": "The memorandum explicitly concludes that MPD should NOT petition for review, stating 'MPD should not petition for review' both in the executive conclusion and the final recommendation. This directly contradicts the criterion, which requires the response to state that MPD should petition the DCCA for review."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+            "reasoning": "The response explicitly concludes and recommends that MPD should not petition the DCCA for review, directly contrary to the criterion."
+          }
+        ]
+      },
+      {
+        "name": "criterion_2",
+        "value": 1.0,
+        "raw": true,
+        "weight": 20.0,
+        "signed_score": 20.0,
+        "polarity": "positive",
+        "contribution": 20.0,
+        "description": "Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 10 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf) (the 45-day suspension and make-whole remedy establishing that the Award disciplines rather than excuses the misconduct); Opinion No. 1904, PERB Case No. 25-A-09, \u00b6 5 (D.C. Pub. Emp. Rels. Bd. Nov. 6, 2025) (perb_decision_braddock.pdf) (the Board's conclusion that no clear public policy violation appears on the face of the Award)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cidentify the principal weakness of each argument.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "2/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+            "reasoning": "The memorandum expressly identifies the principal weakness of the public-policy argument: the materials do not establish that policy requires termination, and the award reinstates Braddock only after imposing a substantial 45-day suspension rather than excusing his misconduct. It also states that the award does not compel future unlawful conduct."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+            "reasoning": "The memo explicitly notes, in the public-policy analysis, that 'the award does not direct or authorize future unjustified force. It orders reinstatement after a substantial suspension' and reiterates in the principal weakness that 'the award does not compel future unlawful conduct.' This directly identifies that the Award imposes serious discipline (a 45-day suspension) rather than excusing the misconduct, which is the key weakness of the public policy argument as described in the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+            "reasoning": "While the memorandum mentions that the award ordered reinstatement after a substantial suspension, it does not identify that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct. Instead, under its explicit 'Principal weakness' analysis, it frames the weakness as the lack of a legal source requiring termination and the absence of compelled future unlawful conduct."
+          }
+        ]
+      },
+      {
+        "name": "criterion_3",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6\u00b6 2-3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201caccount for the supplemental comparator.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+            "reasoning": "The memorandum expressly states that the supplemental Kucera case is a closer comparator and \"materially weakens MPD\u2019s position on the merits\" regarding factor six. It explains that Kucera involved an off-duty, out-of-policy service-weapon discharge at an unarmed person but resulted in non-removal, supporting the arbitrator\u2019s factor-six comparator conclusion, while correctly noting Kucera was outside the administrative record and thus cannot itself establish facial legal error on appeal."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+            "reasoning": "The memo explicitly discusses Kucera in the factor-six subsection, stating that Kucera is 'a closer comparator than the four considered by the arbitrator and materially weakens MPD's position on the merits' and that it involved similar off-duty conduct resulting in a non-removal outcome, which supports the arbitrator's conclusion that the comparators used by MPD (and by extension the factor six analysis) were not dispositive of termination. This directly ties Kucera's existence to undermining MPD's contrary-to-law argument by reinforcing the arbitrator's factor six reasoning, satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+            "reasoning": "Under the Contrary-to-law exception discussion (specifically the Factor six subsection), the memorandum explicitly explains that the supplemental Kucera case is a closer comparator involving an off-duty, out-of-policy service-weapon discharge resulting in a non-removal settlement, which supports the arbitrator's factor six conclusion and materially weakens MPD's position on the merits."
+          }
+        ]
+      },
+      {
+        "name": "criterion_4",
+        "value": 0.0,
+        "raw": false,
+        "weight": -30.0,
+        "signed_score": -30.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+        "source": "Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf); Fraternal Ord. of Police/Dep't of Corr. Lab. Comm. v. D.C. Pub. Emp. Rels. Bd., 973 A.2d 174 (D.C. 2009) (fop_doc_labor_comm_v_perb_2009.pdf) at 3.",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cstate the governing standard for each exception with full Bluebook citations to the uploaded opinions, including pincites.\u201d Promising victory on de novo review misstates every governing standard in the universe at once.",
+        "metadata": {
+          "irac_section": "Conclusion"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+            "reasoning": "The memorandum does not state that MPD is likely to prevail because the D.C. Court of Appeals will review the Douglas factors de novo. It repeatedly characterizes review as narrow and deferential, says the award expressly disclaimed de novo review, and recommends against petitioning."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+            "reasoning": "The memo does not state that MPD is likely to prevail, nor does it claim the DCCA will review the Douglas factors de novo. In fact, the response explicitly applies a deferential/narrow standard of review (facial contrary-to-law review, substantial evidence deference), recommends that MPD NOT petition for review, and concludes MPD is unlikely to prevail. This is the opposite of the described failure."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+            "reasoning": "The response does not state that MPD is likely to prevail or that the D.C. Court of Appeals will review the Douglas factors de novo; rather, it advises MPD not to petition for review and correctly notes the deferential standards of review applicable to PERB decisions."
+          }
+        ]
+      },
+      {
+        "name": "criterion_5",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+        "source": "D.C. Code \u00a7 1-605.02(6) (2016) (dc_code_1-605.02.pdf); W.R. Grace & Co. v. Local Union 759, 461 U.S. 757, 766 (1983) (wr_grace_v_rubber_workers.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"The memorandum must state the question presented for each exception; state the governing standard for each exception with full Bluebook citations to the uploaded opinions, including pincites; apply each standard to the record, citing the record documents by exact file name with page and paragraph; account for the supplemental comparator; identify the principal weakness of each argument; and close with a recommendation on whether MPD should petition for review, stated as a definite position.\"",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+            "reasoning": "The memorandum\u2019s public-policy \u201cQuestion presented\u201d asks whether reinstating Braddock would violate an \u201cexplicit, well-defined, dominant public policy,\u201d and the application expressly identifies that policy as one against an officer\u2019s unjustified use of deadly force. This substantively states the required question regarding enforcement of the award\u2019s reinstatement."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+            "reasoning": "Under 'Question presented' for the public-policy exception, the memo states: 'Whether reinstating Braddock, subject to a 45-day suspension, after the arbitrator sustained the finding that he used unjustified deadly force violates an explicit, well-defined, dominant public policy so clearly that the conflict appears on the face of the award.' This matches the criterion's requirement of framing the issue as whether enforcing the Award's reinstatement would violate a well-defined and dominant public policy against unjustified use of deadly force by police officers."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+            "reasoning": "Under Section 1 (Public-policy exception), the response explicitly states the question presented as whether reinstating Braddock (subject to a 45-day suspension) after the sustained finding of unjustified deadly force violates an explicit, well-defined, dominant public policy, and subsequently frames that policy as one against an officer's unjustified use of deadly force."
+          }
+        ]
+      },
+      {
+        "name": "criterion_6",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6\u00b6 9-10 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); W.R. Grace & Co. v. Local Union 759, 461 U.S. 757, 766 (1983) (wr_grace_v_rubber_workers.pdf); United Paperworkers Int'l Union v. Misco, Inc., 484 U.S. 29, 43 (1987) (paperworkers_v_misco.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"The memorandum must state the question presented for each exception; state the governing standard for each exception with full Bluebook citations to the uploaded opinions, including pincites; apply each standard to the record, citing the record documents by exact file name with page and paragraph; account for the supplemental comparator; identify the principal weakness of each argument; and close with a recommendation on whether MPD should petition for review, stated as a definite position.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+            "reasoning": "The memorandum expressly concludes that the public-policy theory fails because the award reinstates Braddock only after a 45-day suspension and make-whole relief, does not require termination under any identified legal source, and does not direct, authorize, or compel future unjustified deadly force. It states that reinstatement does not compel unlawful conduct or a violation of the deadly-force policy."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+            "reasoning": "The response explicitly states under the public-policy standard (citing Misco/W.R. Grace) that 'the award does not compel future unlawful conduct' and that 'Nor does the award direct or authorize future unjustified force... The record does not establish...that reinstatement would compel a future violation.' It also confirms the award imposes a 45-day suspension (with back-pay/reinstatement implied as make-whole relief) and concludes the public-policy exception does not apply because no clear conflict compelling policy violation appears on the face of the award."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+            "reasoning": "The response analyzes the public policy exception under W.R. Grace and Misco, explicitly addressing the policy against unjustified deadly force. It explains that the arbitrator's award (reducing termination to a 45-day suspension and ordering reinstatement) does not direct or authorize future unjustified force, nor does reinstatement compel a future violation of the deadly-force policy."
+          }
+        ]
+      },
+      {
+        "name": "criterion_7",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+        "source": "D.C. Code \u00a7 1-605.02(6) (2016) (dc_code_1-605.02.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"The memorandum must state the question presented for each exception; state the governing standard for each exception with full Bluebook citations to the uploaded opinions, including pincites; apply each standard to the record, citing the record documents by exact file name with page and paragraph; account for the supplemental comparator; identify the principal weakness of each argument; and close with a recommendation on whether MPD should petition for review, stated as a definite position.\"",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+            "reasoning": "The contrary-to-law section\u2019s Question Presented asks whether the award is facially contrary to law because the arbitrator misapplied Douglas, particularly by substituting his own factor-twelve deterrence judgment for the deciding official\u2019s. The accompanying analysis expressly frames this as the arbitrator potentially replacing MPD\u2019s penalty-selection judgment despite deferential review, which substantively states the permitted-scope-of-review issue."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+            "reasoning": "The response's Section 2 'Question presented' states: 'Whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework\u2014particularly by substituting his own factor-twelve deterrence judgment for the deciding official's\u2014or relied on a regulation that excludes sworn MPD members.' This closely tracks the required framing: it is explicitly framed as whether the award is facially contrary to law, and the content (arbitrator substituting his own judgment for the deciding official's penalty determination under Douglas) is substantively equivalent to the arbitrator exceeding the permitted scope of review of MPD's penalty selection under Douglas. The analysis throughout Section 2 reinforces this framing (e.g., discussing deference, tolerable-limits-of-reasonableness standard, and whether the arbitrator substituted his own judgment for the deciding official's)."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+            "reasoning": "Under Section 2 ('Contrary-to-law exception'), the response frames the Question Presented as whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework by substituting his own deterrence judgment for the deciding official's, directly capturing the issue of exceeding the permitted scope of review under Douglas."
+          }
+        ]
+      },
+      {
+        "name": "criterion_8",
+        "value": 0.0,
+        "raw": false,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 0.0,
+        "description": "Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+        "source": "In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6\u00b6 5, 7 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf); Douglas v. Veterans Administration, 5 M.S.P.R. 280, 305-06 (1981) (douglas_v_veterans_admin.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"The memorandum must state the question presented for each exception; state the governing standard for each exception with full Bluebook citations to the uploaded opinions, including pincites; apply each standard to the record, citing the record documents by exact file name with page and paragraph; account for the supplemental comparator; identify the principal weakness of each argument; and close with a recommendation on whether MPD should petition for review, stated as a definite position.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+            "reasoning": "The memorandum expressly rejects that characterization. It states that requiring MPD to prove comparator comparability was consistent with Douglas\u2019s ultimate burden on the agency and describes factor six as an evidentiary judgment rather than a clear legal error beyond the tolerable-limits scope of review."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+            "reasoning": "The criterion asks whether the response identifies that the arbitrator's demand that MPD 'prove' comparator comparability exceeded the tolerable-limits scope of review under Douglas. The memo does the opposite: in the Factor Six analysis, it explicitly concludes that 'The arbitrator's statement that MPD failed to \"prove\" comparability does not itself shift the burden to Braddock; it is consistent with MPD's burden,' and characterizes the result as 'an evidentiary judgment, not a clear legal error,' ultimately recommending against petitioning on this ground. Thus the response affirmatively rejects the argument the criterion seeks, rather than identifying/endorsing it."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+            "reasoning": "The response does not identify that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the 'tolerable limits of reasonableness' scope of review. Instead, it defends the arbitrator's ruling on Factor 6 as a standard evidentiary judgment and proper allocation of the burden of persuasion under Douglas."
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 32.0,
+      "positive_total": 40.0,
+      "unclamped": 0.8,
+      "clamped": 0.8
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_1",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+                  "reasoning": "The memorandum expressly recommends that MPD should not petition for review, both in the executive conclusion and recommendation. It therefore does not state that MPD should petition the D.C. Court of Appeals for review."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+                  "reasoning": "The memorandum explicitly concludes that MPD should NOT petition for review, stating 'MPD should not petition for review' both in the executive conclusion and the final recommendation. This directly contradicts the criterion, which requires the response to state that MPD should petition the DCCA for review."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that MPD should petition the DCCA for review.",
+                  "reasoning": "The response explicitly concludes and recommends that MPD should not petition the DCCA for review, directly contrary to the criterion."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_1\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that MPD should petition the DCCA for review.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that MPD should petition the DCCA for review.\",\n          \"reasoning\": \"The memorandum expressly recommends that MPD should not petition for review, both in the executive conclusion and recommendation. It therefore does not state that MPD should petition the D.C. Court of Appeals for review.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that MPD should petition the DCCA for review.\",\n          \"reasoning\": \"The memorandum explicitly concludes that MPD should NOT petition for review, stating 'MPD should not petition for review' both in the executive conclusion and the final recommendation. This directly contradicts the criterion, which requires the response to state that MPD should petition the DCCA for review.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that MPD should petition the DCCA for review.\",\n          \"reasoning\": \"The response explicitly concludes and recommends that MPD should not petition the DCCA for review, directly contrary to the criterion.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_2",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+              "reasoning": "2/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+                  "reasoning": "The memorandum expressly identifies the principal weakness of the public-policy argument: the materials do not establish that policy requires termination, and the award reinstates Braddock only after imposing a substantial 45-day suspension rather than excusing his misconduct. It also states that the award does not compel future unlawful conduct."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+                  "reasoning": "The memo explicitly notes, in the public-policy analysis, that 'the award does not direct or authorize future unjustified force. It orders reinstatement after a substantial suspension' and reiterates in the principal weakness that 'the award does not compel future unlawful conduct.' This directly identifies that the Award imposes serious discipline (a 45-day suspension) rather than excusing the misconduct, which is the key weakness of the public policy argument as described in the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.",
+                  "reasoning": "While the memorandum mentions that the award ordered reinstatement after a substantial suspension, it does not identify that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct. Instead, under its explicit 'Principal weakness' analysis, it frames the weakness as the lack of a legal source requiring termination and the absence of compelled future unlawful conduct."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_2\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.\",\n      \"reasoning\": \"2/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.\",\n          \"reasoning\": \"The memorandum expressly identifies the principal weakness of the public-policy argument: the materials do not establish that policy requires termination, and the award reinstates Braddock only after imposing a substantial 45-day suspension rather than excusing his misconduct. It also states that the award does not compel future unlawful conduct.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.\",\n          \"reasoning\": \"The memo explicitly notes, in the public-policy analysis, that 'the award does not direct or authorize future unjustified force. It orders reinstatement after a substantial suspension' and reiterates in the principal weakness that 'the award does not compel future unlawful conduct.' This directly identifies that the Award imposes serious discipline (a 45-day suspension) rather than excusing the misconduct, which is the key weakness of the public policy argument as described in the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct.\",\n          \"reasoning\": \"While the memorandum mentions that the award ordered reinstatement after a substantial suspension, it does not identify that the principal weakness of the public policy argument is that the Award imposes serious discipline rather than excusing the misconduct. Instead, under its explicit 'Principal weakness' analysis, it frames the weakness as the lack of a legal source requiring termination and the absence of compelled future unlawful conduct.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_3",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+                  "reasoning": "The memorandum expressly states that the supplemental Kucera case is a closer comparator and \"materially weakens MPD\u2019s position on the merits\" regarding factor six. It explains that Kucera involved an off-duty, out-of-policy service-weapon discharge at an unarmed person but resulted in non-removal, supporting the arbitrator\u2019s factor-six comparator conclusion, while correctly noting Kucera was outside the administrative record and thus cannot itself establish facial legal error on appeal."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+                  "reasoning": "The memo explicitly discusses Kucera in the factor-six subsection, stating that Kucera is 'a closer comparator than the four considered by the arbitrator and materially weakens MPD's position on the merits' and that it involved similar off-duty conduct resulting in a non-removal outcome, which supports the arbitrator's conclusion that the comparators used by MPD (and by extension the factor six analysis) were not dispositive of termination. This directly ties Kucera's existence to undermining MPD's contrary-to-law argument by reinforcing the arbitrator's factor six reasoning, satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\u2019s support for the arbitrator\u2019s factor six conclusion.",
+                  "reasoning": "Under the Contrary-to-law exception discussion (specifically the Factor six subsection), the memorandum explicitly explains that the supplemental Kucera case is a closer comparator involving an off-duty, out-of-policy service-weapon discharge resulting in a non-removal settlement, which supports the arbitrator's factor six conclusion and materially weakens MPD's position on the merits."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_3\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\\u2019s support for the arbitrator\\u2019s factor six conclusion.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\\u2019s support for the arbitrator\\u2019s factor six conclusion.\",\n          \"reasoning\": \"The memorandum expressly states that the supplemental Kucera case is a closer comparator and \\\"materially weakens MPD\\u2019s position on the merits\\\" regarding factor six. It explains that Kucera involved an off-duty, out-of-policy service-weapon discharge at an unarmed person but resulted in non-removal, supporting the arbitrator\\u2019s factor-six comparator conclusion, while correctly noting Kucera was outside the administrative record and thus cannot itself establish facial legal error on appeal.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\\u2019s support for the arbitrator\\u2019s factor six conclusion.\",\n          \"reasoning\": \"The memo explicitly discusses Kucera in the factor-six subsection, stating that Kucera is 'a closer comparator than the four considered by the arbitrator and materially weakens MPD's position on the merits' and that it involved similar off-duty conduct resulting in a non-removal outcome, which supports the arbitrator's conclusion that the comparators used by MPD (and by extension the factor six analysis) were not dispositive of termination. This directly ties Kucera's existence to undermining MPD's contrary-to-law argument by reinforcing the arbitrator's factor six reasoning, satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the contrary-to-law argument is weakened by the Kucera comparator\\u2019s support for the arbitrator\\u2019s factor six conclusion.\",\n          \"reasoning\": \"Under the Contrary-to-law exception discussion (specifically the Factor six subsection), the memorandum explicitly explains that the supplemental Kucera case is a closer comparator involving an off-duty, out-of-policy service-weapon discharge resulting in a non-removal settlement, which supports the arbitrator's factor six conclusion and materially weakens MPD's position on the merits.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_4",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+                  "reasoning": "The memorandum does not state that MPD is likely to prevail because the D.C. Court of Appeals will review the Douglas factors de novo. It repeatedly characterizes review as narrow and deferential, says the award expressly disclaimed de novo review, and recommends against petitioning."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+                  "reasoning": "The memo does not state that MPD is likely to prevail, nor does it claim the DCCA will review the Douglas factors de novo. In fact, the response explicitly applies a deferential/narrow standard of review (facial contrary-to-law review, substantial evidence deference), recommends that MPD NOT petition for review, and concludes MPD is unlikely to prevail. This is the opposite of the described failure."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.",
+                  "reasoning": "The response does not state that MPD is likely to prevail or that the D.C. Court of Appeals will review the Douglas factors de novo; rather, it advises MPD not to petition for review and correctly notes the deferential standards of review applicable to PERB decisions."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_4\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.\",\n          \"reasoning\": \"The memorandum does not state that MPD is likely to prevail because the D.C. Court of Appeals will review the Douglas factors de novo. It repeatedly characterizes review as narrow and deferential, says the award expressly disclaimed de novo review, and recommends against petitioning.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.\",\n          \"reasoning\": \"The memo does not state that MPD is likely to prevail, nor does it claim the DCCA will review the Douglas factors de novo. In fact, the response explicitly applies a deferential/narrow standard of review (facial contrary-to-law review, substantial evidence deference), recommends that MPD NOT petition for review, and concludes MPD is unlikely to prevail. This is the opposite of the described failure.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: States that MPD is likely to prevail because the DCCA will review the Douglas factors de novo.\",\n          \"reasoning\": \"The response does not state that MPD is likely to prevail or that the D.C. Court of Appeals will review the Douglas factors de novo; rather, it advises MPD not to petition for review and correctly notes the deferential standards of review applicable to PERB decisions.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_5",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+                  "reasoning": "The memorandum\u2019s public-policy \u201cQuestion presented\u201d asks whether reinstating Braddock would violate an \u201cexplicit, well-defined, dominant public policy,\u201d and the application expressly identifies that policy as one against an officer\u2019s unjustified use of deadly force. This substantively states the required question regarding enforcement of the award\u2019s reinstatement."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+                  "reasoning": "Under 'Question presented' for the public-policy exception, the memo states: 'Whether reinstating Braddock, subject to a 45-day suspension, after the arbitrator sustained the finding that he used unjustified deadly force violates an explicit, well-defined, dominant public policy so clearly that the conflict appears on the face of the award.' This matches the criterion's requirement of framing the issue as whether enforcing the Award's reinstatement would violate a well-defined and dominant public policy against unjustified use of deadly force by police officers."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.",
+                  "reasoning": "Under Section 1 (Public-policy exception), the response explicitly states the question presented as whether reinstating Braddock (subject to a 45-day suspension) after the sustained finding of unjustified deadly force violates an explicit, well-defined, dominant public policy, and subsequently frames that policy as one against an officer's unjustified use of deadly force."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_5\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.\",\n          \"reasoning\": \"The memorandum\\u2019s public-policy \\u201cQuestion presented\\u201d asks whether reinstating Braddock would violate an \\u201cexplicit, well-defined, dominant public policy,\\u201d and the application expressly identifies that policy as one against an officer\\u2019s unjustified use of deadly force. This substantively states the required question regarding enforcement of the award\\u2019s reinstatement.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.\",\n          \"reasoning\": \"Under 'Question presented' for the public-policy exception, the memo states: 'Whether reinstating Braddock, subject to a 45-day suspension, after the arbitrator sustained the finding that he used unjustified deadly force violates an explicit, well-defined, dominant public policy so clearly that the conflict appears on the face of the award.' This matches the criterion's requirement of framing the issue as whether enforcing the Award's reinstatement would violate a well-defined and dominant public policy against unjustified use of deadly force by police officers.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States the question presented for the public policy exception as whether enforcing the Award's reinstatement of Officer Braddock would violate a well defined and dominant public policy against the unjustified use of deadly force by police officers.\",\n          \"reasoning\": \"Under Section 1 (Public-policy exception), the response explicitly states the question presented as whether reinstating Braddock (subject to a 45-day suspension) after the sustained finding of unjustified deadly force violates an explicit, well-defined, dominant public policy, and subsequently frames that policy as one against an officer's unjustified use of deadly force.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_6",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+                  "reasoning": "The memorandum expressly concludes that the public-policy theory fails because the award reinstates Braddock only after a 45-day suspension and make-whole relief, does not require termination under any identified legal source, and does not direct, authorize, or compel future unjustified deadly force. It states that reinstatement does not compel unlawful conduct or a violation of the deadly-force policy."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+                  "reasoning": "The response explicitly states under the public-policy standard (citing Misco/W.R. Grace) that 'the award does not compel future unlawful conduct' and that 'Nor does the award direct or authorize future unjustified force... The record does not establish...that reinstatement would compel a future violation.' It also confirms the award imposes a 45-day suspension (with back-pay/reinstatement implied as make-whole relief) and concludes the public-policy exception does not apply because no clear conflict compelling policy violation appears on the face of the award."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.",
+                  "reasoning": "The response analyzes the public policy exception under W.R. Grace and Misco, explicitly addressing the policy against unjustified deadly force. It explains that the arbitrator's award (reducing termination to a 45-day suspension and ordering reinstatement) does not direct or authorize future unjustified force, nor does reinstatement compel a future violation of the deadly-force policy."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_6\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.\",\n          \"reasoning\": \"The memorandum expressly concludes that the public-policy theory fails because the award reinstates Braddock only after a 45-day suspension and make-whole relief, does not require termination under any identified legal source, and does not direct, authorize, or compel future unjustified deadly force. It states that reinstatement does not compel unlawful conduct or a violation of the deadly-force policy.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.\",\n          \"reasoning\": \"The response explicitly states under the public-policy standard (citing Misco/W.R. Grace) that 'the award does not compel future unlawful conduct' and that 'Nor does the award direct or authorize future unjustified force... The record does not establish...that reinstatement would compel a future violation.' It also confirms the award imposes a 45-day suspension (with back-pay/reinstatement implied as make-whole relief) and concludes the public-policy exception does not apply because no clear conflict compelling policy violation appears on the face of the award.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that under the public policy standard the Award's imposition of a 45-day suspension with make-whole relief does not compel violation of the deadly-force policy.\",\n          \"reasoning\": \"The response analyzes the public policy exception under W.R. Grace and Misco, explicitly addressing the policy against unjustified deadly force. It explains that the arbitrator's award (reducing termination to a 45-day suspension and ordering reinstatement) does not direct or authorize future unjustified force, nor does reinstatement compel a future violation of the deadly-force policy.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_7",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+                  "reasoning": "The contrary-to-law section\u2019s Question Presented asks whether the award is facially contrary to law because the arbitrator misapplied Douglas, particularly by substituting his own factor-twelve deterrence judgment for the deciding official\u2019s. The accompanying analysis expressly frames this as the arbitrator potentially replacing MPD\u2019s penalty-selection judgment despite deferential review, which substantively states the permitted-scope-of-review issue."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+                  "reasoning": "The response's Section 2 'Question presented' states: 'Whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework\u2014particularly by substituting his own factor-twelve deterrence judgment for the deciding official's\u2014or relied on a regulation that excludes sworn MPD members.' This closely tracks the required framing: it is explicitly framed as whether the award is facially contrary to law, and the content (arbitrator substituting his own judgment for the deciding official's penalty determination under Douglas) is substantively equivalent to the arbitrator exceeding the permitted scope of review of MPD's penalty selection under Douglas. The analysis throughout Section 2 reinforces this framing (e.g., discussing deference, tolerable-limits-of-reasonableness standard, and whether the arbitrator substituted his own judgment for the deciding official's)."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.",
+                  "reasoning": "Under Section 2 ('Contrary-to-law exception'), the response frames the Question Presented as whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework by substituting his own deterrence judgment for the deciding official's, directly capturing the issue of exceeding the permitted scope of review under Douglas."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_7\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.\",\n          \"reasoning\": \"The contrary-to-law section\\u2019s Question Presented asks whether the award is facially contrary to law because the arbitrator misapplied Douglas, particularly by substituting his own factor-twelve deterrence judgment for the deciding official\\u2019s. The accompanying analysis expressly frames this as the arbitrator potentially replacing MPD\\u2019s penalty-selection judgment despite deferential review, which substantively states the permitted-scope-of-review issue.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.\",\n          \"reasoning\": \"The response's Section 2 'Question presented' states: 'Whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework\\u2014particularly by substituting his own factor-twelve deterrence judgment for the deciding official's\\u2014or relied on a regulation that excludes sworn MPD members.' This closely tracks the required framing: it is explicitly framed as whether the award is facially contrary to law, and the content (arbitrator substituting his own judgment for the deciding official's penalty determination under Douglas) is substantively equivalent to the arbitrator exceeding the permitted scope of review of MPD's penalty selection under Douglas. The analysis throughout Section 2 reinforces this framing (e.g., discussing deference, tolerable-limits-of-reasonableness standard, and whether the arbitrator substituted his own judgment for the deciding official's).\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions the question presented for the law exception as whether the Award on its face is contrary to law because the arbitrator exceeded the permitted scope of review of MPD's penalty selection under Douglas.\",\n          \"reasoning\": \"Under Section 2 ('Contrary-to-law exception'), the response frames the Question Presented as whether the award is facially contrary to law because the arbitrator misapplied the Douglas penalty framework by substituting his own deterrence judgment for the deciding official's, directly capturing the issue of exceeding the permitted scope of review under Douglas.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_8",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+                  "reasoning": "The memorandum expressly rejects that characterization. It states that requiring MPD to prove comparator comparability was consistent with Douglas\u2019s ultimate burden on the agency and describes factor six as an evidentiary judgment rather than a clear legal error beyond the tolerable-limits scope of review."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+                  "reasoning": "The criterion asks whether the response identifies that the arbitrator's demand that MPD 'prove' comparator comparability exceeded the tolerable-limits scope of review under Douglas. The memo does the opposite: in the Factor Six analysis, it explicitly concludes that 'The arbitrator's statement that MPD failed to \"prove\" comparability does not itself shift the burden to Braddock; it is consistent with MPD's burden,' and characterizes the result as 'an evidentiary judgment, not a clear legal error,' ultimately recommending against petitioning on this ground. Thus the response affirmatively rejects the argument the criterion seeks, rather than identifying/endorsing it."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.",
+                  "reasoning": "The response does not identify that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the 'tolerable limits of reasonableness' scope of review. Instead, it defends the arbitrator's ruling on Factor 6 as a standard evidentiary judgment and proper allocation of the burden of persuasion under Douglas."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_8\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.\",\n          \"reasoning\": \"The memorandum expressly rejects that characterization. It states that requiring MPD to prove comparator comparability was consistent with Douglas\\u2019s ultimate burden on the agency and describes factor six as an evidentiary judgment rather than a clear legal error beyond the tolerable-limits scope of review.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.\",\n          \"reasoning\": \"The criterion asks whether the response identifies that the arbitrator's demand that MPD 'prove' comparator comparability exceeded the tolerable-limits scope of review under Douglas. The memo does the opposite: in the Factor Six analysis, it explicitly concludes that 'The arbitrator's statement that MPD failed to \\\"prove\\\" comparability does not itself shift the burden to Braddock; it is consistent with MPD's burden,' and characterizes the result as 'an evidentiary judgment, not a clear legal error,' ultimately recommending against petitioning on this ground. Thus the response affirmatively rejects the argument the criterion seeks, rather than identifying/endorsing it.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the tolerable limits scope of review in the law exception application.\",\n          \"reasoning\": \"The response does not identify that the arbitrator's demand that MPD prove comparator comparability applied Douglas beyond the 'tolerable limits of reasonableness' scope of review. Instead, it defends the arbitrator's ruling on Factor 6 as a standard evidentiary judgment and proper allocation of the burden of persuasion under Douglas.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}

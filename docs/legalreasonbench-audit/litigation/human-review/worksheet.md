@@ -1036,6 +1036,14 @@ Evidence the model quoted (check against the source):
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response discusses comparator differences (on-duty status, fatality, and prior force complaints) but does not identify any conflict between the comparator memorandum’s stated coverage years and the dates of the cases it summarizes.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response discusses the comparator memorandum's cases (Guzman, Sadler, Pietrzak) and their characteristics, but nowhere does it identify or flag a conflict between the memorandum's stated coverage years and the dates of the cases it summarizes. There is no mention of any date range stated in the memorandum or any discrepancy with case dates.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response mentions the comparator memorandum and the specific cases within it, but does not identify or discuss any conflict between the memorandum's stated coverage years and the dates of the cases it summarizes.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** not met (0/3). **Contribution:** `0`.
@@ -1163,6 +1171,14 @@ Authorities the model cited:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** met (2/3). **Contribution:** `26`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly states that neither § 1606.2 nor Douglas makes “proof” of exact comparator identity a separate burden, and criticizes the arbitrator for requiring MPD to “prove” that comparators were similarly situated. It correctly distinguishes MPD’s ultimate burden of persuasion from any purported requirement to prove comparator comparability as a rigid prerequisite.
+- `anthropic/claude-sonnet-5`: value `0.0` — The criterion requires the response to affirmatively state that no uploaded authority requires MPD to prove the comparability of its comparator cases. Instead, the memo takes a nuanced, partially contrary position: it repeatedly states that Douglas places the 'ultimate burden of persuading the reviewing tribunal on the agency' and that 'the word "prove," standing alone, is not the error' — implying that some burden of proof regarding comparators does exist under Douglas, and that the arbitrator's error was only in treating comparator equivalence as a 'rigid prerequisite,' not in requiring proof at all. The response never clearly asserts that no authority (Douglas, DCMR, etc.) imposes a requirement that MPD prove comparator comparability; rather it concedes an ultimate persuasion burden on MPD while arguing it was satisfied. This falls short of identifying the clean point that no uploaded authority requires such proof.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response identifies that neither Douglas nor the DCMR (§ 1606) requires MPD to prove the comparability or exact equivalence of its comparator cases, noting that the arbitrator erred in treating comparator equivalence as a rigid prerequisite requiring MPD to prove they were similarly situated.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** met (3/3). **Contribution:** `26`.
@@ -1255,6 +1271,14 @@ Rulings on the blind findings above:
 <details>
 <summary>Native LegalReasonBench model-run grades</summary>
 
+### GPT-6 Luna (xhigh)
+
+**Status:** met (3/3). **Contribution:** `6`.
+- `openai/gpt-5.6-terra`: value `1.0` — The response expressly identifies the discrepancy: it states that PERB’s procedural summary says the arbitrator imposed a 40-day suspension, while the Award actually orders a 45-day suspension.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response includes a 'Record correction' section explicitly stating that PERB's procedural summary says the arbitrator imposed a 40-day suspension while the Award actually orders a 45-day suspension, identifying this discrepancy with citations. This directly satisfies the criterion of identifying that the PERB Decision misstates the length of the suspension imposed by the Award.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly notes in the 'Record correction' section that the PERB Decision's procedural summary misstates the length of the suspension imposed by the Award as 40 days instead of 45 days.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/gpt6luna-xhigh/reward-details.json).
 ### Claude Opus 5.5 (low)
 
 **Status:** met (3/3). **Contribution:** `6`.
