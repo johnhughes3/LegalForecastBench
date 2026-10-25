@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import stat
 import subprocess
@@ -176,7 +177,12 @@ def validate_auth_only_config_root(
     if allowed is None:
         raise AuthProfileError("subscription presence supports claude or codex")
     names = {entry.name for entry in entries}
-    if names != set(allowed):
+    state_names: set[str] = (
+        {".claude.json", ".claude.json.lock", "backups"}
+        if executable == "claude"
+        else set()
+    )
+    if not set(allowed).issubset(names) or names - set(allowed) - state_names:
         raise AuthProfileError(
             f"{executable} {role} config must contain only its vendor auth file"
         )
@@ -187,13 +193,47 @@ def validate_auth_only_config_root(
             raise AuthProfileError(
                 f"{executable} {role} auth metadata could not be inspected"
             ) from exc
+        if entry.name == ".claude.json.lock" and executable == "claude":
+            if (
+                entry.is_symlink()
+                or not stat.S_ISDIR(metadata.st_mode)
+                or any(entry.iterdir())
+            ):
+                raise AuthProfileError(
+                    "Claude vendor lock must be an empty non-symlink directory"
+                )
+            continue
+        if entry.name == "backups" and executable == "claude":
+            _validate_claude_backups(entry)
+            continue
         if not stat.S_ISREG(metadata.st_mode) or entry.is_symlink():
             raise AuthProfileError(
                 f"{executable} {role} auth entry must be a regular file"
             )
-        if stat.S_IMODE(metadata.st_mode) & 0o077:
+        if entry.name in allowed and stat.S_IMODE(metadata.st_mode) & 0o077:
             raise AuthProfileError(f"{executable} {role} auth file must be owner-only")
     return root
+
+
+def _validate_claude_backups(directory: Path) -> None:
+    """Allow only the regular state backups created by native auth status.
+
+    Claude writes these even when no account is logged in. The owner-only
+    parent protects state files; credentials still require owner-only mode.
+    Safe mode and strict MCP suppress customizations during model execution.
+    """
+
+    if directory.is_symlink() or not directory.is_dir():
+        raise AuthProfileError("Claude vendor backups must be a non-symlink directory")
+    for entry in directory.iterdir():
+        if re.fullmatch(r"\.claude\.json\.backup\.[0-9]+", entry.name) is None:
+            raise AuthProfileError("Claude backups must contain only vendor state")
+        if entry.is_symlink() or not stat.S_ISREG(
+            entry.stat(follow_symlinks=False).st_mode
+        ):
+            raise AuthProfileError(
+                "Claude vendor backup must be a regular non-symlink file"
+            )
 
 
 def validate_role_config_separation(
