@@ -1218,13 +1218,14 @@ Authorities the model cited:
 </details>
 
 <!-- review:start -->
-- **Rubric verdict:** _(Defective / Arguable / Not defective / Unresolved)_
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
-- **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
-- **Defect arises from environment (Defective only):** _(Yes / No)_
-- **Environment:** _(Defective / Correct)_
+- **Rubric verdict:** Defective
+- **AI reasoning:** Correct
+- **Defect basis (Defective only):** Professional judgment
+- **Defect arises from environment (Defective only):** No
+- **Environment:** Correct
 - **Environment explanation:**
-- **Note and source locator:**
+- **Note and source locator:** The rubric penalizes a memo that "Mentions . . . that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers." The rubric is subtly misspecified in a way that seems to impact the grading. The reason the rubric is penalizing a memo that raises this point is that the environment contains a case, _Bradbury v. St. Mary's Hospital of Kankakee_, 273 Ill. App. 3d 555, 652 N.E.2d 1228 (1st Dist. 1995), that indicates that Cook County has an interest in situations like these if the patient died there -- and the case at issue in the environment involves a patient death, so the theory underlying the rubric is sound. However, the defendants do argue in their motion that Cook County has limited interest in the death -- and as written the rubric penalizes any memo that even "mentions" that Cook County lacks interest. So a grader could apply this penalty even to a memo that simply "mentions" the defendants' argument and then correctly explains why it's wrong under _Bradbury_.
+- Sources: Bradbury v. St. Mary's Hospital.pdf, PDF p. 4 (“Cook County has an interest because the decedent died here”); Defendants Motion to Transfer.pdf, PDF p. 5, Part V.A (“Cook County's only connection to this case is that Baby Davis was later transferred to, received treatment at, and died in, a Cook County hospital — a circumstance that, unlike in Bradbury, did not result from any Cook County conduct by these Defendants”).
 <!-- review:end -->
 
 ## 14. Plaintiff's Response - Forum Non Conveniens, assignment 2 — criterion_1
