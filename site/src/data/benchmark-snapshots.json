@@ -1,0 +1,34 @@
+{
+	"doi": "10.5281/zenodo.23646922",
+	"record_url": "https://zenodo.org/records/23646922",
+	"verifier": {
+		"file": "verify_benchmark_snapshot.py",
+		"sha256": "803a118da4a371049d3edc37dbab8d83b74d02aa3ce57cabf7b7c835103dd93a"
+	},
+	"snapshots": [
+		{
+			"benchmark": "Harvey Legal Agent Benchmark (LAB)",
+			"audit": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit",
+			"upstream": "https://github.com/harveyai/harvey-labs",
+			"commit": "1dd81403b2fbb60596f7aea3fcecafad7bf73143",
+			"committed": "2026-09-17",
+			"license": "MIT",
+			"archive": "harvey-labs-1dd81403.git.tar",
+			"bytes": 1965391360,
+			"sha256": "0e016bce31baf46becae010fa6919590fdd5bf89ba0251591a1c977d536b4f1c",
+			"files": 63085
+		},
+		{
+			"benchmark": "micro1 LegalReasonBench (sample release)",
+			"audit": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/legalreasonbench-audit",
+			"upstream": "https://huggingface.co/datasets/micro1-inc/LegalReasonBench",
+			"commit": "1bfa904c8f255925baf2610c0f86aa7c05d94ed9",
+			"committed": "2026-10-16",
+			"license": "CC BY 4.0",
+			"archive": "legalreasonbench-1bfa904c.git.tar",
+			"bytes": 35640832,
+			"sha256": "cfc1425c4447ea1ae991a9bc31651bff83fe2dd0641c779cf64ce16ef98b67b7",
+			"files": 432
+		}
+	]
+}

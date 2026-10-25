@@ -27,7 +27,7 @@ The Claude Opus 5.5 reports and the comparison are rendered by [`scripts/build_h
 
 GitHub's rendered Markdown provides the intended reading interface: use the comparison or the task table below for individual reports, or GPT-6 Sol's detailed index for criterion-level navigation of its findings.
 
-**Audited Harvey revision:** [`1dd81403b2fbb60596f7aea3fcecafad7bf73143`](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution). Source links use this commit rather than a moving branch.
+**Audited Harvey revision:** [`1dd81403b2fbb60596f7aea3fcecafad7bf73143`](https://github.com/harveyai/harvey-labs/tree/1dd81403b2fbb60596f7aea3fcecafad7bf73143/tasks/litigation-dispute-resolution). Source links use this commit rather than a moving branch. An exact snapshot of this commit, verifiable with `git fsck`, is archived on Zenodo at [doi:10.5281/zenodo.23646922](https://doi.org/10.5281/zenodo.23646922), so the citations remain checkable if the upstream repository changes.
 
 ## Contents
 
