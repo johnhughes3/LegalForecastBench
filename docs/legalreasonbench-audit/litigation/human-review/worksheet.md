@@ -105,7 +105,7 @@ Authorities the model cited:
 
 <!-- review:start -->
 - **Rubric verdict:** Defective
-- **AI reasoning:** _(Correct / Partly correct / Wrong)_
+- **AI reasoning:** Correct
 - **Defect basis (Defective only):** _(Unambiguous objective error / Professional judgment)_
 - **Defect arises from environment (Defective only):** _(Yes / No)_
 - **Environment:** _(Defective / Correct)_
