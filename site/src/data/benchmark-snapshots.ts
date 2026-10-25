@@ -9,6 +9,9 @@ export interface BenchmarkSnapshot {
 	commit: string;
 	committed: string;
 	license: string;
+	license_url: string;
+	rights: string;
+	citation?: string;
 	archive: string;
 	bytes: number;
 	sha256: string;
