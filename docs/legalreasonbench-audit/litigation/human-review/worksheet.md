@@ -1033,6 +1033,20 @@ Evidence the model quoted (check against the source):
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** not met (0/3). **Contribution:** `0`.
+- `openai/gpt-5.6-terra`: value `0.0` — The response states that the Comparator Memo was limited to 2018–2021 records, but it does not identify any conflict between that stated coverage period and the dates of the cases summarized in the memorandum.
+- `anthropic/claude-sonnet-5`: value `0.0` — The response mentions that the Comparator Memo was 'limited to 2018–2021 records' (Part 1, observation 2) but never cross-checks this stated coverage period against the actual dates of the four comparator cases it summarizes, nor flags any discrepancy between the memo's stated years and the dates of the cases discussed. The detailed discrepancy analysis in Part 2.D focuses on on-duty/off-duty characterizations and fatality/prior-discipline details, not on a conflict between the memo's stated coverage years and the case dates. Thus the specific criterion is not satisfied.
+- `gemini/gemini-3.8-flash`: value `0.0` — The response notes that the comparator memorandum was limited to 2018–2021 records, but it does not identify that the memorandum's stated coverage years conflict with the actual dates of the cases summarized within it.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-1/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -1146,6 +1160,20 @@ Authorities the model cited:
 
 </details>
 
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `26`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly states that neither Douglas nor DCMR § 1606 imposes a free-standing requirement that MPD prove the comparability of its supporting comparator cases. It characterizes MPD's duty as consideration, documentation, and a prima facie showing, and concludes that the arbitrator erred by requiring MPD to “prove comparability” absent a disparate-treatment showing by the grievant.
+- `anthropic/claude-sonnet-5`: value `1.0` — The memo repeatedly argues that no uploaded source imposes a 'prove comparability' burden on MPD. Part I.C.1 states the arbitrator 'applied a proof standard, not a reasonableness standard' that neither Douglas nor DCMR §1606.2 contains (§1606.2 only requires MPD be 'prepared to demonstrate that... factors were considered,' not prove each conclusion). Part II.B/D explicitly concludes the arbitrator's allocation of a 'burden to prove comparability' was wrong, since Douglas places only a prima facie production burden on the agency and shifts the burden to identify disparity to the grievant, with MPD required only to rebut if challenged. The memo's bottom-line and strongest-argument sections reiterate that MPD's duty was to demonstrate consideration and make a prima facie showing, not to 'prove' comparator comparability, and that no uploaded authority (Douglas, DCMR §1606) imposes such a proof burden on MPD absent a disparity claim.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response clearly identifies that neither DCMR § 1606 nor Douglas (the uploaded governing authorities) requires MPD to prove comparability of its comparator cases, noting that the regulations only require demonstrating consideration and Douglas requires reasonableness rather than an affirmative burden to prove comparability.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-2/opus55-low/reward-details.json).
+
+</details>
+
 <!-- review:start -->
 - **Rubric verdict:** Defective
 - **AI reasoning:** Correct
@@ -1221,6 +1249,20 @@ Rulings on the blind findings above:
 - **GPT-6 Sol F1 → not_a_defect:** Overturned. The discrepancy is real: PERB ¶ 1 says the Award reduced the penalty 'to a 40-day suspension,' while Award ¶ 10 imposes 45 days. The prompt asks the solver to 'Anchor each argument in specific findings of the Award and the PERB Decision.' MPD's contrary-to-law argument also depends on PERB's cursory, unexplained affirmance, which criteria 7 and 11 reward. PERB's misstatement of the very remedy it affirmed 'in all respects' is natural, record-anchored support for that argument, not an unrelated clerical audit. The criterion is worth only 6 of 60 positive points and asks for a true record fact. It is a demanding but defensible standard under the Harvey definition, so it is not defective.
 
 [Full reconciliation](../tasks/lrb-dcca-challenge-police-discipline-assignment-3/reconciliation.md).
+
+</details>
+
+<details>
+<summary>Native LegalReasonBench model-run grades</summary>
+
+### Claude Opus 5.5 (low)
+
+**Status:** met (3/3). **Contribution:** `6`.
+- `openai/gpt-5.6-terra`: value `1.0` — The memorandum expressly identifies the discrepancy: it states that PERB described the Award as reducing termination to a 40-day suspension, while the Award actually imposed a 45-day suspension. It repeats this point in Part I.E.5 and recommends noting the PERB “40-day” misstatement in the brief.
+- `anthropic/claude-sonnet-5`: value `1.0` — The response explicitly identifies the discrepancy: 'The PERB Decision says the Award reduced termination to a "40-day suspension." PERB Decision, p. 1, ¶ 1. The Award actually imposed a 45-day suspension. Award, p. 2, ¶¶ 9–10.' This is reiterated multiple times (in Part I.E.5 and the Action Items), satisfying the criterion of identifying that the PERB Decision misstates the length of the suspension imposed by the Award.
+- `gemini/gemini-3.8-flash`: value `1.0` — The response explicitly identifies in multiple places (including under 'Record discrepancy you should know about' and Part I.E.5) that the PERB Decision misstated the length of the suspension imposed by the Award as 40 days instead of 45 days.
+
+Links: [run record](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/README.md) · [answer](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/response.md) · [reward](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/reward.json) · [details](../model-runs/lrb-dcca-challenge-police-discipline-assignment-3/opus55-low/reward-details.json).
 
 </details>
 

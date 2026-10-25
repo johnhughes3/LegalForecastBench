@@ -1,0 +1,1259 @@
+{
+  "correctness": {
+    "score": 1.0,
+    "kind": "signed_score",
+    "criteria": [
+      {
+        "name": "criterion_1",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6\u00b6 2-3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cassess how the supplemental comparator changes the following analysis developed earlier in this matter.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+            "reasoning": "The memorandum expressly states that Sgt. Dana Kucera, while off duty, fired at an unarmed man who was reaching into the broken window of her vehicle\u2014an actual property offense in progress\u2014and that the matter resulted in a settled 40-day suspension rather than termination. See Part I.A and the comparison table in Part I.C."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+            "reasoning": "The answer.md explicitly states the Kucera comparator involved an off-duty discharge at an unarmed man suspected of a property offense (breaking into her vehicle), resulting in a 40-day suspension (via settlement) rather than termination, consistent with the Supplemental Comparator Disclosure from MPD Labor Liaison Marcus Bell."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_1",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+            "reasoning": "The response explicitly discusses the supplemental comparator Sgt. Dana Kucera from the Supplemental Comparator Disclosure, detailing that she was off-duty, fired at an unarmed person reaching into her vehicle (a property offense), and that MPD proposed a suspension rather than termination, ultimately resulting in a 40-day suspension by settlement."
+          }
+        ]
+      },
+      {
+        "name": "criterion_2",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6\u00b6 2-3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf); D.C. Metro. Police Dep't, Professional Development Bureau, Final Notice of Adverse Action to Officer Colin R. Braddock, Adverse Action Case No. IS-23-002841, UFRB Case No. 23-UF-0117, \u00b6 19 (May 22, 2024) (final_notice_adverse_action_braddock.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cState whether the arbitrator\u2019s factor six finding looks stronger or weaker in light of the new comparator.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+            "reasoning": "The memo expressly states that Kucera weakens MPD\u2019s factor-six position that Braddock\u2019s termination was consistent with discipline imposed on similarly situated members. It notes that the factor-six argument relying on uniform termination is weakened, that Kucera makes the arbitrator\u2019s factor-six result more defensible, and that MPD\u2019s portrayal of its disciplinary practice is incomplete."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+            "reasoning": "The memo explicitly addresses Douglas factor six (comparator/consistency) and states that the Kucera comparator weakens MPD's position that termination was consistent with discipline imposed on similarly situated members. For example, in Part V.A the table entry for the 'practical realism' point that all four comparators ended in termination is marked 'Weakened' because it is 'now incomplete as a picture of MPD's actual practice' and advises not to suggest MPD's practice is uniform. Similarly, Part III.B discusses that Kucera 'partly confirms' the arbitrator's suspicion that MPD's comparator set did not capture its true practice on off-duty, non-fatal firearm cases, and Part V.C notes viability is 'somewhat lower' because 'the equities now favor the Award's outcome' given MPD's own lenient treatment of the closest comparator. This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_2",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+            "reasoning": "The response clearly states and analyzes how the Kucera comparator weakens MPD's position regarding Douglas factor six (consistency with discipline imposed on similarly situated members), pointing out that Kucera's case undercuts MPD's claim that its disciplinary practice was uniformly termination for comparable conduct."
+          }
+        ]
+      },
+      {
+        "name": "criterion_3",
+        "value": 1.0,
+        "raw": true,
+        "weight": 4.0,
+        "signed_score": 4.0,
+        "polarity": "positive",
+        "contribution": 4.0,
+        "description": "Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6 2 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cState which of MPD\u2019s contrary-to-law arguments survive unchanged, which are weakened.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+            "reasoning": "The memorandum expressly identifies no injury as a key distinction: it states that Kucera's round \"caused no injury\" while Braddock's shooting was near-fatal, and lists \"Injury. No injury, versus a near-fatal shooting\" as a basis on which MPD can distinguish Kucera."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+            "reasoning": "The memo explicitly lists 'Injury. No injury, versus a near-fatal shooting' as one of the grounds on which MPD can distinguish Kucera (Part III.B.2), and the comparison table also notes Kucera's round missed while Braddock's rounds caused near-fatal injury, used throughout as a distinguishing factor (e.g., Part I.C, Part V.B.3)."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_3",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+            "reasoning": "The response explicitly identifies that MPD can distinguish the Kucera case from Braddock's case on the ground that Kucera's discharge caused no injury (whereas Braddock caused severe, near-fatal injury)."
+          }
+        ]
+      },
+      {
+        "name": "criterion_4",
+        "value": 1.0,
+        "raw": true,
+        "weight": 16.0,
+        "signed_score": 16.0,
+        "polarity": "positive",
+        "contribution": 16.0,
+        "description": "States that objections not first urged before the Board cannot be considered by the DCCA",
+        "source": "D.C. Code \u00a7 1-605.02(6) (2016) (dc_code_1-605.02.pdf); Fraternal Ord. of Police/Dep't of Corr. Lab. Comm. v. D.C. Pub. Emp. Rels. Bd., 973 A.2d 174 (D.C. 2009) (fop_doc_labor_comm_v_perb_2009.pdf) at pg 5",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cwhether the supplemental comparator can even be considered on a petition for review given that it sits outside the arbitration record.\u201d",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+            "reasoning": "The memorandum expressly states that an objection not first urged before the Board cannot be considered by the DCCA: \u201cno . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,\u201d and applies that bar to the Kucera objection."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+            "reasoning": "The memo explicitly states in Part II.3 ('The objection was never presented to PERB') that 'no . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,' citing FOP/DOC quoting D.C. Code \u00a7 1-617.13(b). This directly states that objections not first urged before the Board cannot be considered on review (by the DCCA), satisfying the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_4",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+            "reasoning": "The response explicitly states and quotes the rule from D.C. Code \u00a7 1-617.13(b) via FOP/DOC that no objection can be considered by the court/reviewing body unless it was first urged before the Board."
+          }
+        ]
+      },
+      {
+        "name": "criterion_5",
+        "value": 0.0,
+        "raw": false,
+        "weight": -16.0,
+        "signed_score": -16.0,
+        "polarity": "negative",
+        "contribution": -0.0,
+        "description": "Mentions that the supplemental comparator document holds each of MPD's arguments.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6\u00b6 2-3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cState which of MPD\u2019s contrary-to-law arguments survive unchanged, which are weakened, and whether the public policy argument is affected at all.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "0/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+            "reasoning": "The memorandum does not state or imply that the supplemental comparator document holds each of MPD's arguments. It instead says the document materially weakens some arguments, leaves others formally unchanged, and creates practical risks."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+            "reasoning": "The response explicitly differentiates among MPD's arguments, categorizing some as 'unchanged' and others as 'weakened,' and even provides a table breaking down each argument's status individually. It does not claim that the supplemental comparator document (Kucera) uniformly holds or undermines each of MPD's arguments; rather it carefully distinguishes which arguments survive intact and which are affected. Thus the response avoids the described failure of treating the supplemental document as holding/defeating every argument."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_5",
+            "value": 0.0,
+            "raw": "no",
+            "weight": 1.0,
+            "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+            "reasoning": "The response does not state that the supplemental comparator document holds each of MPD's arguments. On the contrary, it analyzes how the supplemental comparator cannot be considered on review, how it weakens several of MPD's factual and rhetorical arguments, and carefully distinguishes which specific legal arguments survive, which are weakened, and which should be dropped."
+          }
+        ]
+      },
+      {
+        "name": "criterion_6",
+        "value": 1.0,
+        "raw": true,
+        "weight": 16.0,
+        "signed_score": 16.0,
+        "polarity": "positive",
+        "contribution": 16.0,
+        "description": "Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6 3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cState whether the arbitrator\u2019s factor six finding looks stronger or weaker in light of the new comparator.\u201d",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+            "reasoning": "The memo expressly identifies that Kucera's final 40-day penalty resulted from a negotiated settlement and distinguishes it from an adjudicated agency penalty decision: \u201cA negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense.\u201d It also says MPD\u2019s proposed 60-day suspension is the better measure of MPD\u2019s judgment."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+            "reasoning": "The memo explicitly argues that Kucera can be distinguished because her penalty resulted from a negotiated settlement rather than adjudicated agency judgment. In Part III.B.2 under 'Settlement versus adjudication,' it states: 'A negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense... MPD's proposed 60 days is the better measure of MPD's judgment, and it is still a suspension.' This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_6",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+            "reasoning": "In Section III.B.2, under 'Settlement versus adjudication', the response explicitly notes that MPD can distinguish the Kucera case because the 40-day suspension was reached through a negotiated settlement reflecting a compromise of litigation risk rather than a reasoned agency penalty decision."
+          }
+        ]
+      },
+      {
+        "name": "criterion_7",
+        "value": 1.0,
+        "raw": true,
+        "weight": 2.0,
+        "signed_score": 2.0,
+        "polarity": "positive",
+        "contribution": 2.0,
+        "description": "Mentions that the Kucera case sat outside the record before the arbitrator.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6 4 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf); In re Arbitration Between Fraternal Ord. of Police/Metro. Police Dep't Lab. Comm. (Braddock Grievance) & D.C. Metro. Police Dep't, FMCS Case No. 24-51267, Grievance No. 24-0392, at \u00b6 1 (Mar. 14, 2025) (Larrabee, Arb.) (braddock_arbitration_award.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \u201cwhether the supplemental comparator can even be considered on a petition for review given that it sits outside the arbitration record.\u201d",
+        "metadata": {
+          "irac_section": "Issue"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+            "reasoning": "The memo expressly states that the Kucera case \u201cwas not part of the record before Arbitrator Larrabee\u201d and repeatedly explains that it was outside the arbitration record."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+            "reasoning": "The response explicitly states multiple times that the Kucera case sat outside the record before the arbitrator, e.g., 'It is not in the arbitration record or the PERB record. Supp. Disclosure, p. 1, \u00b6 4,' and quotes 'the case was not part of the record before Arbitrator Larrabee or the Public Employee Relations Board.' This directly satisfies the criterion."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_7",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+            "reasoning": "The response repeatedly and explicitly states that the Kucera case was not part of the record before the arbitrator (e.g., in the Bottom Line section and in Section I.A quoting the supplemental disclosure noting it was not part of the record before Arbitrator Larrabee)."
+          }
+        ]
+      },
+      {
+        "name": "criterion_8",
+        "value": 1.0,
+        "raw": true,
+        "weight": 28.0,
+        "signed_score": 28.0,
+        "polarity": "positive",
+        "contribution": 28.0,
+        "description": "Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6 1 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf); Memorandum from Yolanda Britt, Director, Disciplinary Review Division, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Sandra M. Delgado, Assistant Chief, Professional Development Bureau, re: Comparator Discipline Cases, Adverse Action Case No. IS-23-002841 (Braddock) (Apr. 11, 2024) (comparator_discipline_cases.pdf)",
+        "justification": "This rubric item is implied, though not directly requested, in the following portion of the prompt: \u201cSupport every point with page and paragraph citations.\u201d",
+        "metadata": {},
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+            "reasoning": "The response expressly identifies a date discrepancy: the Supplemental Disclosure refers to an April 17, 2024 comparator memorandum, while the Comparator Memo in the file is dated April 11, 2024. It labels this as a \u201cWrong date for the comparator memo.\u201d"
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+            "reasoning": "The answer explicitly identifies that the Supplemental Disclosure misdates the comparator memorandum, stating it refers to an 'April 17, 2024' comparator memorandum while the actual Comparator Memo in the file is dated April 11, 2024, flagging this as a discrepancy to resolve."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_8",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+            "reasoning": "The response explicitly identifies in Section I.B (and again in Section VI) that Marcus Bell's Supplemental Disclosure memorandum misdates the comparator memorandum it references as April 17, 2024, when the memorandum in the file is actually dated April 11, 2024."
+          }
+        ]
+      },
+      {
+        "name": "criterion_9",
+        "value": 1.0,
+        "raw": true,
+        "weight": 3.0,
+        "signed_score": 3.0,
+        "polarity": "positive",
+        "contribution": 3.0,
+        "description": "States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+        "source": "Memorandum from Marcus T. Bell, Labor Relations Liaison, Hum. Res. Mgmt. Bureau, D.C. Metro. Police Dep't, to Outside Counsel, PERB Case No. 25-A-09 (Braddock), re: Supplemental Comparator Case Identified After Close of Arbitration Record, \u00b6\u00b6 2-3 (Feb. 24, 2026) (supplemental_comparator_disclosure.pdf); W.R. Grace & Co. v. Local Union 759, 461 U.S. 757, 766 (1983) (wr_grace_v_rubber_workers.pdf)",
+        "justification": "This rubric item is requested directly in the following portion of the prompt: \"State which of MPD's contrary-to-law arguments survive unchanged, which are weakened, and whether the public policy argument is affected at all.\"",
+        "metadata": {
+          "irac_section": "Application"
+        },
+        "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_reasoning": "3/3 judges passed; strict majority requires 2/3.",
+        "judge_error": null,
+        "votes": [
+          {
+            "judge": {
+              "model": "openai/gpt-5.6-terra",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+            "reasoning": "The memorandum expressly states that the public-policy argument is doctrinally unaffected because the supplemental comparator is a negotiated settlement, not a law or legal precedent, and therefore does not supply or defeat the policy source. It also states that the case cannot be considered on review. Although it notes practical credibility effects, it clearly distinguishes those from the doctrinal public-policy analysis."
+          },
+          {
+            "judge": {
+              "model": "anthropic/claude-sonnet-5",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+            "reasoning": "The memo explicitly states (Bottom line \u00a73 and Part V.B.1) that the public policy argument is 'doctrinally unaffected' by the Kucera comparator because a negotiated settlement is not a 'law or legal precedent' and therefore 'neither supplies nor removes a source for the policy,' and because the policy test looks to laws/precedents and the arbitrator's own findings, not comparator evidence. This directly supports the criterion that the public policy argument does not depend on comparator evidence and is unaffected by the supplemental comparator doctrinally."
+          },
+          {
+            "judge": {
+              "model": "gemini/gemini-3.8-flash",
+              "reasoning_effort": "medium",
+              "timeout": 1500
+            },
+            "name": "criterion_9",
+            "value": 1.0,
+            "raw": "yes",
+            "weight": 1.0,
+            "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+            "reasoning": "The response explains that the public policy argument is doctrinally unaffected by the supplemental comparator because public policy claims must be grounded in laws and legal precedents (rather than comparator evidence or individual settlement agreements) and rest on the arbitrator's findings and remedy on the face of the award."
+          }
+        ]
+      }
+    ],
+    "aggregation": {
+      "method": "signed_score_ratio_clamped",
+      "earned": 73.0,
+      "positive_total": 73.0,
+      "unclamped": 1.0,
+      "clamped": 1.0
+    },
+    "raw_rewardkit": {
+      "reward": [
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_1",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+                  "reasoning": "The memorandum expressly states that Sgt. Dana Kucera, while off duty, fired at an unarmed man who was reaching into the broken window of her vehicle\u2014an actual property offense in progress\u2014and that the matter resulted in a settled 40-day suspension rather than termination. See Part I.A and the comparison table in Part I.C."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+                  "reasoning": "The answer.md explicitly states the Kucera comparator involved an off-duty discharge at an unarmed man suspected of a property offense (breaking into her vehicle), resulting in a 40-day suspension (via settlement) rather than termination, consistent with the Supplemental Comparator Disclosure from MPD Labor Liaison Marcus Bell."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_1",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.",
+                  "reasoning": "The response explicitly discusses the supplemental comparator Sgt. Dana Kucera from the Supplemental Comparator Disclosure, detailing that she was off-duty, fired at an unarmed person reaching into her vehicle (a property offense), and that MPD proposed a suspension rather than termination, ultimately resulting in a 40-day suspension by settlement."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_1\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.\",\n          \"reasoning\": \"The memorandum expressly states that Sgt. Dana Kucera, while off duty, fired at an unarmed man who was reaching into the broken window of her vehicle\\u2014an actual property offense in progress\\u2014and that the matter resulted in a settled 40-day suspension rather than termination. See Part I.A and the comparison table in Part I.C.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.\",\n          \"reasoning\": \"The answer.md explicitly states the Kucera comparator involved an off-duty discharge at an unarmed man suspected of a property offense (breaking into her vehicle), resulting in a 40-day suspension (via settlement) rather than termination, consistent with the Supplemental Comparator Disclosure from MPD Labor Liaison Marcus Bell.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_1\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison involved an off-duty discharge at an unarmed person suspected of a property offense that resulted in a 40-day suspension rather than termination.\",\n          \"reasoning\": \"The response explicitly discusses the supplemental comparator Sgt. Dana Kucera from the Supplemental Comparator Disclosure, detailing that she was off-duty, fired at an unarmed person reaching into her vehicle (a property offense), and that MPD proposed a suspension rather than termination, ultimately resulting in a 40-day suspension by settlement.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_2",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+                  "reasoning": "The memo expressly states that Kucera weakens MPD\u2019s factor-six position that Braddock\u2019s termination was consistent with discipline imposed on similarly situated members. It notes that the factor-six argument relying on uniform termination is weakened, that Kucera makes the arbitrator\u2019s factor-six result more defensible, and that MPD\u2019s portrayal of its disciplinary practice is incomplete."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+                  "reasoning": "The memo explicitly addresses Douglas factor six (comparator/consistency) and states that the Kucera comparator weakens MPD's position that termination was consistent with discipline imposed on similarly situated members. For example, in Part V.A the table entry for the 'practical realism' point that all four comparators ended in termination is marked 'Weakened' because it is 'now incomplete as a picture of MPD's actual practice' and advises not to suggest MPD's practice is uniform. Similarly, Part III.B discusses that Kucera 'partly confirms' the arbitrator's suspicion that MPD's comparator set did not capture its true practice on off-duty, non-fatal firearm cases, and Part V.C notes viability is 'somewhat lower' because 'the equities now favor the Award's outcome' given MPD's own lenient treatment of the closest comparator. This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_2",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.",
+                  "reasoning": "The response clearly states and analyzes how the Kucera comparator weakens MPD's position regarding Douglas factor six (consistency with discipline imposed on similarly situated members), pointing out that Kucera's case undercuts MPD's claim that its disciplinary practice was uniformly termination for comparable conduct."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_2\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.\",\n          \"reasoning\": \"The memo expressly states that Kucera weakens MPD\\u2019s factor-six position that Braddock\\u2019s termination was consistent with discipline imposed on similarly situated members. It notes that the factor-six argument relying on uniform termination is weakened, that Kucera makes the arbitrator\\u2019s factor-six result more defensible, and that MPD\\u2019s portrayal of its disciplinary practice is incomplete.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.\",\n          \"reasoning\": \"The memo explicitly addresses Douglas factor six (comparator/consistency) and states that the Kucera comparator weakens MPD's position that termination was consistent with discipline imposed on similarly situated members. For example, in Part V.A the table entry for the 'practical realism' point that all four comparators ended in termination is marked 'Weakened' because it is 'now incomplete as a picture of MPD's actual practice' and advises not to suggest MPD's practice is uniform. Similarly, Part III.B discusses that Kucera 'partly confirms' the arbitrator's suspicion that MPD's comparator set did not capture its true practice on off-duty, non-fatal firearm cases, and Part V.C notes viability is 'somewhat lower' because 'the equities now favor the Award's outcome' given MPD's own lenient treatment of the closest comparator. This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_2\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the Kucera comparator described in the Supplemental Comparator Disclosure from MPD Labor Liaison weakens MPD\\u2019s position that termination was consistent with discipline imposed on similarly situated members under Douglas factor six.\",\n          \"reasoning\": \"The response clearly states and analyzes how the Kucera comparator weakens MPD's position regarding Douglas factor six (consistency with discipline imposed on similarly situated members), pointing out that Kucera's case undercuts MPD's claim that its disciplinary practice was uniformly termination for comparable conduct.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_3",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+                  "reasoning": "The memorandum expressly identifies no injury as a key distinction: it states that Kucera's round \"caused no injury\" while Braddock's shooting was near-fatal, and lists \"Injury. No injury, versus a near-fatal shooting\" as a basis on which MPD can distinguish Kucera."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+                  "reasoning": "The memo explicitly lists 'Injury. No injury, versus a near-fatal shooting' as one of the grounds on which MPD can distinguish Kucera (Part III.B.2), and the comparison table also notes Kucera's round missed while Braddock's rounds caused near-fatal injury, used throughout as a distinguishing factor (e.g., Part I.C, Part V.B.3)."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_3",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury",
+                  "reasoning": "The response explicitly identifies that MPD can distinguish the Kucera case from Braddock's case on the ground that Kucera's discharge caused no injury (whereas Braddock caused severe, near-fatal injury)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_3\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury\",\n          \"reasoning\": \"The memorandum expressly identifies no injury as a key distinction: it states that Kucera's round \\\"caused no injury\\\" while Braddock's shooting was near-fatal, and lists \\\"Injury. No injury, versus a near-fatal shooting\\\" as a basis on which MPD can distinguish Kucera.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury\",\n          \"reasoning\": \"The memo explicitly lists 'Injury. No injury, versus a near-fatal shooting' as one of the grounds on which MPD can distinguish Kucera (Part III.B.2), and the comparison table also notes Kucera's round missed while Braddock's rounds caused near-fatal injury, used throughout as a distinguishing factor (e.g., Part I.C, Part V.B.3).\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_3\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the discharge caused no injury\",\n          \"reasoning\": \"The response explicitly identifies that MPD can distinguish the Kucera case from Braddock's case on the ground that Kucera's discharge caused no injury (whereas Braddock caused severe, near-fatal injury).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_4",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+                  "reasoning": "The memorandum expressly states that an objection not first urged before the Board cannot be considered by the DCCA: \u201cno . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,\u201d and applies that bar to the Kucera objection."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+                  "reasoning": "The memo explicitly states in Part II.3 ('The objection was never presented to PERB') that 'no . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,' citing FOP/DOC quoting D.C. Code \u00a7 1-617.13(b). This directly states that objections not first urged before the Board cannot be considered on review (by the DCCA), satisfying the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_4",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA",
+                  "reasoning": "The response explicitly states and quotes the rule from D.C. Code \u00a7 1-617.13(b) via FOP/DOC that no objection can be considered by the court/reviewing body unless it was first urged before the Board."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_4\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA\",\n          \"reasoning\": \"The memorandum expressly states that an objection not first urged before the Board cannot be considered by the DCCA: \\u201cno . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,\\u201d and applies that bar to the Kucera objection.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA\",\n          \"reasoning\": \"The memo explicitly states in Part II.3 ('The objection was never presented to PERB') that 'no . . . objection to an order of the Board shall be considered . . . unless such . . . objection was first urged before the Board,' citing FOP/DOC quoting D.C. Code \\u00a7 1-617.13(b). This directly states that objections not first urged before the Board cannot be considered on review (by the DCCA), satisfying the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_4\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that objections not first urged before the Board cannot be considered by the DCCA\",\n          \"reasoning\": \"The response explicitly states and quotes the rule from D.C. Code \\u00a7 1-617.13(b) via FOP/DOC that no objection can be considered by the court/reviewing body unless it was first urged before the Board.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 0.0,
+          "criteria": [
+            {
+              "name": "criterion_5",
+              "value": 0.0,
+              "raw": false,
+              "weight": 1.0,
+              "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+              "reasoning": "0/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+                  "reasoning": "The memorandum does not state or imply that the supplemental comparator document holds each of MPD's arguments. It instead says the document materially weakens some arguments, leaves others formally unchanged, and creates practical risks."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+                  "reasoning": "The response explicitly differentiates among MPD's arguments, categorizing some as 'unchanged' and others as 'weakened,' and even provides a table breaking down each argument's status individually. It does not claim that the supplemental comparator document (Kucera) uniformly holds or undermines each of MPD's arguments; rather it carefully distinguishes which arguments survive intact and which are affected. Thus the response avoids the described failure of treating the supplemental document as holding/defeating every argument."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_5",
+                  "value": 0.0,
+                  "raw": "no",
+                  "weight": 1.0,
+                  "description": "The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\n\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.",
+                  "reasoning": "The response does not state that the supplemental comparator document holds each of MPD's arguments. On the contrary, it analyzes how the supplemental comparator cannot be considered on review, how it weakens several of MPD's factual and rhetorical arguments, and carefully distinguishes which specific legal arguments survive, which are weakened, and which should be dropped."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_5\",\n      \"value\": 0.0,\n      \"raw\": false,\n      \"weight\": 1.0,\n      \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.\",\n      \"reasoning\": \"0/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.\",\n          \"reasoning\": \"The memorandum does not state or imply that the supplemental comparator document holds each of MPD's arguments. It instead says the document materially weakens some arguments, leaves others formally unchanged, and creates practical risks.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.\",\n          \"reasoning\": \"The response explicitly differentiates among MPD's arguments, categorizing some as 'unchanged' and others as 'weakened,' and even provides a table breaking down each argument's status individually. It does not claim that the supplemental comparator document (Kucera) uniformly holds or undermines each of MPD's arguments; rather it carefully distinguishes which arguments survive intact and which are affected. Thus the response avoids the described failure of treating the supplemental document as holding/defeating every argument.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_5\",\n          \"value\": 0.0,\n          \"raw\": \"no\",\n          \"weight\": 1.0,\n          \"description\": \"The response should be penalized if it commits the legal-analysis failure described below. Answer Pass only if the response DOES commit this failure; answer Fail if the response avoids it. Apply any numeric tolerances stated inside the criterion text.\\n\\nFailure criterion: Mentions that the supplemental comparator document holds each of MPD's arguments.\",\n          \"reasoning\": \"The response does not state that the supplemental comparator document holds each of MPD's arguments. On the contrary, it analyzes how the supplemental comparator cannot be considered on review, how it weakens several of MPD's factual and rhetorical arguments, and carefully distinguishes which specific legal arguments survive, which are weakened, and which should be dropped.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_6",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+                  "reasoning": "The memo expressly identifies that Kucera's final 40-day penalty resulted from a negotiated settlement and distinguishes it from an adjudicated agency penalty decision: \u201cA negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense.\u201d It also says MPD\u2019s proposed 60-day suspension is the better measure of MPD\u2019s judgment."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+                  "reasoning": "The memo explicitly argues that Kucera can be distinguished because her penalty resulted from a negotiated settlement rather than adjudicated agency judgment. In Part III.B.2 under 'Settlement versus adjudication,' it states: 'A negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense... MPD's proposed 60 days is the better measure of MPD's judgment, and it is still a suspension.' This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_6",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement",
+                  "reasoning": "In Section III.B.2, under 'Settlement versus adjudication', the response explicitly notes that MPD can distinguish the Kucera case because the 40-day suspension was reached through a negotiated settlement reflecting a compromise of litigation risk rather than a reasoned agency penalty decision."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_6\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement\",\n          \"reasoning\": \"The memo expressly identifies that Kucera's final 40-day penalty resulted from a negotiated settlement and distinguishes it from an adjudicated agency penalty decision: \\u201cA negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense.\\u201d It also says MPD\\u2019s proposed 60-day suspension is the better measure of MPD\\u2019s judgment.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement\",\n          \"reasoning\": \"The memo explicitly argues that Kucera can be distinguished because her penalty resulted from a negotiated settlement rather than adjudicated agency judgment. In Part III.B.2 under 'Settlement versus adjudication,' it states: 'A negotiated 40-day suspension with a waiver of grievance rights reflects a compromise of litigation risk. It is not a reasoned agency penalty decision in the Douglas sense... MPD's proposed 60 days is the better measure of MPD's judgment, and it is still a suspension.' This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_6\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that MPD can distinguish the Kucera case because the penalty was set by a negotiated settlement\",\n          \"reasoning\": \"In Section III.B.2, under 'Settlement versus adjudication', the response explicitly notes that MPD can distinguish the Kucera case because the 40-day suspension was reached through a negotiated settlement reflecting a compromise of litigation risk rather than a reasoned agency penalty decision.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_7",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+                  "reasoning": "The memo expressly states that the Kucera case \u201cwas not part of the record before Arbitrator Larrabee\u201d and repeatedly explains that it was outside the arbitration record."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+                  "reasoning": "The response explicitly states multiple times that the Kucera case sat outside the record before the arbitrator, e.g., 'It is not in the arbitration record or the PERB record. Supp. Disclosure, p. 1, \u00b6 4,' and quotes 'the case was not part of the record before Arbitrator Larrabee or the Public Employee Relations Board.' This directly satisfies the criterion."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_7",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.",
+                  "reasoning": "The response repeatedly and explicitly states that the Kucera case was not part of the record before the arbitrator (e.g., in the Bottom Line section and in Section I.A quoting the supplemental disclosure noting it was not part of the record before Arbitrator Larrabee)."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_7\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.\",\n          \"reasoning\": \"The memo expressly states that the Kucera case \\u201cwas not part of the record before Arbitrator Larrabee\\u201d and repeatedly explains that it was outside the arbitration record.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.\",\n          \"reasoning\": \"The response explicitly states multiple times that the Kucera case sat outside the record before the arbitrator, e.g., 'It is not in the arbitration record or the PERB record. Supp. Disclosure, p. 1, \\u00b6 4,' and quotes 'the case was not part of the record before Arbitrator Larrabee or the Public Employee Relations Board.' This directly satisfies the criterion.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_7\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Mentions that the Kucera case sat outside the record before the arbitrator.\",\n          \"reasoning\": \"The response repeatedly and explicitly states that the Kucera case was not part of the record before the arbitrator (e.g., in the Bottom Line section and in Section I.A quoting the supplemental disclosure noting it was not part of the record before Arbitrator Larrabee).\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_8",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+                  "reasoning": "The response expressly identifies a date discrepancy: the Supplemental Disclosure refers to an April 17, 2024 comparator memorandum, while the Comparator Memo in the file is dated April 11, 2024. It labels this as a \u201cWrong date for the comparator memo.\u201d"
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+                  "reasoning": "The answer explicitly identifies that the Supplemental Disclosure misdates the comparator memorandum, stating it refers to an 'April 17, 2024' comparator memorandum while the actual Comparator Memo in the file is dated April 11, 2024, flagging this as a discrepancy to resolve."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_8",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.",
+                  "reasoning": "The response explicitly identifies in Section I.B (and again in Section VI) that Marcus Bell's Supplemental Disclosure memorandum misdates the comparator memorandum it references as April 17, 2024, when the memorandum in the file is actually dated April 11, 2024."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_8\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.\",\n          \"reasoning\": \"The response expressly identifies a date discrepancy: the Supplemental Disclosure refers to an April 17, 2024 comparator memorandum, while the Comparator Memo in the file is dated April 11, 2024. It labels this as a \\u201cWrong date for the comparator memo.\\u201d\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.\",\n          \"reasoning\": \"The answer explicitly identifies that the Supplemental Disclosure misdates the comparator memorandum, stating it refers to an 'April 17, 2024' comparator memorandum while the actual Comparator Memo in the file is dated April 11, 2024, flagging this as a discrepancy to resolve.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_8\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: Identifies that the Supplemental Disclosure misdates the comparator memorandum it references.\",\n          \"reasoning\": \"The response explicitly identifies in Section I.B (and again in Section VI) that Marcus Bell's Supplemental Disclosure memorandum misdates the comparator memorandum it references as April 17, 2024, when the memorandum in the file is actually dated April 11, 2024.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        },
+        {
+          "score": 1.0,
+          "criteria": [
+            {
+              "name": "criterion_9",
+              "value": 1.0,
+              "raw": true,
+              "weight": 1.0,
+              "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+              "reasoning": "3/3 judges passed; strict majority requires 2/3.",
+              "votes": [
+                {
+                  "judge": {
+                    "model": "openai/gpt-5.6-terra",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+                  "reasoning": "The memorandum expressly states that the public-policy argument is doctrinally unaffected because the supplemental comparator is a negotiated settlement, not a law or legal precedent, and therefore does not supply or defeat the policy source. It also states that the case cannot be considered on review. Although it notes practical credibility effects, it clearly distinguishes those from the doctrinal public-policy analysis."
+                },
+                {
+                  "judge": {
+                    "model": "anthropic/claude-sonnet-5",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+                  "reasoning": "The memo explicitly states (Bottom line \u00a73 and Part V.B.1) that the public policy argument is 'doctrinally unaffected' by the Kucera comparator because a negotiated settlement is not a 'law or legal precedent' and therefore 'neither supplies nor removes a source for the policy,' and because the policy test looks to laws/precedents and the arbitrator's own findings, not comparator evidence. This directly supports the criterion that the public policy argument does not depend on comparator evidence and is unaffected by the supplemental comparator doctrinally."
+                },
+                {
+                  "judge": {
+                    "model": "gemini/gemini-3.8-flash",
+                    "reasoning_effort": "medium",
+                    "timeout": 1500
+                  },
+                  "name": "criterion_9",
+                  "value": 1.0,
+                  "raw": "yes",
+                  "weight": 1.0,
+                  "description": "Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\n\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.",
+                  "reasoning": "The response explains that the public policy argument is doctrinally unaffected by the supplemental comparator because public policy claims must be grounded in laws and legal precedents (rather than comparator evidence or individual settlement agreements) and rest on the arbitrator's findings and remedy on the face of the award."
+                }
+              ]
+            }
+          ],
+          "kind": "llm_panel",
+          "judge": {
+            "mode": "panel",
+            "max_concurrent_llm": 12,
+            "members": [
+              {
+                "model": "openai/gpt-5.6-terra",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "anthropic/claude-sonnet-5",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              },
+              {
+                "model": "gemini/gemini-3.8-flash",
+                "reasoning_effort": "medium",
+                "timeout": 1500
+              }
+            ]
+          },
+          "judge_output": "{\n  \"status\": \"completed\",\n  \"mode\": \"panel\",\n  \"aggregation\": \"majority\",\n  \"required_votes\": 2,\n  \"members\": [\n    {\n      \"model\": \"openai/gpt-5.6-terra\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"anthropic/claude-sonnet-5\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    },\n    {\n      \"model\": \"gemini/gemini-3.8-flash\",\n      \"reasoning_effort\": \"medium\",\n      \"timeout\": 1500\n    }\n  ],\n  \"criteria\": [\n    {\n      \"name\": \"criterion_9\",\n      \"value\": 1.0,\n      \"raw\": true,\n      \"weight\": 1.0,\n      \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.\",\n      \"reasoning\": \"3/3 judges passed; strict majority requires 2/3.\",\n      \"votes\": [\n        {\n          \"judge\": {\n            \"model\": \"openai/gpt-5.6-terra\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.\",\n          \"reasoning\": \"The memorandum expressly states that the public-policy argument is doctrinally unaffected because the supplemental comparator is a negotiated settlement, not a law or legal precedent, and therefore does not supply or defeat the policy source. It also states that the case cannot be considered on review. Although it notes practical credibility effects, it clearly distinguishes those from the doctrinal public-policy analysis.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"anthropic/claude-sonnet-5\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.\",\n          \"reasoning\": \"The memo explicitly states (Bottom line \\u00a73 and Part V.B.1) that the public policy argument is 'doctrinally unaffected' by the Kucera comparator because a negotiated settlement is not a 'law or legal precedent' and therefore 'neither supplies nor removes a source for the policy,' and because the policy test looks to laws/precedents and the arbitrator's own findings, not comparator evidence. This directly supports the criterion that the public policy argument does not depend on comparator evidence and is unaffected by the supplemental comparator doctrinally.\"\n        },\n        {\n          \"judge\": {\n            \"model\": \"gemini/gemini-3.8-flash\",\n            \"reasoning_effort\": \"medium\",\n            \"timeout\": 1500\n          },\n          \"name\": \"criterion_9\",\n          \"value\": 1.0,\n          \"raw\": \"yes\",\n          \"weight\": 1.0,\n          \"description\": \"Does the response satisfy the legal-analysis criterion below? Apply any numeric tolerances stated inside the criterion text.\\n\\nCriterion: States that the public policy argument is unaffected by the supplemental comparator because it does not depend on comparator evidence.\",\n          \"reasoning\": \"The response explains that the public policy argument is doctrinally unaffected by the supplemental comparator because public policy claims must be grounded in laws and legal precedents (rather than comparator evidence or individual settlement agreements) and rest on the arbitrator's findings and remedy on the face of the award.\"\n        }\n      ]\n    }\n  ]\n}",
+          "aggregation": "majority",
+          "required_votes": 2
+        }
+      ]
+    }
+  }
+}
