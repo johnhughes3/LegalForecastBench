@@ -2,6 +2,8 @@
 
 Pinned source: `micro1-inc/LegalReasonBench` revision `1bfa904c8f255925baf2610c0f86aa7c05d94ed9`.
 
+[Experiment methods and matter results](experiment.md).
+
 Only explicitly mapped native Harbor outputs are included. Responses and raw verifier files are copied unchanged. Missing or incomplete panels are not model failures. Complete refers to the grade panel; native agent exit diagnostics are disclosed on the individual run pages.
 
 Answers: **6**; complete panels: **6**; partial/incomplete: **0**; missing: **16**.

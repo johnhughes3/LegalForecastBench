@@ -812,6 +812,8 @@ def import_runs(
         "",
         f"Pinned source: `{DATASET}` revision `{REVISION}`.",
         "",
+        "[Experiment methods and matter results](experiment.md).",
+        "",
         "Only explicitly mapped native Harbor outputs are included. Responses and raw "
         "verifier files are copied unchanged. Missing or incomplete panels are not "
         "model failures. Complete refers to the grade panel; native agent exit "
