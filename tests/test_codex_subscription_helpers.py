@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """Codex arg0 aliases must point directly to the explicitly pinned executable."""
 
 from __future__ import annotations
@@ -98,15 +100,24 @@ def test_codex_presence_revalidates_helpers_with_same_pinned_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root, _helper, pin = _codex_state(tmp_path)
+
+    def wrap_double(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> tuple[tuple[str, ...], dict[str, object]]:
+        return argv, {}
+
+    def run_double(
+        argv: tuple[str, ...], **_kwargs: object
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(argv, 0, b"", b"Logged in using ChatGPT\n")
+
     monkeypatch.setattr(
         "legalforecast.multiharness.native_cli_subscription.wrap_argv_for_contributor_boundary",
-        lambda argv, **_kwargs: (argv, {}),
+        wrap_double,
     )
     monkeypatch.setattr(
         "legalforecast.multiharness.native_cli_subscription.subprocess.run",
-        lambda argv, **_kwargs: subprocess.CompletedProcess(
-            argv, 0, b"", b"Logged in using ChatGPT\n"
-        ),
+        run_double,
     )
     presence = NativeCliSubscriptionPresence(
         "codex", config_root=root, role="solver", executable_pin=pin
