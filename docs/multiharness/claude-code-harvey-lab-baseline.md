@@ -69,3 +69,5 @@ No GitHub Actions workflow is supplied for this route because contributor subscr
 Any one-task result remains labeled `Preliminary — one task pair, operator-run, not independently reproducible.` until a real local solver and separate judge execution has completed and its artifacts have been inspected.
 
 The matching [Codex subscription baseline](codex-cli-harvey-lab-baseline.md) selects `--harness codex` on the same community command and uses the same separate Claude subscription judge. Keep the prepared task and requested judge family identical when comparing these two native solvers.
+
+`--timeout-seconds` sets the time limit for the solver and for each judge invocation (default: 900 seconds). The community operator applies this value to its runtime manifest; the example adapter’s 120-second default does not shorten it.

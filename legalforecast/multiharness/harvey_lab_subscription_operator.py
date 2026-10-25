@@ -48,6 +48,10 @@ from legalforecast.multiharness.local_cli_identity import (
     ExecutableIdentityPin,
     LocalCliIdentityError,
 )
+from legalforecast.multiharness.local_cli_manifest import (
+    LocalCliAdapterManifest,
+    capability_digest_for,
+)
 from legalforecast.multiharness.local_cli_probe import LocalCliProbeError
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from legalforecast.multiharness.native_cli_preflight import preflight_native_cli
@@ -95,6 +99,19 @@ class CommunitySubscriptionRuntime:
     evaluator_provenance_provider: EvaluatorProvenanceProvider
 
 
+def _with_community_timeout(
+    manifest: LocalCliAdapterManifest, timeout_seconds: int
+) -> LocalCliAdapterManifest:
+    """Bind the selected local limit without changing shared adapter defaults."""
+
+    record = manifest.to_record()
+    record["timeout_retry"] = replace(
+        manifest.timeout_retry, timeout_seconds=timeout_seconds
+    ).to_record()
+    record["capability_digest"] = capability_digest_for(record)
+    return LocalCliAdapterManifest.from_record(record)
+
+
 def build_community_subscription_runtime(
     request: CommunitySubscriptionOperatorRequest,
 ) -> CommunitySubscriptionRuntime:
@@ -115,7 +132,9 @@ def build_community_subscription_runtime(
             "--tools",
         ),
     )
-    manifest = claude_code_local_manifest()
+    manifest = _with_community_timeout(
+        claude_code_local_manifest(), request.timeout_seconds
+    )
     bound = bind_adapter_auth_profile(manifest, CONTRIBUTOR_SUBSCRIPTION)
     if request.harness not in {"claude-code", "codex"}:
         raise CommunitySubscriptionOperatorError("unsupported community solver harness")
@@ -127,7 +146,9 @@ def build_community_subscription_runtime(
             raise CommunitySubscriptionOperatorError(
                 "Codex requires explicit --codex-version and --codex-sha256"
             )
-        solver_manifest = load_codex_local_cli_manifest()
+        solver_manifest = _with_community_timeout(
+            load_codex_local_cli_manifest(), request.timeout_seconds
+        )
         solver_pin = ExecutableIdentityPin(
             basename="codex",
             version=request.codex_version,
@@ -194,11 +215,13 @@ def build_community_subscription_runtime(
         adapter=(
             CodexCliAdapter(
                 execution_service=solver_service,
+                local_cli_manifest=solver_manifest,
                 auth_profile=CONTRIBUTOR_SUBSCRIPTION,
             )
             if request.harness == "codex"
             else ClaudeCodeCliAdapter(
                 execution_service=solver_service,
+                local_manifest=solver_manifest,
                 auth_profile=CONTRIBUTOR_SUBSCRIPTION,
             )
         ),
