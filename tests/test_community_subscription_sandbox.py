@@ -63,6 +63,34 @@ def test_claude_policy_denies_auth_root_to_bash_and_builtin_file_tools(
     assert "--safe-mode" in configured.argv
 
 
+@pytest.mark.parametrize(
+    "auth_dirname",
+    ["auth[1]", "auth*", "auth?", "auth\\root", "auth(rule)", "auth!", "auth#"],
+)
+def test_claude_policy_rejects_literal_auth_roots_with_pattern_syntax(
+    tmp_path: Path,
+    auth_dirname: str,
+) -> None:
+    auth_root = tmp_path / auth_dirname
+    workspace = tmp_path / "workspace"
+    auth_root.mkdir()
+    workspace.mkdir()
+    plan = build_claude_invocation_plan(
+        prompt="Create the requested deliverable.",
+        model="sonnet",
+        required_unit_ids=(),
+        workspace=workspace,
+        output_schema_path=workspace / "schema.json",
+        allowed_tools=("Read", "Bash", "Write", "Edit"),
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+    )
+
+    with pytest.raises(ClaudeCodeCliAdapterError, match="permission pattern syntax"):
+        claude_plan(plan, auth_root=auth_root)
+
+    assert "--settings" not in plan.argv
+
+
 def test_codex_policy_is_named_and_toml_parseable(tmp_path: Path) -> None:
     auth_root, workspace = _roots(tmp_path)
     plan = plan_contained_codex_exec(

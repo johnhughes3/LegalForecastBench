@@ -70,7 +70,7 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
         evaluator_bin_dir=tmp_path / "bin",
         solver_config_dir=solver_config,
         judge_config_dir=judge_config,
-        claude_version="fixture-version",
+        claude_version="2.1.310 (Claude Code)",
         claude_sha256="a" * 64,
         solver_model="sonnet",
         judge_model="sonnet",
@@ -96,9 +96,49 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     )
     assert solver_service.run_in_working_directory is True
     assert solver_service.executable_pin is not None
+    assert solver_service.executable_pin.version == "2.1.310 (Claude Code)"
     assert "--safe-mode" in solver_service.executable_pin.required_flags
     assert "--allowedTools" in solver_service.executable_pin.required_flags
     assert "--settings" in solver_service.executable_pin.required_flags
+
+
+@pytest.mark.parametrize(
+    "unreviewed_version",
+    ["2.1.309 (Claude Code)", "2.1.311 (Claude Code)"],
+)
+def test_unreviewed_claude_sandbox_version_fails_before_preflight_or_run_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    unreviewed_version: str,
+) -> None:
+    solver_config, judge_config = _role_configs(tmp_path)
+    request = CommunitySubscriptionOperatorRequest(
+        source_root=tmp_path / "source",
+        projection_root=tmp_path / "projection",
+        evaluator_private_root=tmp_path / "private",
+        run_root=tmp_path / "run",
+        evaluator_bin_dir=tmp_path / "bin",
+        solver_config_dir=solver_config,
+        judge_config_dir=judge_config,
+        claude_version=unreviewed_version,
+        claude_sha256="a" * 64,
+        solver_model="sonnet",
+        judge_model="sonnet",
+        pin=FIXTURE_PIN,
+    )
+    monkeypatch.setattr(
+        subscription_operator,
+        "preflight_native_cli",
+        lambda *_args, **_kwargs: pytest.fail("native preflight must not start"),
+    )
+
+    with pytest.raises(
+        subscription_operator.CommunitySubscriptionOperatorError,
+        match="reviewed Claude sandbox policy",
+    ):
+        run_community_subscription_harvey_lab(request)
+
+    assert not request.run_root.exists()
 
 
 def test_missing_native_suppression_capability_fails_before_model_execution(
@@ -108,7 +148,7 @@ def test_missing_native_suppression_capability_fails_before_model_execution(
     evaluator_bin.mkdir()
     claude = evaluator_bin / "claude"
     calls = tmp_path / "claude-calls.jsonl"
-    version = "2.1.233 (Claude Code)"
+    version = "2.1.310 (Claude Code)"
     claude.write_text(
         "#!/usr/bin/env python3\n"
         "import json, pathlib, sys\n"
@@ -475,7 +515,7 @@ def _run_subscription_args(
             "--judge-config-dir",
             str(judge_config),
             "--claude-version",
-            "fixture-version",
+            "2.1.310 (Claude Code)",
             "--claude-sha256",
             "a" * 64,
             "--solver-model",

@@ -14,6 +14,9 @@ from legalforecast.multiharness.codex_cli import (
     CodexCliAdapter,
     load_codex_local_cli_manifest,
 )
+from legalforecast.multiharness.community_subscription_sandbox import (
+    CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION,
+)
 from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
     build_community_subscription_runtime,
@@ -41,6 +44,9 @@ def test_community_timeout_reaches_solver_and_judge_specs(
 ) -> None:
     request = replace(_request(tmp_path), harness=harness, timeout_seconds=timeout)
     if harness == "claude-code":
+        request = replace(
+            request, claude_version=CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION
+        )
         (request.solver_config_dir / "auth.json").rename(
             request.solver_config_dir / ".credentials.json"
         )

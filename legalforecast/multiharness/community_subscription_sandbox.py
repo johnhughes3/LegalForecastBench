@@ -17,7 +17,12 @@ from legalforecast.multiharness.codex_cli import (
     CodexCliInvocationPlan,
 )
 
+# Security ABI allowlist: new Claude versions require source review, not a semver floor.
+CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE = "claude_native_sandbox.v1"
+CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION = "2.1.310 (Claude Code)"
 CODEX_COMMUNITY_PERMISSION_PROFILE = "lfb_community_solver"
+# Handwritten Read/Edit rules are not escaped by Claude; reject their pattern grammar.
+_CLAUDE_PERMISSION_PATTERN_METACHARACTERS = frozenset("*?[]\\!#()")
 
 
 def claude_plan(
@@ -35,6 +40,10 @@ def claude_plan(
         root = _absolute_directory(auth_root, label="Claude auth root")
     except ValueError as exc:
         raise ClaudeCodeCliAdapterError(str(exc)) from exc
+    if _CLAUDE_PERMISSION_PATTERN_METACHARACTERS.intersection(root.as_posix()):
+        raise ClaudeCodeCliAdapterError(
+            "Claude auth root must not contain permission pattern syntax"
+        )
     if "--settings" in plan.argv:
         raise ClaudeCodeCliAdapterError(
             "community Claude invocation must declare one owned settings object"
@@ -147,6 +156,8 @@ def _absolute_directory(path: Path, *, label: str) -> Path:
 
 
 __all__ = [
+    "CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE",
+    "CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION",
     "CODEX_COMMUNITY_PERMISSION_PROFILE",
     "claude_plan",
     "codex_plan",
