@@ -4,6 +4,11 @@
     "docs/papers/lab-audit/analysis/lab_review.py": [
       "harvey_review_sample"
     ],
+    "docs/papers/lab-audit/analysis/lrb_review.py": [
+      "lab_review",
+      "legalreasonbench_model_runs",
+      "legalreasonbench_review_sample"
+    ],
     "docs/papers/pangram_check.py": [
       "pangram"
     ],
@@ -70,6 +75,7 @@
   ],
   "file_relative_resolution": [
     "docs/papers/lab-audit/analysis/lab_review.py",
+    "docs/papers/lab-audit/analysis/lrb_review.py",
     "docs/papers/legalforecastbench/analysis/clustering.py",
     "docs/papers/legalforecastbench/figures/make_figures.py",
     "examples/adapters/claude-agent-sdk/adapter.py",
@@ -194,6 +200,7 @@
     "tests/test_paper_build.py",
     "tests/test_paper_citations.py",
     "tests/test_paper_lab_review.py",
+    "tests/test_paper_lrb_review.py",
     "tests/test_paper_pangram.py",
     "tests/test_paper_title.py",
     "tests/test_pdf_extractor_pin.py",

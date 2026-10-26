@@ -106,9 +106,9 @@ def test_ai_prose_exclusions_are_limited_to_benchmark_sections_three_and_four() 
     for exclusion, section_index in zip(exclusions, (2, 3), strict=True):
         assert sections[section_index].end() < exclusion.start()
         assert exclusion.end() < sections[section_index + 1].start()
-    assert not pangram_check.AI_PREPARED.search(
-        LAB_MANUSCRIPT.read_text(encoding="utf-8")
-    )
+    # The LAB audit paper is scored in full: it marks nothing AI-prepared.
+    audit = LAB_MANUSCRIPT.read_text(encoding="utf-8")
+    assert not list(pangram_check.AI_PREPARED.finditer(audit))
 
 
 def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
@@ -118,6 +118,45 @@ def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
     assert "Sonnet 4.6 judge: " not in paper
     assert "1. [...] (C-049)" in paper
     assert "internally inconsistent" in paper
+
+
+def test_legalreasonbench_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
+    paper = _paper(LAB_MANUSCRIPT)
+    appendix = paper.split("C. Human review of AI-flagged LegalReasonBench criteria")[1]
+    for hidden in (
+        "States in the first assignment that DCI2018-10023",  # quoted criterion
+        "Petition for Writ of Certiorari",  # task title
+        "Quoted from micro1",
+        "GPT-5.6 Terra: ",  # the benchmark's own judge votes
+        "Review worksheet",  # the per-entry link to the source lists sits in a table
+    ):
+        assert hidden not in appendix
+    assert "1. [...] (states_in_the_first_assignment_that_dci2018_10023" in appendix
+    assert appendix.count("My analysis. ") == 25
+    assert "Confirmed. This rubric penalizes the model" in appendix
+
+
+def test_lrb_fixture_keeps_only_the_analysis() -> None:
+    tex = r"""\documentclass{article}
+\newcommand{\lrbitem}[3]{\subsubsection*{#1. #2\\{\normalfont\small criterion #3}}}
+\begin{document}
+\appendix
+\section{Review}
+\lrbitem{1}{LRB Task Title, assignment 1}{\texttt{criterion\_\allowbreak{}8}}
+\begin{lrbquote}{micro1 LegalReasonBench}Quoted rubric.\end{lrbquote}
+
+\noindent\textbf{My analysis.} The rubric is wrong.
+
+% BEGIN AI-PREPARED (source lists)
+\begin{itemize}
+\item{} \textit{Sources:} a document.
+\end{itemize}
+% END AI-PREPARED
+\end{document}
+"""
+    assert _fixture(tex)["A"].text == (
+        f"1. {GAP} (criterion_8)\n\n{GAP}\n\nMy analysis. The rubric is wrong.\n\n{GAP}"
+    )
 
 
 @pytest.mark.parametrize(

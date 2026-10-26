@@ -7,8 +7,9 @@ omission is shown as ``[...]`` so the document does not pretend to be complete:
 * passages between ``% BEGIN AI-PREPARED`` and ``% END AI-PREPARED`` comment lines in
   the manuscript source, which mark what the paper's AI-use statement discloses as
   prepared with AI;
-* criteria quoted from Harvey LAB (the ``labquote`` environment) and Harvey's task
-  titles in the appendix headings;
+* criteria quoted from Harvey LAB (the ``labquote`` environment) and from micro1's
+  LegalReasonBench (``lrbquote``), and the benchmarks' task titles in the appendix
+  headings (``\\labitem`` and ``\\lrbitem``);
 * tables, figures, display equations, the bibliography, and blocks between
   ``% BEGIN GENERATED`` and ``% END GENERATED`` markers.
 
@@ -72,6 +73,7 @@ NON_PROSE_ENVIRONMENTS = (
     "tikzpicture",
     "tabular",
     "labquote",
+    "lrbquote",
     "equation",
     "align",
     "gather",
@@ -81,22 +83,27 @@ NON_PROSE_ENVIRONMENTS = (
 )
 REMOVED = (
     "passages marked AI-prepared in the source; criteria and task titles quoted "
-    "from Harvey LAB; tables, figures, and captions; display equations; the "
-    "bibliography; generated blocks; and citations, cross-references, and URLs"
+    "from Harvey LAB and LegalReasonBench; tables, figures, and captions; display "
+    "equations; the bibliography; generated blocks; and citations, "
+    "cross-references, and URLs"
 )
 # A citation, with the space before it. The periods are captured so that
 # "sentence. \citep{x}." does not leave two.
 CITATION = re.compile(r"(\.?)[~\s]*\\cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{[^}]*\}(\.?)")
 REFERENCE = re.compile(r"[~\s]*\\(?:eq|page|auto|c|C)?ref\{[^}]*\}")
 # pandoc's plain writer upper-cases bold text and underscores emphasis. The appendix
-# heading macro carries Harvey's task title, which is not the author's text.
+# heading macros carry Harvey's and LegalReasonBench's task titles, which are not the
+# author's text.
 OVERRIDES = "\n".join(
     [
         *(
             rf"\renewcommand{{\{name}}}[1]{{#1}}"
             for name in ("textbf", "emph", "textit", "texttt", "textsc", "underline")
         ),
-        rf"\renewcommand{{\labitem}}[3]{{\subsubsection*{{#1. {_GAP} (#3)}}}}",
+        *(
+            rf"\renewcommand{{\{name}}}[3]{{\subsubsection*{{#1. {_GAP} (#3)}}}}"
+            for name in ("labitem", "lrbitem")
+        ),
     ]
 )
 
