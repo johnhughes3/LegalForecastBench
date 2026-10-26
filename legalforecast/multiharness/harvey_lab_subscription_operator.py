@@ -29,6 +29,10 @@ from legalforecast.multiharness.codex_cli_harvey_lab import (
     CodexCliHarveyLabMeasurementResult,
     run_codex_cli_clean_native_harvey_lab,
 )
+from legalforecast.multiharness.community_subscription_sandbox import (
+    CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE,
+    CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION,
+)
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
     HarveyLabJudgeRequestBoundary,
@@ -117,6 +121,7 @@ def build_community_subscription_runtime(
 ) -> CommunitySubscriptionRuntime:
     """Build the local subscription solver and separate native CLI judge."""
 
+    _require_claude_sandbox_policy_version(request)
     judge_pin = ExecutableIdentityPin(
         basename="claude",
         version=request.claude_version,
@@ -140,7 +145,8 @@ def build_community_subscription_runtime(
         raise CommunitySubscriptionOperatorError("unsupported community solver harness")
     solver_executable = "codex" if request.harness == "codex" else "claude"
     solver_pin = replace(
-        judge_pin, required_flags=(*judge_pin.required_flags, "--allowedTools")
+        judge_pin,
+        required_flags=(*judge_pin.required_flags, "--allowedTools", "--settings"),
     )
     solver_manifest = manifest
     if request.harness == "codex":
@@ -161,6 +167,7 @@ def build_community_subscription_runtime(
                 "--ignore-user-config",
                 "--ignore-rules",
                 "--strict-config",
+                "--config",
             ),
         )
     solver_bound = bind_adapter_auth_profile(solver_manifest, CONTRIBUTOR_SUBSCRIPTION)
@@ -250,6 +257,20 @@ def preflight_community_subscription_runtime(
     preflight, its launch pins retain version/digest without probe framing.
     """
 
+    _require_claude_sandbox_policy_version(request)
+    if request.harness == "claude-code":
+        solver_service = runtime.adapter.execution_service
+        solver_pin = getattr(solver_service, "executable_pin", None)
+        if (
+            not isinstance(solver_service, LocalCliExecutionService)
+            or solver_pin is None
+            or solver_pin.basename != "claude"
+            or solver_pin.version != CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION
+        ):
+            raise CommunitySubscriptionOperatorError(
+                "community Claude solver preflight must bind the reviewed "
+                "sandbox policy version"
+            )
     for service in (runtime.adapter.execution_service, runtime.judge_service):
         if not isinstance(service, LocalCliExecutionService):
             raise CommunitySubscriptionOperatorError("native runtime must be contained")
@@ -308,6 +329,7 @@ def run_community_subscription_harvey_lab(
 ) -> ClaudeCodeHarveyLabMeasurementResult | CodexCliHarveyLabMeasurementResult:
     """Run the prepared community arm without API keys or hosted authority."""
 
+    _require_claude_sandbox_policy_version(request)
     if request.run_root.exists() or request.run_root.is_symlink():
         raise CommunitySubscriptionOperatorError(
             "--run-dir must be a fresh, absent path"
@@ -339,6 +361,7 @@ def run_community_subscription_harvey_lab(
             require_production_provenance=True,
             evaluator_execution_service=selected.judge_service,
             use_prepared_projection=True,
+            community_subscription_auth_root=request.solver_config_dir.resolve(),
         )
         if not isinstance(result, CodexCliHarveyLabMeasurementResult):
             raise CommunitySubscriptionOperatorError(
@@ -366,12 +389,27 @@ def run_community_subscription_harvey_lab(
         container_workspace=False,
         use_prepared_projection=True,
         allow_model_alias=True,
+        community_subscription_auth_root=request.solver_config_dir.resolve(),
     )
     if not isinstance(result, ClaudeCodeHarveyLabMeasurementResult):
         raise CommunitySubscriptionOperatorError(
             "community LAB operator unexpectedly produced an issuer result"
         )
     return result
+
+
+def _require_claude_sandbox_policy_version(
+    request: CommunitySubscriptionOperatorRequest,
+) -> None:
+    if (
+        request.harness == "claude-code"
+        and request.claude_version != CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION
+    ):
+        raise CommunitySubscriptionOperatorError(
+            "community Claude solver requires reviewed Claude sandbox policy "
+            f"{CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE} with exact version "
+            f"{CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION}"
+        )
 
 
 __all__ = [

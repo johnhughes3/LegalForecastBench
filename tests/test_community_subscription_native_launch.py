@@ -42,7 +42,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     binary_root = tmp_path / "bin"
     binary_root.mkdir()
     flags = (
-        "--print --output-format --json-schema --tools --allowedTools "
+        "--print --output-format --json-schema --tools --allowedTools --settings "
         "--strict-mcp-config "
         "--no-session-persistence --setting-sources --model --add-dir --safe-mode "
         "--json --color --ephemeral --skip-git-repo-check --strict-config "
@@ -51,6 +51,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     )
     for executable in ("claude", "codex"):
         binary = binary_root / executable
+        version = "2.1.310 (Claude Code)" if executable == "claude" else "1.2.3"
         help_flags = (
             flags.replace("--allowedTools ", "")
             if executable == "claude" and not claude_supports_allowed_tools
@@ -70,7 +71,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
         binary.write_text(
             "#!/bin/sh\n"
             'case "$*" in\n'
-            "  --version) printf '%s\\n' '1.2.3' ;;\n"
+            f"  --version) printf '%s\\n' {shlex.quote(version)} ;;\n"
             f"  *--help*) printf '%s\\n' {shlex.quote(help_flags)} ;;\n"
             "  'auth status --json') printf '%s\\n' "
             '\'{"loggedIn":true,"authMethod":"claude.ai",'
@@ -104,7 +105,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
         evaluator_bin_dir=binary_root,
         solver_config_dir=role_roots[0],
         judge_config_dir=role_roots[1],
-        claude_version="1.2.3",
+        claude_version="2.1.310 (Claude Code)",
         claude_sha256=sha256_file(binary_root / "claude"),
         codex_version="1.2.3",
         codex_sha256=sha256_file(binary_root / "codex"),

@@ -16,6 +16,7 @@ from typing import Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.multiharness import community_subscription_sandbox as _native
 from legalforecast.multiharness.auth_binding import (
     bind_adapter_auth_profile,
     require_execution_service_profile,
@@ -153,6 +154,7 @@ def run_codex_cli_clean_native_harvey_lab(
     evaluator_execution_service: LocalCliExecutionService | None = None,
     require_production_provenance: bool = False,
     use_prepared_projection: bool = False,
+    community_subscription_auth_root: Path | None = None,
 ) -> CodexCliHarveyLabPipelineResult | CodexCliHarveyLabMeasurementResult:
     """Project a LAB task, run contained Codex CLI, discover, and score."""
 
@@ -245,6 +247,8 @@ def run_codex_cli_clean_native_harvey_lab(
         local_cli_manifest=local_cli_manifest,
         auth_profile=adapter.auth_profile,
     )
+    if community_subscription_auth_root is not None:
+        plan = _native.codex_plan(plan, auth_root=community_subscription_auth_root)
     if "--approve-for-me" in plan.argv or "--ask-for-approval" in plan.argv:
         raise CodexCliAdapterError(
             "clean-native Codex Harvey LAB invocation must stay non-interactive"
@@ -484,9 +488,7 @@ def _require_on_path(
 ) -> str:
     if "/" in command or "\\" in command or command in {".", ".."}:
         raise CodexCliAdapterError(f"{label} must be a basename on PATH")
-    search_path = (
-        "/usr/bin" if parent_env is None else parent_env.get("PATH", "/usr/bin")
-    )
+    search_path = parent_env.get("PATH", "/usr/bin") if parent_env else "/usr/bin"
     located = shutil.which(command, path=search_path)
     if located is None:
         raise CodexCliAdapterError(missing or f"{label} is not on PATH")

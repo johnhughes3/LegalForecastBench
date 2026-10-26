@@ -136,7 +136,7 @@ _ALLOWED_VALUE_FLAGS = frozenset(
         "--output-format",
         "--json-schema",
         "--tools",
-        "--allowedTools",
+        *("--allowedTools", "--settings"),
         "--setting-sources",
         "--model",
         "--add-dir",
