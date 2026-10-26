@@ -1,16 +1,26 @@
-"""Score the website's own prose, other than the paper, with Pangram's AI-text detector.
+"""Score the website's own prose with Pangram's AI-text detector.
 
 Reads the built site (``site/dist``, from ``pnpm --dir site build``), keeps the text a
 visitor sees in each page's main content, and sends it to Pangram. It reuses the
 paper check's client and report (``docs/papers/pangram_check.py``).
 
+``/paper/`` is in scope. It shows the paper's title, its abstract, and the citation
+box, not the paper's body. The abstract lies outside the passages the manuscript marks
+``% BEGIN AI-PREPARED`` / ``% END AI-PREPARED``, which the paper's AI-use statement
+discloses as prepared with AI (Sections 3 and 4), and the paper check scores it too.
+None of those AI-prepared sections, nor the paper's tables, figures, display
+equations, bibliography, or quoted Harvey LAB material, appear on the page, so the two
+checks agree. The paper prose quoted on other pages comes through
+``site/src/data/paper-prose.ts``, which fails the site build if a quotation falls in
+an AI-prepared section.
+
 Left out by default, because they are not the site's own prose:
 
-* ``/paper/``: the paper, which has its own check;
 * ``/lab/deliverables/``, ``/lab/tasks/``, ``/lab/review/``: AI model outputs, Harvey
   LAB task material and AI audit findings, and the human-review pages generated from
-  the worksheet;
-* navigation, headers, footers, tables, code, scripts, and hidden elements.
+  the worksheet (the site does not build these pages at present);
+* ``/404`` and the generated ``/og/`` images;
+* navigation, headers, footers, tables, code, scripts, buttons, and hidden elements.
 
 A paragraph that repeats on several pages (model-page boilerplate, for example) is
 scored once, on the first page where it appears. If the text is longer than one
@@ -40,7 +50,6 @@ DEFAULT_DIST = ROOT / "site" / "dist"
 MIN_PARAGRAPH_WORDS = 5
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 DEFAULT_EXCLUDE = (
-    "/paper/",
     "/lab/deliverables/",
     "/lab/tasks/",
     "/lab/review/",
