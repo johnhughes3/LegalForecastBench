@@ -57,10 +57,7 @@ REVISION_SHORT = "1bfa904c"
 REPOSITORY = "https://github.com/johnhughes3/LegalForecastBench"
 WORKSHEET_DIR = "docs/legalreasonbench-audit/litigation/human-review"
 RUN_ORDER = ("gpt6luna-xhigh", "opus55-low")
-AI_PREPARED_BEGIN = (
-    "% BEGIN AI-PREPARED (source lists assembled with AI assistance; "
-    "not sent to the Pangram check)"
-)
+WORKSHEET_URL = f"{REPOSITORY}/blob/main/{WORKSHEET_DIR}/worksheet.md"
 
 # Characters pdfLaTeX's UTF-8 input cannot typeset, mapped to LaTeX.
 UNICODE = {
@@ -466,6 +463,10 @@ def render_entry(item: Item, model_runs: Any) -> str:
         rf"Criterion & {criterion_cell(item)}\\",
         rf"Task environment & {env_cell}\\",
         rf"AI auditors' reasoning & {item.review['AI reasoning']}\\",
+        # Source lists stay in the worksheet: they were assembled with AI
+        # assistance, and the appendix keeps only the reviewer's own prose.
+        rf"Sources and run details & \href{{{WORKSHEET_URL}}}{{Review worksheet}},"
+        rf" item {item.n}\\",
         r"\midrule",
         r"\multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two"
         r" model runs} (its judges, not my assessment)}\\",
@@ -477,17 +478,6 @@ def render_entry(item: Item, model_runs: Any) -> str:
     for index, paragraph in enumerate(item.analysis):
         lead = r"\noindent\textbf{My analysis.} " if index == 0 else ""
         lines += [lead + tex(paragraph), ""]
-    if item.sources:
-        lines += [AI_PREPARED_BEGIN, r"\begin{itemize}"]
-        for bullet in item.sources:
-            label, colon, rest = bullet.partition(":")
-            body = (
-                rf"\textit{{{tex(label)}:}}{tex(rest)}"
-                if colon and len(label.split()) <= 3
-                else tex(bullet)
-            )
-            lines.append(rf"\item{{}} {body}")
-        lines += [r"\end{itemize}", "% END AI-PREPARED", ""]
     return "\n".join(lines)
 
 

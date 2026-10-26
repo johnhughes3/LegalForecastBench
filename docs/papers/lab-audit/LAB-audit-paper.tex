@@ -864,9 +864,8 @@ Claude Opus 5.5 & Sonnet 4.6 judge: pass; GPT-5.5 judge: pass\\
 \clearpage
 \section{Human review of AI-flagged LegalReasonBench criteria}
 \label{app:lrbreview}
-% BEGIN AI-PREPARED (prepared with AI assistance; not sent to the Pangram check)
-GPT-6 Sol and Claude Opus 5.5 each audited, without seeing the other's report, the \lrbCriteria{} rubric criteria in the \lrbAssignments{} litigation assignments of micro1's public LegalReasonBench sample at dataset revision \texttt{1bfa904c}. Either blind report labeled \lrbFlagged{} of those criteria problematic or arguable. I reviewed a simple random sample of \lrbSample{} of the \lrbFlagged{} flagged criteria, drawn without replacement with seed 20261024 from \lrbSampleAssignments{} assignments, under a \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/README.md}{protocol} committed before the draw, applying the standard used for the LAB review in Appendix~\ref{app:labreview}. The verdicts were finalized after an adversarial quality-control review in which AI models argued for and against each call. \lrbDefective{} of the \lrbSample{} criteria were defective (\lrbObjective{} resting on an unambiguous objective error, and \lrbFromEnv{} arising from the task environment), \lrbArguable{} were arguable, and \lrbNotDefective{} were not defective; \lrbEnvItems{} come from task environments that contain defects (\lrbEnvAssignments{} of the \lrbSampleAssignments{} sampled assignments; Table~\ref{tab:lrbreview}). The exact one-sided 95\% hypergeometric lower bound is \lrbDefectiveLB{} defective criteria among the \lrbFlagged{} flagged (point estimate \lrbDefectivePoint{}), and \lrbObjectiveLB{} resting on an unambiguous objective error (point estimate \lrbObjectivePoint{}). Because this population is the union of two blind passes, while the LAB population included Opus's reconciled flags, the two results are not estimates of the same quantity. Each entry below quotes the criterion from micro1's rubric, gives my assessment and the votes of LegalReasonBench's own three judges (GPT-5.6 Terra, Claude Sonnet 5, and Gemini 3.8 Flash; a strict two-of-three majority decides) on runs by GPT-6 Luna (xhigh) and Claude Opus 5.5 (low), and then my analysis. The source lists after each analysis were assembled with AI assistance.
-% END AI-PREPARED
+% TODO(author): rewrite this introduction in the author's words; it is scored by the Pangram check.
+GPT-6 Sol and Claude Opus 5.5 each audited, without seeing the other's report, the \lrbCriteria{} rubric criteria in the \lrbAssignments{} litigation assignments of micro1's public LegalReasonBench sample at dataset revision \texttt{1bfa904c}. Either blind report labeled \lrbFlagged{} of those criteria problematic or arguable. I reviewed a simple random sample of \lrbSample{} of the \lrbFlagged{} flagged criteria, drawn without replacement with seed 20261024 from \lrbSampleAssignments{} assignments, under a \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/README.md}{protocol} committed before the draw, applying the standard used for the LAB review in Appendix~\ref{app:labreview}. The verdicts were finalized after an adversarial quality-control review in which AI models argued for and against each call. \lrbDefective{} of the \lrbSample{} criteria were defective (\lrbObjective{} resting on an unambiguous objective error, and \lrbFromEnv{} arising from the task environment), \lrbArguable{} were arguable, and \lrbNotDefective{} were not defective; \lrbEnvItems{} come from task environments that contain defects (\lrbEnvAssignments{} of the \lrbSampleAssignments{} sampled assignments; Table~\ref{tab:lrbreview}). The exact one-sided 95\% hypergeometric lower bound is \lrbDefectiveLB{} defective criteria among the \lrbFlagged{} flagged (point estimate \lrbDefectivePoint{}), and \lrbObjectiveLB{} resting on an unambiguous objective error (point estimate \lrbObjectivePoint{}). Because this population is the union of two blind passes, while the LAB population included Opus's reconciled flags, the two results are not estimates of the same quantity. Each entry below quotes the criterion from micro1's rubric, gives my assessment and the votes of LegalReasonBench's own three judges (GPT-5.6 Terra, Claude Sonnet 5, and Gemini 3.8 Flash; a strict two-of-three majority decides) on runs by GPT-6 Luna (xhigh) and Claude Opus 5.5 (low), and then my analysis.
 
 % BEGIN GENERATED LRB REVIEW TABLE
 \begin{table}[ht]\centering\small
@@ -894,6 +893,7 @@ Total & 12 & 13 & 25\\
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 1\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: clear; Claude Sonnet 5: clear; Gemini 3.8 Flash: clear. Result: penalty not applied (0/3)\\
@@ -907,14 +907,6 @@ The rubric's theory is that a county rule, Lee County Admin. Code AC-2-6 § 4.1.
 
 This case appears to be drawn from a real litigation, Spahhn v. Lee County, No. 24-CA-1479 (Fla. 20th Cir. Ct. Oct. 25, 2025) (order granting petition for writ of certiorari), and the plaintiffs' position is that the case remained live to September 13, 2023 (contradicting the rubric); the county says the case was withdrawn in March 2022. Elsewhere the rubric claims the case was withdrawn on February 13, 2020 (companion criterion \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}under\_\allowbreak{}lee\_\allowbreak{}county\_\allowbreak{}fla\_\allowbreak{}admin\_\allowbreak{}c}), but neither party advanced that claim, so the rubric seems to be contradicted by the ground-truth evidence from the litigation.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} \href{https://web.archive.org/web/20170727083947/http://www.leegov.com/bocc/Administrative\%20Codes/AC-2-6.pdf}{AC-2-6 § 4.1, as amended through 11/17/15} (identical \href{https://web.archive.org/web/20250214005651/https://www.leegov.com/bocc/Administrative\%20Codes/AC-2-6.pdf}{as amended through 8/2/22}); county position: \href{https://results.leegov.com/Home/DownloadFile/KT0000332928}{Lee County Utilities, Local Planning Agency presentation, Sept. 25, 2023} (“March 2022 – Previous CFPD rezoning petition withdrawn”); ruling: \href{https://www.gulfshorebusiness.com/lee/court-rejects-lee-county-s-rezoning-for-sewage-plant/article_adf7412b-3c54-4579-aa89-204e606645d8.html}{Gulfshore Business}, \href{https://www.wgcu.org/housing/2025-11-10/court-tells-lee-commissioners-no-can-do-on-alico-road-sewer-plant}{WGCU, Nov. 10, 2025}.
-\item{} \textit{Native runs:} GPT-6 Luna did not mention DCI2018-10023 (0/3). Claude Opus 5.5 listed the record's September 13, 2023 withdrawal date in its procedural history; one judge (GPT-5.6 Terra) fired the penalty, but the 2-of-3 majority cleared it (1/3).
-\item{} \textit{Related items:} items 1, 13, 16 and 22 are penalties worded ``States'' or ``Mentions'' that can reach a response rebutting or setting aside the point; the native runs misfired on 16 and 22.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{2}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}cease\_\allowbreak{}cons}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}cease\_\allowbreak{}cons}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json\#L388}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Penalty criterion, $-$30 points.} States in the first assignment that the County should cease construction activities at the subject property.
@@ -926,6 +918,7 @@ This case appears to be drawn from a real litigation, Spahhn v. Lee County, No. 
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 2\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: clear; Claude Sonnet 5: clear; Gemini 3.8 Flash: clear. Result: penalty not applied (0/3)\\
@@ -939,12 +932,6 @@ The basis of this rubric is Parkway Towers Condominium Ass'n v. Metropolitan Dad
 
 The fact that some construction has begun is a relevant factor, but nothing in the environment establishes that it would be costly, impossible, or imprudent for the county to stop construction until the zoning issues are fixed properly to comply with the Court's opinion. Many prudent lawyers, relying on the Florida Supreme Court's guidance, might recommend addressing the zoning issue before continuing with construction, so this rubric fails a response many careful lawyers would prefer.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} \href{https://www.courtlistener.com/opinion/1934327/parkway-towers-con-assn-v-metropolitan-dade-cty/}{Parkway Towers, 295 So. 2d 295 (CourtListener)}.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{3}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}file\_\allowbreak{}a\_\allowbreak{}tim}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}file\_\allowbreak{}a\_\allowbreak{}tim}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json\#L356}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +20 points.} States in the first assignment that the County should file a timely appeal with the 6th District Court of Appeals.
@@ -956,6 +943,7 @@ The fact that some construction has begun is a relevant factor, but nothing in t
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 3\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Flash: not met. Result: met (2/3)\\
@@ -969,12 +957,6 @@ Although the government in the real litigation did elect to simultaneously appea
 
 The second level of certiorari review is also limited to whether the circuit court afforded procedural due process and applied the correct law, so the appeal appears to be somewhat weak on the merits (or at least not such an obvious winner that a lawyer in this spot would always advise bringing the appeal, rather than just trying to clean up the issues the lower court flagged). \emph{See Haines City Cmty. Dev. v. Heggs}, 658 So. 2d 523, 530 (Fla. 1995). Filing a protective appeal is reasonable and probably the default most lawyers would implement, but in the case of a government entity, simply curing the identified defects on remand may work equally well. So this case does not seem to require an appeal — that's really a judgment call — so the rubric would incorrectly effectively penalize a failure to pursue a strategy many lawyers would advise against.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Source:} Lee County v. Spahhn, No. 6D2025-2926 (Fla. 6th DCA petition filed Nov. 24, 2025), Pet. § VII at 45–47 (“Even if compliance with the circuit court’s order might arguably render this specific dispute technically moot, this Court should exercise its discretion to review the decision under well-established exceptions to the mootness doctrine.”); \href{https://acis.flcourts.gov/portal/court/082fc14d-02f3-4240-a353-241b8c0d9a8f/case/7c366d07-875e-405f-8369-ff572efacbb6}{docket}.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{4}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}remand\_\allowbreak{}the}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}county\_\allowbreak{}should\_\allowbreak{}remand\_\allowbreak{}the}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json\#L372}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +20 points.} States in the first assignment that the County should remand the case to the Hearing Examiner to address the deficiencies identified in the Order Granting Writ of Certiorari while an appeal is pending.
@@ -986,6 +968,7 @@ The second level of certiorari review is also limited to whether the circuit cou
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 4\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -994,12 +977,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} With respect to the rubric recommending remand to the hearing officer, I agree with the aspect of it that recommends remand: remand to the Hearing Examiner to fix issues identified by a court is the standard approach a government would follow in this spot. But as written, the criterion requires remand “while an appeal is pending,” so it also requires an appeal, and it would therefore reject a remand-only recommendation that a careful litigator could adopt, for the reasons given for criterion 23 (item 3). A memo that recommends remand without an appeal would fail it. Sol flagged it (as arguable) on this same ground.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} criterion text (“while an appeal is pending”); Lee County LDC § 34-83(a)(6) as cited in the rubric's source note; see item 3 for the County's Sixth DCA petition.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{5}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}under\_\allowbreak{}fla\_\allowbreak{}stat\_\allowbreak{}163\_\allowbreak{}3167\_\allowbreak{}10\_\allowbreak{}2}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}under\_\allowbreak{}fla\_\allowbreak{}stat\_\allowbreak{}163\_\allowbreak{}3167\_\allowbreak{}10\_\allowbreak{}2}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json\#L212}{rubric at revision \texttt{1bfa904c}}}
@@ -1012,6 +989,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 5\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1022,12 +1000,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \noindent\textbf{My analysis.} This rubric is deeply confused about the meaning of the statutory provision it's relying on. Fla. Stat. § 163.3167(10) (2025) protects the developer and allows a project to continue in a situation where no one challenges that specific development, but a later case (typically involving a different development) invalidates the regulation under which the first development was approved. In that scenario, the developer whose project was approved (with no one challenging it) is entitled to proceed notwithstanding the fact that the regulations the first developer relied on were later invalidated in a \emph{different} case. That principle has no relevance here, where the project at issue was timely challenged by a petition for a writ of certiorari, and a court invalidated the approval for the specific project that was timely challenged.
 
 The statute also applies only when a later court decision rules the land development regulations themselves “invalid because of a deficiency in the approval standards.” That is not what occurred here. The circuit court quashed the rezoning after finding defects in the Board's specific decision here, but did not invalidate Lee County's regulations. So even if the criterion were read to refer to some later development order issued under the rezoning, § 163.3167(10) would not address it.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} \href{https://www.flsenate.gov/Laws/Statutes/2025/163.3167}{Fla. Stat. § 163.3167(10) (2025)}; subsection (10)(b) adds that it “does not preclude or affect the timely institution of any other remedy available at law or equity, including a common law writ of certiorari proceeding.” Orderpdf.docx p. 1: “the rezoning is hereby \textbf{QUASHED}.”
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{6}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 1: Legal Memorandum to Board of County Commissioners}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}under\_\allowbreak{}lee\_\allowbreak{}county\_\allowbreak{}fla\_\allowbreak{}admin\_\allowbreak{}c}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}first\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}under\_\allowbreak{}lee\_\allowbreak{}county\_\allowbreak{}fla\_\allowbreak{}admin\_\allowbreak{}c}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-1/tests/fixtures/rubric.json\#L100}{rubric at revision \texttt{1bfa904c}}}
@@ -1040,6 +1012,7 @@ The statute also applies only when a later court decision rules the land develop
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 6\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1048,12 +1021,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} Wrong for the same reasons as item 1. Neither party in the actual litigation contends that the six-month deadline was missed ``because of action or inaction of the Applicant/Appellant.'' There's nothing in the environment to support that claim, and without a factual predicate for that, there's no factual basis for suggesting that Lee County Admin. Code AC-2-6 § 4.1.B(1) (2025) applies here. In addition, AC-2-6 § 4.1 is prefaced with a sentence that states that it governs only applications “remanded to the Hearing Examiner by the Board.” The case actually concerns a remand from the Hearing Examiner to the staff (Petition.docx: “we jointly request that DCI2018-10023 be remanded back to the staff”), so the regulation does not apply by its terms.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} see item 1 (AC-2-6 § 4.1 text and the parties' positions in the real litigation).
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{7}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 2: Brief Requesting Second-Tier Review}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}second\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}expert\_\allowbreak{}testimony\_\allowbreak{}on\_\allowbreak{}the\_\allowbreak{}rec}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}second\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}expert\_\allowbreak{}testimony\_\allowbreak{}on\_\allowbreak{}the\_\allowbreak{}rec}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json\#L52}{rubric at revision \texttt{1bfa904c}}}
@@ -1066,6 +1033,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Not defective\\
 Task environment & Correct\\
 AI auditors' reasoning & Wrong\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 7\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1074,12 +1042,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} Correct as written. Sol initially suggested that this rubric was arguably defective, because it rewards models for making the point that the expert testimony in the record can support the Board's zoning approval. Sol's concern was that the expert testimony is not actually in the environment provided. While Sol correctly points out that the testimony is not in the environment, the Petition quotes portions of the testimony with citations to the transcripts, and other material in the environment does make clear that expert analysis was used to support the Board's decision. It's a relatively uncontroversial proposition, the relevance of which can be readily inferred from the environment, and my view is that any competent lawyer would consider adding that point (at least briefly) an improvement to the analysis.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Petition.docx, quoting professional engineer Erik Howard of Johnson Engineering (Tr1 p. 36, ll. 1–4; p. 40, ll. 24–25; p. 41, ll. 11–21) and RVI Planner Crespo at the zoning hearing (Tr1 pp. 226–27), presenting “an exhibit generated by Johnson Engineering using that line work provided by the Port Authority”; Resolution.docx recitals (the Hearing Examiner “recommended APPROVAL of the request with conditions”).
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{8}{Petition for Writ of Certiorari for Quasi-judicial Proceeding, assignment 2: Brief Requesting Second-Tier Review}{\texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}second\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}staff\_\allowbreak{}report\_\allowbreak{}recommendi}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{states\_\allowbreak{}in\_\allowbreak{}the\_\allowbreak{}second\_\allowbreak{}assignment\_\allowbreak{}that\_\allowbreak{}the\_\allowbreak{}staff\_\allowbreak{}report\_\allowbreak{}recommendi}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-certiorari-quasi-judicial-land-use/steps/assignment-2/tests/fixtures/rubric.json\#L36}{rubric at revision \texttt{1bfa904c}}}
@@ -1092,6 +1054,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Not defective\\
 Task environment & Correct\\
 AI auditors' reasoning & Wrong\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 8\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1100,12 +1063,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} Correct as written. This is a similar issue to item 7. The rubric wants models to make the point that the staff report is evidence supporting the Board's approval. Sol says the underlying staff report is not part of the environment, but it is referenced in other documents, and any competent lawyer in this situation would want the fact that such a report exists to be cited, as it's clearly going to be important evidence in support of the government's position.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Source:} Resolution.docx recitals (the Board “gave full and complete consideration to the recommendations of the staff, the Hearing Examiner, the documents on record and the testimony of all interested persons”).
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{9}{Viability of a DCCA Challenge, assignment 1: Record Mapping: Final Notice Against Award}{\texttt{criterion\_\allowbreak{}8}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}8}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-1/tests/fixtures/rubric.json\#L88}{rubric at revision \texttt{1bfa904c}}}
@@ -1118,6 +1075,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Defective: Award ¶ 7 says “Two of the four comparators involved on-duty conduct,” but the comparator memorandum shows three on duty (Guzman, Sadler and Voss; only Pietrzak was off duty), so the arbitrator's comparability finding misstates the record it rests on. The memorandum also says “The Commonwealth declined prosecution” of an off-duty shooting in the District.\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 9\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1126,12 +1084,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} It's unclear how this rubric got created, since this seems like a straightforward mistake that even a nonlawyer would catch. The rubric rewards models for identifying that the ``comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.'' But both documents cited as the source for this have the correct dates. The memo says it reviewed ``records covering calendar years 2018 through 2021.'' It then lists cases from August 2018, November 2019, May 2020, and March 2021, which were resolved in January 2019, June 2020, February 2021, and October 2021, respectively. There is no mismatch, so this rubric would reward models for hallucinating a mismatch that is not present in the environment.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} comparator\_discipline\_cases.pdf ¶¶ 1–5; final\_notice\_adverse\_action\_braddock.pdf ¶ 19 (“four comparator cases from 2018 through 2021”).
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{10}{Viability of a DCCA Challenge, assignment 2: Scope of Review}{\texttt{criterion\_\allowbreak{}4}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}4}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-2/tests/fixtures/rubric.json\#L40}{rubric at revision \texttt{1bfa904c}}}
@@ -1144,6 +1096,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Defective: Award ¶ 7 says “Two of the four comparators involved on-duty conduct,” but the comparator memorandum shows three on duty (Guzman, Sadler and Voss; only Pietrzak was off duty), so the arbitrator's comparability finding misstates the record it rests on. The memorandum also says “The Commonwealth declined prosecution” of an off-duty shooting in the District.\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 10\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: met; Claude Sonnet 5: not met; Gemini 3.8 Flash: met. Result: met (2/3)\\
@@ -1159,12 +1112,6 @@ Critically, in this specific case, MPD's Final Notice of Adverse Action expressl
 
 This rubric appears to be lifted from a real case that matches the fact pattern in the task, \emph{D.C. Metropolitan Police Department v. D.C. Public Employee Relations Board}, 282 A.3d 598 (D.C. 2022), and No. 24-CV-0573 (D.C. May 21, 2026), where MPD explicitly argued that it was not required to put forward comparable cases. But in the real case, the issue was that MPD had not identified any comparable cases where termination was the discipline imposed, and the terminated officer's union came forward with cases involving comparable conduct where the punishment was less severe. The task environment here was modified from the real case, so that in this fictional universe, MPD itself puts comparable cases at issue in its initial decision terminating the officer. In that context, the argument advanced in the real case no longer holds and the rubric is incorrect because it fails to take into account how this task environment was modified from the real case. The rubric is essentially importing a proposition of law from the real case without recognizing that the task environment was changed in a way that makes that proposition irrelevant on the facts being presented to the model.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} douglas\_v\_veterans\_admin.pdf, printed pp. 332–34 (the twelve factors, “Not all of these factors will be pertinent in every case,” the agency’s “ultimate burden,” and penalty selection as “within its burden of persuasion”); braddock\_arbitration\_award.pdf ¶ 2 (the stipulated issue); final\_notice\_adverse\_action\_braddock.pdf ¶ 19 (MPD’s factor-six finding, relying on the four comparator cases: “This factor is aggravating.”) and ¶ 26 (termination after weighing all twelve factors, “each of which aggravates the penalty”); braddock\_arbitration\_award.pdf ¶¶ 7, 10 (the arbitrator finds MPD “did not prove that the comparator officers were similarly situated” and reduces the termination to a 45-day suspension); the real case: \href{https://www.dccourts.gov/sites/default/files/2022-09/DCMPD\%20v.\%20DC\%20Pub.\%20Emp.\%20Rels.\%20Bd.\%20\%26\%20FOP\%2C\%2019-CV-1115.pdf}{\emph{MPD v. PERB}, No. 19-CV-1115 (D.C. Sept. 15, 2022), 282 A.3d 598}, slip op. at 5–7 (MPD's panel “had not cited comparable cases”; MPD argued that its burden arose only on the officer's “initial showing” of disparate treatment), and \href{https://www.dccourts.gov/sites/default/files/2026-05/DC\%20MPD\%20v.\%20DC\%20PERB\%2C\%20et\%20al.\%2024-CV-0573.pdf}{\emph{MPD v. PERB}, No. 24-CV-0573 (D.C. May 21, 2026)}, slip op. at 8–10 (FOP supplied three less-severe cases, including Officer Ford's 45-day suspension; the court said “MPD is correct about its burden under Douglas” but affirmed).
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{11}{Viability of a DCCA Challenge, assignment 3: Statutory Exceptions}{\texttt{criterion\_\allowbreak{}16}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}16}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-dcca-challenge-police-discipline/steps/assignment-3/tests/fixtures/rubric.json\#L180}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +6 points.} Identifies that the PERB Decision misstates the length of the suspension imposed by the Award.
@@ -1176,6 +1123,7 @@ This rubric appears to be lifted from a real case that matches the fact pattern 
 Criterion & Not defective\\
 Task environment & Defective: Award ¶ 7 says “Two of the four comparators involved on-duty conduct,” but the comparator memorandum shows three on duty (Guzman, Sadler and Voss; only Pietrzak was off duty), so the arbitrator's comparability finding misstates the record it rests on. The memorandum also says “The Commonwealth declined prosecution” of an off-duty shooting in the District.\\
 AI auditors' reasoning & Wrong\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 11\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Flash: met. Result: met (3/3)\\
@@ -1186,12 +1134,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 \noindent\textbf{My analysis.} Rubric is correct. The rubric wants an internal memorandum to point out that the D.C. Public Employee Relations Board's decision incorrectly states that the officer was suspended for 40 days, when in fact the suspension was 45 days.
 
 Sol's point is that the prompt did not specifically request that analysis. But the prompt directs the associate to “[a]nchor each argument in specific findings of the Award and the PERB Decision,” and a careful lawyer doing that would notice that the decision misstates the penalty it affirmed “in all respects.” While I agree that it is not necessarily essential for a memo to call out what appears to be a typo in the Board's decision, doing so does improve an internal memo -- and this is a situation where it would be desirable to train models to flag that discrepancy even if the user did not specifically prompt for it. The misstatement of fact in the Board's decision affirming the arbitration award is important information for the lawyer to be aware of, and a lawyer using AI to prepare this memo might not think to ask specifically about those kinds of discrepancies. So the rubric is a desirable training signal, and to the extent it asks the model to go somewhat beyond the prompt, this specific example is a good instance where you clearly would want the model to flag an issue that you might not have thought to ask about in your prompt.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} assignment 3 prompt (“Anchor each argument in specific findings of the Award and the PERB Decision, with page and paragraph citations”); perb\_decision\_braddock.pdf (Opinion No. 1904, PERB Case No. 25-A-09) ¶ 1 (“reduced the penalty of termination to a 40-day suspension without pay”) and ¶ 7 (award “affirmed in all respects”); braddock\_arbitration\_award.pdf ¶ 10 (“reduced to a 45-day suspension without pay”).
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{12}{Plaintiff's Response - Forum Non Conveniens, assignment 1}{\texttt{criterion\_\allowbreak{}2}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}2}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json\#L14}{rubric at revision \texttt{1bfa904c}}}
@@ -1204,6 +1146,7 @@ Sol's point is that the prompt did not specifically request that analysis. But t
 Criterion & Not defective\\
 Task environment & Defective: The partner's email says Baby Davis was transferred to “Lurie’s Children’s Hospital” and “almost passed away on September 16, 2024,” but the Complaint says he was transferred to and died at Cook County Hospital (¶¶ 27, 29). The defendants' filed affidavits also carry unfilled placeholders: Dr. Smith's affidavit gives his residence and office as “[street address], [city]” (Ex. A ¶¶ 2–3), and the hospital's affiant is named only as “[Records Custodian]” (Ex. B).\\
 AI auditors' reasoning & Wrong\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 12\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (1/3)\\
@@ -1217,12 +1160,6 @@ Sol initially flagged the criterion as arguable, reasoning that because Dr. Smit
 
 The task environment contains a decision, \emph{Langenhorst v. Norfolk Southern Railway Co.}, 219 Ill. 2d 430, 848 N.E.2d 927 (2006), that states the rule drawing this distinction between an argument that another location would be ``more'' convenient for one party and proof that the plaintiff's chosen location is actually inconvenient: “The defendant must show that the plaintiff's chosen forum is inconvenient to the defendant and that another forum is more convenient to all parties.” 219 Ill. 2d at 444. So Sol's point is not well taken in this instance. The later reconciliation overturned Sol's flag on this ground.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Defendants Motion to Transfer.pdf, Exhibit A ¶ 7 (Dr. Smith: DuPage “would be substantially more convenient for me, both as a party and as a fact witness, than trial in the Circuit Court of Cook County”); Langenhorst v. Norfolk Southern.pdf, PDF p. 7, 219 Ill. 2d at 444 (“The defendant must show that the plaintiff's chosen forum is inconvenient to the defendant and that another forum is more convenient to all parties.”).
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{13}{Plaintiff's Response - Forum Non Conveniens, assignment 1}{\texttt{criterion\_\allowbreak{}22}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}22}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-1/tests/fixtures/rubric.json\#L214}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Penalty criterion, $-$30 points.} Mentions in Assignment \#1 that Cook County lacks interest in adjudicating a controversy over care rendered by its DuPage based providers.
@@ -1234,6 +1171,7 @@ The task environment contains a decision, \emph{Langenhorst v. Norfolk Southern 
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Defective: The partner's email says Baby Davis was transferred to “Lurie’s Children’s Hospital” and “almost passed away on September 16, 2024,” but the Complaint says he was transferred to and died at Cook County Hospital (¶¶ 27, 29). The defendants' filed affidavits also carry unfilled placeholders: Dr. Smith's affidavit gives his residence and office as “[street address], [city]” (Ex. A ¶¶ 2–3), and the hospital's affiant is named only as “[Records Custodian]” (Ex. B).\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 13\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: clear; Claude Sonnet 5: clear; Gemini 3.8 Flash: clear. Result: penalty not applied (0/3)\\
@@ -1247,14 +1185,6 @@ However, the defendants do argue in their motion that Cook County has limited in
 
 In our test runs, the judges did not impose the penalty for this specific rubric, but penalties were triggered improperly on other rubrics that used the same ``Mentions'' format, such as criterion 25 (“Mentions in Assignment \#1 that Cook County’s overall clearance rate is 60.5\%,” -30), where all judges penalized the models for correctly raising an opponent's argument and rebutting it.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Bradbury v. St. Mary's Hospital.pdf, PDF p. 4 (“Cook County has an interest because the decedent died here”); Defendants Motion to Transfer.pdf, PDF p. 5, Part V.A (“Cook County's only connection to this case is that Baby Davis was later transferred to, received treatment at, and died in, a Cook County hospital — a circumstance that, unlike in Bradbury, did not result from any Cook County conduct by these Defendants”).
-\item{} \textit{Native runs:} the penalty did not fire. Claude Opus 5.5 recounted the defendants' local-interest argument and rebutted it under \emph{Bradbury}, and all three judges cleared it (0/3); GPT-6 Luna also cleared (0/3). The same wording problem did fire in this assignment's criterion 25 (``Mentions in Assignment \#1 that Cook County's overall clearance rate is 60.5\%,'' -30, not in the sample): 3/3 against Opus, which called it ``the wrong statistic,'' and 3/3 against Luna, which listed it under ``What is strong for Defendants'' as the prompt asked.
-\item{} \textit{Related items:} items 1, 13, 16 and 22 are penalties worded ``States'' or ``Mentions'' that can reach a response rebutting or setting aside the point; the native runs misfired on 16 and 22.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{14}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}1}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}1}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L4}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +3 points.} States in Assignment \#2 that the response is supported by the affidavit of Liam Vance, a physician who provided care to Baby Davis at Cook County Hospital.
@@ -1266,6 +1196,7 @@ In our test runs, the judges did not impose the penalty for this specific rubric
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 14\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1283,13 +1214,6 @@ Overall, the practical effect of this rubric seems to be to nudge the model in t
 
 This issue is distinct from items 7 and 8, where my view was that it was appropriate for a model to refer in a brief to expert analysis that was referred to in the environment but not supplied. In that case, we had clear indications that the expert analysis described really existed; the full details were simply not provided in the model prompt, so it is important to flag the existence of that evidence apparently already present in the record. Here, the environment makes clear that, for purposes of this assignment, the affidavits do not exist, yet the rubric rewards a model for creating a draft that could easily be filed mistakenly with the false assertion that these doctors have provided affidavits to support their views (which may or may not ultimately come to pass).
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} assignment 2 prompt (``Please include all affidavits and information you referenced from Assignment \#1''; ``The names of the physicians from Cook County we have spoken to are''; ``If a document is not uploaded, it does not exist for purposes of this analysis''); assignment 1 prompt (the five unnamed doctors ``are willing to testify''); no uploaded document mentions any physician affidavit. Native runs: \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md}{Opus 5.5 (low), 3/3}, whose brief states ``Plaintiff submits sworn affidavits from five named Cook County treating physicians'' and ``Each of the five treating physicians has executed an affidavit in the same form ... Each affidavit is separately signed,'' over a single unsigned form with ``[Name]'' and ``[specialty]'' blanks; \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh), 0/3}, which identifies the five as physicians ``with whom counsel has spoken'' and cites no affidavit. Criteria 2–10 (the other four physicians and the five inconvenience statements) rest on the same missing affidavits.
-\item{} \textit{Related items:} The missing-affidavit items (14, 15 and 17–20) share this defect.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{15}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}11}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}11}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L104}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +5 points.} States in Assignment \#2 that the response is supported by the affidavit of the plaintiff, Sara Davis.
@@ -1301,6 +1225,7 @@ This issue is distinct from items 7 and 8, where my view was that it was appropr
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from Sara Davis is provided in the environment, and the prompt does not explicitly instruct the model to create one. The only fact supplied about her circumstances is that she ``resides in Kane County, Illinois.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 15\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1311,13 +1236,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: not met; Gemini 3.8
 \noindent\textbf{My analysis.} This has the same problem as item 14 of asking the model to draft (apparently without placeholders) an assertion that a given point is supported by an affidavit that does not exist. This one is a closer call because the affiant is the client, so the lawyers preparing this opposition brief presumably can be more confident in what the client's testimony will be. But even a client needs to be comfortable that the facts they are swearing to are accurate and may tell the lawyer to change them, so preparing a complete sworn affidavit containing facts found nowhere in the record, and citing it in the brief as sworn fact, as Opus has done (and was fully rewarded for, on a 2–1 vote), is still hazardous.
 
 There is a separate issue here where Sonnet misgraded the rubric because it refers to Assignment \#2 in the actual rubric text that is supplied to the judge model, but that is a reference to the prompt the generative models receive and should not be in the output. Sonnet did the same thing on three other criteria in this run (criteria 4, 5 and 22), failing the brief only because it had no ``Assignment \#2'' label; in each case the other two judges passed it, so the majority result did not change. For purposes of this exercise, I am not treating that as a rubric defect because all the rubrics in the land-use and forum non conveniens matters have the issue that they refer to a specific assignment number that is not legible to the judge grader. That is an overarching issue in the benchmark setup that can be addressed globally.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} assignment 1 prompt (``our client, Sara Davis, resides in Kane County, Illinois''); Defendants Motion to Transfer.pdf ¶ 9 (the complaint does not allege her residence); assignment 2 prompt (``Please include all affidavits and information you referenced from Assignment \#1''). \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md}{Opus 5.5 (low), 2/3}: its Exhibit 1 is a complete sworn affidavit for Sara with facts found nowhere in the record (¶ 7, ``I had not consulted a lawyer, I was not considering a lawsuit''; ¶ 9, ``Most of the medical and hospital expenses ... were incurred at Cook County Hospital''), which the brief cites as sworn fact. Sonnet 5's dissent: ``The document contains no reference to an `Assignment \#2' or any assignment numbering scheme.'' \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh), 0/3} cites no affidavit from Sara. Claude Sonnet 5 was the sole dissent, citing only the missing label, on criteria 4, 5, 11 and 22 of this Opus run. 90 of the 179 litigation criteria name an assignment (every criterion in the land-use and forum non conveniens matters; none in the DCCA or VICAR matters). Criterion 12, the companion requirement that her affidavit say DuPage County would be inconvenient, rests on the same missing affidavit; it was not drawn into this sample.
-\item{} \textit{Related items:} The missing-affidavit items (14, 15 and 17–20) share this defect.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{16}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}18}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}18}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L174}{rubric at revision \texttt{1bfa904c}}}
@@ -1330,6 +1248,7 @@ There is a separate issue here where Sonnet misgraded the rubric because it refe
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians or from Sara Davis is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 16\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: fires; Claude Sonnet 5: fires; Gemini 3.8 Flash: fires. Result: penalty applied (3/3)\\
@@ -1338,13 +1257,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: fires; Claude Sonnet 5: fires; Gemini 3.8
 \end{tabular}
 
 \noindent\textbf{My analysis.} The rubric penalizes models for stating that the 2023 Illinois Annual Report Statistics report a 60.5\% clearance rate in Cook County, Illinois. But that document is provided in the environment and does indeed report the rate given as the clearance rate for all cases. In our test runs, Opus and Luna were both penalized incorrectly for noting this figure while explaining why it deserved little weight: Opus contrasted it with the civil-case rates (97.9\% and 96.3\%), and Luna said it “expressly covers all case types.” While some lawyers prefer not to raise bad facts that the other side has not raised, here, the defendants' opening brief squarely presents the 60.5\% statistic to the Court -- so any competent opposition would respond to that argument. There is no reason to penalize a model for doing so.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} 2023 Annual Report Statistical Summary.pdf, p. 21 (all-case clearance table: Cook County 60.5\%) and p. 22 (civil category: Cook 97.9\%, 18th Circuit 96.3\%); Defendants Motion to Transfer.pdf, PDF p. 6 (``Defendants accordingly rely principally on the clearance-rate comparison above''). Native runs, both penalized 3/3 (-30 of 73 positive points): \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/opus55-low/response.md}{Opus 5.5 (low)}, under the heading ``Defendants rely on the wrong statistic,'' names the 60.5\% all-case figure and then gives the civil rates (97.9\% and 96.3\%), earning +2 on criteria 19 and 20; \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-forum-non-conveniens-response-assignment-2/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh)} says the all-case figure gives Defendants ``some support'' but has ``limited'' weight because it ``expressly covers all case types,'' and notes the report has no comparable Cook time-to-verdict data for civil jury cases over \$50,000. The companion assignment 1 penalty (criterion 25, -30) has the same wording problem; its justification says the 60.5\% figure ``is not applicable to Civil Cases.''
-\item{} \textit{Related items:} items 1, 13, 16 and 22 are penalties worded ``States'' or ``Mentions'' that can reach a response rebutting or setting aside the point; the native runs misfired on 16 and 22.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{17}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}3}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}3}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L24}{rubric at revision \texttt{1bfa904c}}}
@@ -1357,6 +1269,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: fires; Claude Sonnet 5: fires; Gemini 3.8
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 17\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1365,12 +1278,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 \end{tabular}
 
 \noindent\textbf{My analysis.} Same issue as item 14. The criterion rewards a brief for saying the response is supported by an affidavit that does not exist in the environment (and which the model is not instructed to create). This is one of several rubrics we deemed defective for encouraging models to cite to affidavits that do not exist or have not been settled/signed by the third party witnesses whose views they purport to represent (14, 15 and 17–20).
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} see item 14. Native runs: Opus 5.5 (low) met this criterion 3/3 by citing its single unsigned physician form as an executed affidavit; GPT-6 Luna (xhigh) cited no physician affidavit and scored 0/3.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{18}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}6}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}6}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L54}{rubric at revision \texttt{1bfa904c}}}
@@ -1383,6 +1290,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 18\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1391,12 +1299,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 \end{tabular}
 
 \noindent\textbf{My analysis.} Same issue as item 14. The criterion rewards a brief for saying an affidavit that does not exist in the environment (and which the model is not instructed to create) shows that DuPage County would be an inconvenient forum. This is one of several rubrics we deemed defective for encouraging models to cite to affidavits that do not exist or have not been settled/signed by the third party witnesses whose views they purport to represent (14, 15 and 17–20).
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} see item 14. Native runs: Opus 5.5 (low) met this criterion 3/3 by citing its single unsigned physician form as an executed affidavit; GPT-6 Luna (xhigh) cited no physician affidavit and scored 0/3.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{19}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}8}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}8}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L74}{rubric at revision \texttt{1bfa904c}}}
@@ -1409,6 +1311,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 19\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1417,12 +1320,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 \end{tabular}
 
 \noindent\textbf{My analysis.} Same issue as item 14. The criterion rewards a brief for saying an affidavit that does not exist in the environment (and which the model is not instructed to create) shows that DuPage County would be an inconvenient forum. This is one of several rubrics we deemed defective for encouraging models to cite to affidavits that do not exist or have not been settled/signed by the third party witnesses whose views they purport to represent (14, 15 and 17–20).
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} see item 14. Native runs: Opus 5.5 (low) met this criterion 3/3 by citing its single unsigned physician form as an executed affidavit; GPT-6 Luna (xhigh) cited no physician affidavit and scored 0/3.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{20}{Plaintiff's Response - Forum Non Conveniens, assignment 2}{\texttt{criterion\_\allowbreak{}9}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}9}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-forum-non-conveniens-response/steps/assignment-2/tests/fixtures/rubric.json\#L84}{rubric at revision \texttt{1bfa904c}}}
@@ -1435,6 +1332,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 Criterion & Defective --- professional judgment; arises from the task environment\\
 Task environment & Defective: No affidavit from any of the five physicians is provided in the environment, and the prompt does not explicitly instruct the model to create one. The prompt also says, ``If a document is not uploaded, it does not exist for purposes of this analysis.''\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 20\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1443,12 +1341,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 \end{tabular}
 
 \noindent\textbf{My analysis.} Same issue as item 14. The criterion rewards a brief for saying an affidavit that does not exist in the environment (and which the model is not instructed to create) shows that DuPage County would be an inconvenient forum. This is one of several rubrics we deemed defective for encouraging models to cite to affidavits that do not exist or have not been settled/signed by the third party witnesses whose views they purport to represent (14, 15 and 17–20).
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} see item 14. Native runs: Opus 5.5 (low) met this criterion 3/3 by citing its single unsigned physician form as an executed affidavit; GPT-6 Luna (xhigh) cited no physician affidavit and scored 0/3.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{21}{OTB Gang VICAR Trial Jury Instructions, assignment 1: Appeal brief re: justification instruction}{\texttt{criterion\_\allowbreak{}21}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}21}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json\#L244}{rubric at revision \texttt{1bfa904c}}}
@@ -1461,6 +1353,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 21\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Flash: met. Result: met (3/3)\\
@@ -1476,12 +1369,6 @@ Here, the defendant is arguing that the shooting itself was an act of self-defen
 
 This environment is based on a real case, and in the real case, neither the Eighth Circuit nor the government's brief opposing certiorari relied on the argument (that the rubric requires) that the conspiracy to commit a forcible felony precludes the justification defense. Instead, the government argued that the defendant as a felon in possession had a duty to retreat safely and could have done so instead of shooting as he did. The evidence indicates this was a scenario where two rival gangs were actively seeking opportunities to shoot members of the other, not that an innocent person was attacked and then defended themselves.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Patton State Plea.pdf, PDF pp. 4–5 (scanned; read from the visual transcription): Count VIII, ``Conspiracy to Commit a Forcible Felony'' (Iowa Code §§ 706.1, 706.3), Polk County No. FECR338165, admitting ``On or about May 10, 2020 ... I did conspire with other individuals to commit a forcible felony by planning with others to engage in a shooting'' (no target felony or victim named). 704.pdf, § 704.6(1) (``One who is participating in a forcible felony''); 702.11.pdf (the enumerated forcible felonies do not include conspiracy); Ellison.pdf (§ 704.6 lays out ``the limited circumstances in which a person will have no justification defense''). Facts.pdf, PDF pp. 4–8 (retaliatory shootings between OTB and C-Block; Patton charged with attempted murder in aid of racketeering). Real case: \href{https://ecf.ca8.uscourts.gov/opndir/24/06/222777P.pdf}{\emph{United States v. Mallory}, 104 F.4th 15 (8th Cir. 2024)} (duty to retreat under § 704.1(3); cites only § 704.6(3)); the government's brief in opposition, \href{https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/24-5503.html}{No. 24-5503}, rests on § 704.1(3), \emph{Ellison} and \emph{Baltazar}. The government's Eighth Circuit brief and the district court's instruction filings are not public. \href{https://www.courtlistener.com/opinion/1107216/martinez-v-state/}{\emph{Martinez v. State}, 981 So. 2d 449 (Fla. 2008)}; \href{https://www.iowacourts.gov/courtcases/19088/embed/CourtAppealsOpinion}{\emph{State v. Roby}, No. 22-1017 (Iowa Ct. App. Sept. 27, 2023)}, slip op. at 8. The rubric's own justification for criteria 28 and 29 rejects the parallel theory as circular (``akin to arguing Patton can't get the justification instruction because he was engaged in the felonious assault of attempted murder'').
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{22}{OTB Gang VICAR Trial Jury Instructions, assignment 1: Appeal brief re: justification instruction}{\texttt{criterion\_\allowbreak{}23}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}23}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-1/tests/fixtures/rubric.json\#L256}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Penalty criterion, $-$5 points.} Mentions that Patton pled guilty in state court to intimidation with a dangerous weapon.
@@ -1493,6 +1380,7 @@ This environment is based on a real case, and in the real case, neither the Eigh
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 22\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: clear; Claude Sonnet 5: clear; Gemini 3.8 Flash: clear. Result: penalty not applied (0/3)\\
@@ -1501,13 +1389,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: fires; Claude Sonnet 5: fires; Gemini 3.8
 \end{tabular}
 
 \noindent\textbf{My analysis.} The rubric penalizes mentioning that Patton pled guilty in state court to intimidation with a dangerous weapon, because that incident relates to a different event than the one at issue on his appeal. The rubric seems intended to test the model's ability to distinguish the events and understand that the earlier incident is unrelated. However, it is misspecified because it penalizes any mention of the issue. Opus was penalized merely for including a drafting note that flagged for the attorney that it had decided \emph{not} to rely on the other incident because it was unrelated. A brief or drafting note that mentions the April 13 plea only to set it aside is correct work, so I do not think penalizing a model for merely mentioning it is correct. (The Count XX plea petition is dated November 18, 2020, after the May 10, 2020 shooting, so it is not a prior conviction.)
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Patton State Plea.pdf (scanned; read from the visual transcription): PDF p. 2, Count XX, intimidation with a dangerous weapon (``On or about April 13, 2020 ... I did discharging a gun into the vehicle of another person''); PDF p. 5, Count VIII, conspiracy for the May 10, 2020 shooting at issue (Facts.pdf, ``on May 10, 2020, two more shootings occurred''). Rubric justification: the April 13 plea ``involved a different shooting'' and is ``not relevant.'' \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-1/opus55-low/response.md}{Opus 5.5 (low)}, Drafting Note 2: the Count XX petition ``covers a \emph{different} event, a shooting on April 13, 2020. I rely only on the Count VIII admission''; penalty triggered 2/3 (-5). \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-1/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh)} did not mention Count XX; penalty clear.
-\item{} \textit{Related items:} items 1, 13, 16 and 22 are penalties worded ``States'' or ``Mentions'' that can reach a response rebutting or setting aside the point; the native runs misfired on 16 and 22.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{23}{OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case}{\texttt{criterion\_\allowbreak{}4}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}4}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json\#L40}{rubric at revision \texttt{1bfa904c}}}
@@ -1520,6 +1401,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: fires; Claude Sonnet 5: fires; Gemini 3.8
 Criterion & Defective --- unambiguous objective error; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 23\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1528,12 +1410,6 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 \end{tabular}
 
 \noindent\textbf{My analysis.} This is another instance where the task environment differs from the real-world case on which it is based in a way that is material to this specific rubric -- and a rubric that would be correct for the real-world case is incorrectly applied to this task environment. In the real case, \emph{United States v. Mallory}, 104 F.4th 15 (8th Cir. 2024), there was a dispute concerning who fired first. This task environment was ``closed book,'' however, and the model was given a statement of facts that says that Raysean Nelson ``opened fire as the Trailblazer approached'' and that ``A rolling gun battle ensued.'' So there is no basis in the supplied environment for the model to assert that there was a lack of evidence concerning who fired first; the supplied documents state that Nelson did so. The supplied facts are internally consistent; the error is the rubric's failure to follow the task's own changes to the real case.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Facts.pdf, PDF p. 7 (``Nelson had his car parked near 30th and Clark Streets, and had hidden in the bushes. ... He opened fire as the Trailblazer approached. ... A rolling gun battle ensued.''); assignment 2 prompt (``Be sure to limit your review for the Assignment to the attached documents''); \href{https://ecf.ca8.uscourts.gov/opndir/24/06/222777P.pdf}{\emph{United States v. Mallory}, slip op. at 2 (8th Cir. June 12, 2024)} (``though it is unclear who shot first''). The assignment 1 penalty justifications carry the same premise (criterion 25: ``at a minimum, it is unclear which side fired first''). Related: item 10 is the other sampled criterion that carries a real-case rule onto changed task facts.
-\end{itemize}
-% END AI-PREPARED
 
 \lrbitem{24}{OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case}{\texttt{criterion\_\allowbreak{}7}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}7}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json\#L76}{rubric at revision \texttt{1bfa904c}}}
@@ -1546,6 +1422,7 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 24\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1559,13 +1436,6 @@ The model is told, ``Build on [the assignment 1] analysis as the prompt directs,
 
 However, five of the assignment 1 rubrics are repeated on the assignment 2 output -- so a model is penalized heavily if it interprets the instructions as requesting simply an update to the specific section to which the new authority is relevant. In effect, the rubric is testing for one particular response to somewhat ambiguous instructions. This rewards work beyond the scope the prompt states, and a complete revised brief is not what the prompt clearly requests.
 
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Assignment 2 prompt: ``Please supplement your brief with relevant legal analysis of State v. Kuhse.'' Shared preamble: ``Write the final complete legal deliverable for this assignment to \texttt{response2.md}. The verifier reads only that file'' and ``your prior deliverable \texttt{response1.md} is also on disk. Build on that analysis as the prompt directs.'' Each assignment starts a fresh agent conversation in the same sandbox (\href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/experiment.md}{run record}). Repeated word for word from assignment 1: assignment 2 criteria 5–9 (windows rolled down; Patton hanging out the window; Nelson's car already stopped; the group could have driven away; Patton intended to fire regardless), 65 of assignment 2's 135 positive points (70 points in assignment 1). Native responses: \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md}{Opus 5.5 (low)} rewrote the full argument section (about 6,400 words); \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh)} wrote a ``Supplemental response'' (about 1,500 words) that reproduces its assignment 1 brief (about 1,100 words) nearly verbatim and adds sections on \emph{Kuhse}. Neither run took the insert-only approach. On this criterion both runs scored 0/3, and both had also missed it in assignment 1 (criterion 12, +15); the Facts say Nelson's car was ``parked'' while he ``had hidden in the bushes,'' and the word ``stopped'' tracks the real Eighth Circuit opinion.
-\item{} \textit{Related items:} item 25 shares this defect.
-\end{itemize}
-% END AI-PREPARED
-
 \lrbitem{25}{OTB Gang VICAR Trial Jury Instructions, assignment 2: Supplementing brief with new case}{\texttt{criterion\_\allowbreak{}8}}
 \begin{lrbquote}{micro1 LegalReasonBench, \texttt{criterion\_\allowbreak{}8}, \href{https://huggingface.co/datasets/micro1-inc/LegalReasonBench/blob/1bfa904c8f255925baf2610c0f86aa7c05d94ed9/tasks/lrb-vicar-trial-jury-instructions/steps/assignment-2/tests/fixtures/rubric.json\#L88}{rubric at revision \texttt{1bfa904c}}}
 \textbf{Reward criterion, +15 points.} States that the OTB group could have driven away.
@@ -1577,6 +1447,7 @@ However, five of the assignment 1 rubrics are repeated on the assignment 2 outpu
 Criterion & Defective --- professional judgment; does not arise from the task environment\\
 Task environment & Correct\\
 AI auditors' reasoning & Correct\\
+Sources and run details & \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/human-review/worksheet.md}{Review worksheet}, item 25\\
 \midrule
 \multicolumn{2}{@{}l@{}}{\textbf{LegalReasonBench's own grading of two model runs} (its judges, not my assessment)}\\
 GPT-6 Luna (xhigh) & GPT-5.6 Terra: not met; Claude Sonnet 5: not met; Gemini 3.8 Flash: not met. Result: not met (0/3)\\
@@ -1589,12 +1460,5 @@ Claude Opus 5.5 (low) & GPT-5.6 Terra: met; Claude Sonnet 5: met; Gemini 3.8 Fla
 The model is told, ``Build on [the assignment 1] analysis as the prompt directs,'' but not clearly told that it is expected to output a full revised version of the brief (as opposed to supplemental or revised sections that can be inserted into a revised brief). Since assignment 2 is framed as a mere supplementation task, the model might expect that it should write only the new material.
 
 However, five of the assignment 1 rubrics are repeated on the assignment 2 output -- so a model is penalized heavily if it interprets the instructions as requesting simply an update to the specific section to which the new authority is relevant. In effect, the rubric is testing for one particular response to somewhat ambiguous instructions. This rewards work beyond the scope the prompt states, and a complete revised brief is not what the prompt clearly requests.
-
-% BEGIN AI-PREPARED (source lists assembled with AI assistance; not sent to the Pangram check)
-\begin{itemize}
-\item{} \textit{Sources:} Assignment 2 prompt: ``Please supplement your brief with relevant legal analysis of State v. Kuhse.'' Shared preamble: ``Write the final complete legal deliverable for this assignment to \texttt{response2.md}. The verifier reads only that file'' and ``your prior deliverable \texttt{response1.md} is also on disk. Build on that analysis as the prompt directs.'' Each assignment starts a fresh agent conversation in the same sandbox (\href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/experiment.md}{run record}). Repeated word for word from assignment 1: assignment 2 criteria 5–9 (windows rolled down; Patton hanging out the window; Nelson's car already stopped; the group could have driven away; Patton intended to fire regardless), 65 of assignment 2's 135 positive points (70 points in assignment 1). Native responses: \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-2/opus55-low/response.md}{Opus 5.5 (low)} rewrote the full argument section (about 6,400 words); \href{https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/legalreasonbench-audit/litigation/model-runs/lrb-vicar-trial-jury-instructions-assignment-2/gpt6luna-xhigh/response.md}{GPT-6 Luna (xhigh)} wrote a ``Supplemental response'' (about 1,500 words) that reproduces its assignment 1 brief (about 1,100 words) nearly verbatim and adds sections on \emph{Kuhse}. Neither run took the insert-only approach. On this criterion Opus met 2/3 (+15) and Luna 0/3; neither met it in assignment 1 (criterion 13).
-\item{} \textit{Related items:} item 24 shares this defect.
-\end{itemize}
-% END AI-PREPARED
 % END LRB REVIEW ENTRIES
 \end{document}

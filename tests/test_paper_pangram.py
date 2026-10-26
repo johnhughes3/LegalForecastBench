@@ -106,12 +106,9 @@ def test_ai_prose_exclusions_are_limited_to_benchmark_sections_three_and_four() 
     for exclusion, section_index in zip(exclusions, (2, 3), strict=True):
         assert sections[section_index].end() < exclusion.start()
         assert exclusion.end() < sections[section_index + 1].start()
-    # The LAB audit marks AI-prepared text only in its LegalReasonBench appendix.
+    # The LAB audit paper is scored in full: it marks nothing AI-prepared.
     audit = LAB_MANUSCRIPT.read_text(encoding="utf-8")
-    appendix = audit.index("\\section{Human review of AI-flagged LegalReasonBench")
-    marked = list(pangram_check.AI_PREPARED.finditer(audit))
-    assert marked
-    assert all(m.start() > appendix for m in marked)
+    assert not list(pangram_check.AI_PREPARED.finditer(audit))
 
 
 def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
@@ -131,8 +128,7 @@ def test_legalreasonbench_text_is_left_out_and_the_authors_analysis_is_kept() ->
         "Petition for Writ of Certiorari",  # task title
         "Quoted from micro1",
         "GPT-5.6 Terra: ",  # the benchmark's own judge votes
-        "Sources:",  # AI-prepared source lists
-        "simple random sample",  # AI-prepared introduction
+        "Review worksheet",  # the per-entry link to the source lists sits in a table
     ):
         assert hidden not in appendix
     assert "1. [...] (states_in_the_first_assignment_that_dci2018_10023" in appendix

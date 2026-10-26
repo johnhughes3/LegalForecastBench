@@ -123,7 +123,8 @@ def test_seeding_fills_an_empty_region_once(tmp_path: Path) -> None:
     assert lrb_review.main(["--seed-entries", "--manuscript", str(manuscript)]) == 0
     seeded = manuscript.read_text(encoding="utf-8")
     assert seeded.count("\\lrbitem{") == 25
-    assert seeded.count("% BEGIN AI-PREPARED") == seeded.count("% END AI-PREPARED")
+    assert "% BEGIN AI-PREPARED" not in seeded
+    assert seeded.count("Sources and run details & ") == 25
     assert lrb_review.main(["--write-manuscript", "--manuscript", str(manuscript)]) == 0
     assert lrb_review.main(["--check", "--manuscript", str(manuscript)]) == 0
 
