@@ -59,6 +59,26 @@ def test_page_text_keeps_main_prose_only() -> None:
         assert hidden not in joined
 
 
+def test_opted_in_prose_is_scored_inside_skipped_elements() -> None:
+    page = """<!doctype html><html><head><title>Data</title></head><body>
+<main><p>Main prose that a visitor reads on the data page.</p>
+<table><tr><td>Archive name and size <span role="tooltip" popover="manual">
+<span data-pangram="score">We replicate the commits so they stay available.
+</span>
+</span> trailing cell text</td></tr></table></main>
+<footer><div><p>Explore</p>
+<p data-pangram="score">An independent research benchmark.
+<a href="/">Author</a> wrote it.</p>
+<ul><li>Footer link label</li></ul></div></footer>
+</body></html>"""
+    _, paragraphs = pangram_site.page_text(page)
+    assert "We replicate the commits so they stay available." in paragraphs
+    assert "An independent research benchmark. Author wrote it." in paragraphs
+    joined = " ".join(paragraphs)
+    for hidden in ("Archive name", "trailing cell text", "Explore", "Footer link"):
+        assert hidden not in joined
+
+
 def test_tooltips_and_block_spans_are_their_own_paragraphs() -> None:
     row = (
         '<li>{name} <span role="tooltip"><span class="block">Eligible: the '

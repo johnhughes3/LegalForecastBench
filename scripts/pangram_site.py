@@ -22,6 +22,11 @@ Left out by default, because they are not the site's own prose:
 * ``/404`` and the generated ``/og/`` images;
 * navigation, headers, footers, tables, code, scripts, buttons, and hidden elements.
 
+An element marked ``data-pangram="score"`` is scored even inside one of those, so
+author prose that lives in the footer or a table tooltip (the footer disclaimers,
+the ``/data/`` mirror note) is checked automatically whenever it changes. Mark only
+the author's own prose; citation data and labels stay out.
+
 A paragraph that repeats on several pages (model-page boilerplate, for example) is
 scored once, on the first page where it appears. If the text is longer than one
 Pangram request allows, it is split at page boundaries into several documents.
@@ -121,6 +126,10 @@ class _Visible(HTMLParser):
         self._buffer: list[str] = []
         self._buffer_in_main = False
         self._breaks: list[bool] = []  # per open element: does it end a paragraph?
+        # Opt-in regions (data-pangram="score") inside a skipped element: the
+        # mute count to restore on leaving each, and the _breaks depth it opened at.
+        self._resume: list[int] = []
+        self._opt_in_depths: list[int] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "title" and not self._muted and not self.title:
@@ -129,10 +138,17 @@ class _Visible(HTMLParser):
             self._flush()
         if tag in VOID:
             return
+        values = dict(attrs)
         if self._muted:
+            if values.get("data-pangram") == "score":
+                self._flush()
+                self._resume.append(self._muted)
+                self._muted = 0
+                self._breaks.append(True)
+                self._opt_in_depths.append(len(self._breaks))
+                return
             self._muted += 1
             return
-        values = dict(attrs)
         if tag in SKIP or "hidden" in values or values.get("aria-hidden") == "true":
             self._flush()
             self._muted = 1
@@ -160,6 +176,12 @@ class _Visible(HTMLParser):
         if self._muted:
             self._muted -= 1
             return
+        if self._opt_in_depths and len(self._breaks) == self._opt_in_depths[-1]:
+            self._breaks.pop()
+            self._flush()
+            self._opt_in_depths.pop()
+            self._muted = self._resume.pop()
+            return
         if (self._breaks.pop() if self._breaks else False) or tag == "main":
             self._flush()
         if tag == "main" and self._main_depth:
@@ -170,7 +192,8 @@ class _Visible(HTMLParser):
             self.title += data
         elif not self._muted:
             if not self._buffer:
-                self._buffer_in_main = self._main_depth > 0
+                # Opted-in text counts as page content even outside <main>.
+                self._buffer_in_main = self._main_depth > 0 or bool(self._opt_in_depths)
             self._buffer.append(data)
 
     def _flush(self) -> None:
@@ -368,8 +391,9 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "This is not a check of the whole site. Left out: routes starting with "
         + ", ".join([*DEFAULT_EXCLUDE, *args.exclude])
-        + "; navigation, headers, footers, tables, code, and hidden elements; "
-        f"fragments under {MIN_PARAGRAPH_WORDS} words; and paragraphs already scored "
+        + "; navigation, headers, footers, tables, code, and hidden elements, "
+        + 'except elements marked data-pangram="score"; '
+        + f"fragments under {MIN_PARAGRAPH_WORDS} words; and paragraphs already scored "
         "on an earlier page, ignoring numbers."
     )
     return status
