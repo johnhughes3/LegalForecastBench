@@ -23,6 +23,10 @@ from legalforecast.multiharness.community_subscription_sandbox import (
     claude_plan,
     codex_plan,
 )
+from legalforecast.multiharness.local_cli_identity import (
+    ExecutableIdentityPin,
+    executable_pin_for,
+)
 
 
 def test_claude_policy_denies_auth_root_to_bash_and_builtin_file_tools(
@@ -93,6 +97,7 @@ def test_claude_policy_rejects_literal_auth_roots_with_pattern_syntax(
 
 def test_codex_policy_is_named_and_toml_parseable(tmp_path: Path) -> None:
     auth_root, workspace = _roots(tmp_path)
+    executable, executable_pin, search_path = _codex_executable(tmp_path)
     plan = plan_contained_codex_exec(
         prompt="Create the requested deliverable.",
         model="gpt-fixture",
@@ -101,7 +106,12 @@ def test_codex_policy_is_named_and_toml_parseable(tmp_path: Path) -> None:
         auth_profile=CONTRIBUTOR_SUBSCRIPTION,
     )
 
-    configured = codex_plan(plan, auth_root=auth_root)
+    configured = codex_plan(
+        plan,
+        auth_root=auth_root,
+        executable_pin=executable_pin,
+        search_path=search_path,
+    )
 
     assert "--sandbox" not in configured.argv
     assert "danger-full-access" not in configured.argv
@@ -116,8 +126,10 @@ def test_codex_policy_is_named_and_toml_parseable(tmp_path: Path) -> None:
     assert filesystem == {
         ":minimal": "read",
         ":workspace_roots": {".": "write"},
+        str(executable): "read",
         str(auth_root): "deny",
     }
+    assert str(executable.parent) not in filesystem
     assert configured.sandbox_identity == (
         f"permissions:{CODEX_COMMUNITY_PERMISSION_PROFILE}"
     )
@@ -148,8 +160,87 @@ def test_vendor_policy_requires_subscription_and_disjoint_absolute_roots(
     )
     nested_auth = workspace / "auth"
     nested_auth.mkdir()
+    _executable, executable_pin, search_path = _codex_executable(tmp_path)
     with pytest.raises(CodexCliAdapterError, match="must be disjoint"):
-        codex_plan(codex, auth_root=nested_auth)
+        codex_plan(
+            codex,
+            auth_root=nested_auth,
+            executable_pin=executable_pin,
+            search_path=search_path,
+        )
+
+
+def test_codex_policy_grants_resolved_pin_target_not_alias_or_siblings(
+    tmp_path: Path,
+) -> None:
+    auth_root, workspace = _roots(tmp_path)
+    executable, executable_pin, search_path = _codex_executable(
+        tmp_path, through_symlink=True
+    )
+    alias = Path(search_path) / "codex"
+    sibling = executable.with_name("unselected")
+    sibling.write_text("not selected", encoding="utf-8")
+    plan = plan_contained_codex_exec(
+        prompt="prompt",
+        model="gpt-fixture",
+        workspace=workspace,
+        timeout_seconds=30,
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+    )
+
+    configured = codex_plan(
+        plan,
+        auth_root=auth_root,
+        executable_pin=executable_pin,
+        search_path=search_path,
+    )
+
+    overrides = [
+        configured.argv[index + 1]
+        for index, value in enumerate(configured.argv)
+        if value == "-c"
+    ]
+    filesystem = tomllib.loads("\n".join(overrides))["permissions"][
+        CODEX_COMMUNITY_PERMISSION_PROFILE
+    ]["filesystem"]
+    assert filesystem[str(executable)] == "read"
+    assert str(alias) not in filesystem
+    assert str(executable.parent) not in filesystem
+    assert str(sibling) not in filesystem
+
+
+def test_codex_policy_rejects_digest_drift_and_auth_root_executable(
+    tmp_path: Path,
+) -> None:
+    auth_root, workspace = _roots(tmp_path)
+    executable, executable_pin, search_path = _codex_executable(tmp_path)
+    plan = plan_contained_codex_exec(
+        prompt="prompt",
+        model="gpt-fixture",
+        workspace=workspace,
+        timeout_seconds=30,
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+    )
+    executable.write_text("drifted", encoding="utf-8")
+    with pytest.raises(CodexCliAdapterError, match="identity could not be verified"):
+        codex_plan(
+            plan,
+            auth_root=auth_root,
+            executable_pin=executable_pin,
+            search_path=search_path,
+        )
+
+    auth_executable = auth_root / "codex"
+    auth_executable.write_text("auth-owned", encoding="utf-8")
+    auth_executable.chmod(0o700)
+    auth_pin = executable_pin_for(auth_executable, version="0.164.0")
+    with pytest.raises(CodexCliAdapterError, match="outside the Codex auth root"):
+        codex_plan(
+            plan,
+            auth_root=auth_root,
+            executable_pin=auth_pin,
+            search_path=str(auth_root),
+        )
 
 
 def test_official_plans_retain_existing_sandbox_configuration(
@@ -184,3 +275,19 @@ def _roots(tmp_path: Path) -> tuple[Path, Path]:
     auth_root.mkdir(mode=0o700)
     workspace.mkdir()
     return auth_root.resolve(), workspace.resolve()
+
+
+def _codex_executable(
+    tmp_path: Path, *, through_symlink: bool = False
+) -> tuple[Path, ExecutableIdentityPin, str]:
+    release = tmp_path / "native-release" / "codex"
+    release.parent.mkdir(exist_ok=True)
+    release.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    release.chmod(0o700)
+    search_root = release.parent
+    if through_symlink:
+        search_root = tmp_path / "selected-bin"
+        search_root.mkdir()
+        (search_root / "codex").symlink_to(release)
+    pin = executable_pin_for(release, version="0.164.0")
+    return release.resolve(), pin, str(search_root)

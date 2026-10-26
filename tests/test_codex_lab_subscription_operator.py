@@ -13,6 +13,9 @@ import pytest
 from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
 from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapterError
 from legalforecast.multiharness.codex_cli import CodexCliAdapter, CodexCliAdapterError
+from legalforecast.multiharness.community_subscription_sandbox import (
+    codex_daemon_runtime_directory,
+)
 from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
     CommunitySubscriptionOperatorError,
@@ -20,6 +23,7 @@ from legalforecast.multiharness.harvey_lab_subscription_operator import (
     build_community_subscription_runtime,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
+from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 from tests.test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 from tests.test_harvey_lab_subscription_operator import (
@@ -78,7 +82,11 @@ def test_codex_runtime_has_separate_native_pins_and_auth_roots(tmp_path: Path) -
     assert runtime.judge_service.executable_pin is not None
     assert runtime.judge_service.executable_pin.basename == "claude"
     assert runtime.judge_service.credential_source is None
-    assert solver.filesystem_read_paths == (request.projection_root,)
+    assert solver.filesystem_read_paths == (
+        request.projection_root,
+        codex_daemon_runtime_directory(),
+    )
+    assert Path("/tmp") not in solver.filesystem_read_paths
     assert runtime.judge_service.filesystem_read_paths == ()
 
 
@@ -114,11 +122,15 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
         task_json.write_text(json.dumps(private_task))
     env = _install_binaries(tmp_path)
     # Only basename presence is used; actual model execution below is an offline double.
-    (tmp_path / "bin" / "codex").touch(mode=0o700)
+    codex_binary = tmp_path / "bin" / "codex"
+    codex_binary.touch(mode=0o700)
+    codex_pin = executable_pin_for(codex_binary, version="codex-fixture")
     boundary = _JudgeBoundaryDouble()
     runtime = _subscription_runtime(solver=_SolverDouble(), boundary=boundary, env=env)
     service = LocalCliExecutionService(
-        auth_profile=CONTRIBUTOR_SUBSCRIPTION, parent_env=env
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        parent_env=env,
+        executable_pin=codex_pin,
     )
     runtime = replace(
         runtime,
@@ -137,7 +149,7 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
         monkeypatch.chdir(tmp_path)
         args.run_dir = Path("run")
     args.harness, args.solver_model = "codex", "gpt-fixture"
-    args.codex_version, args.codex_sha256 = "codex-fixture", "b" * 64
+    args.codex_version, args.codex_sha256 = "codex-fixture", codex_pin.sha256
     executed: list[RunSpec] = []
     original_execute = LocalCliExecutionService.execute
 
@@ -217,3 +229,5 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     filesystem = parsed["permissions"][profile_name]["filesystem"]
     assert filesystem[str(args.solver_config_dir.resolve())] == "deny"
     assert filesystem[":workspace_roots"] == {".": "write"}
+    assert filesystem[str(codex_binary.resolve())] == "read"
+    assert str(codex_binary.resolve().parent) not in filesystem

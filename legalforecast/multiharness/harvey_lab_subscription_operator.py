@@ -32,6 +32,7 @@ from legalforecast.multiharness.codex_cli_harvey_lab import (
 from legalforecast.multiharness.community_subscription_sandbox import (
     CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE,
     CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION,
+    codex_daemon_runtime_directory,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
@@ -198,6 +199,11 @@ def build_community_subscription_runtime(
     judge_presence = NativeCliSubscriptionPresence(
         "claude", config_root=judge_config, role="judge"
     )
+    solver_read_paths = (request.projection_root,)
+    if request.harness == "codex":
+        # Codex opens this owner-only directory while constructing bwrap.
+        # Grant the exact UID path, never /tmp or another user's runtime.
+        solver_read_paths = (*solver_read_paths, codex_daemon_runtime_directory())
     solver_service = contained_execution_service(
         solver_bound,
         parent_env=parent_env,
@@ -205,7 +211,7 @@ def build_community_subscription_runtime(
         display_name=f"{request.harness} community subscription solver",
         executable_pin=solver_pin,
         subscription_presence=solver_presence,
-        filesystem_read_paths=(request.projection_root,),
+        filesystem_read_paths=solver_read_paths,
         filesystem_write_paths=(request.run_root / "solver-workspace",),
         run_in_working_directory=True,
     )

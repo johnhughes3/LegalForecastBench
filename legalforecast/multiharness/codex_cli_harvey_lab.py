@@ -1,5 +1,4 @@
 """Clean-native Codex CLI → Harvey LAB composition.
-
 Wires landed modules: projection → contained ``codex exec`` with native
 sandbox → sandbox output discovery → isolated evaluator → authorized
 scoring. Does not invent a second RunSpec, ExecutionReceipt, or
@@ -248,7 +247,9 @@ def run_codex_cli_clean_native_harvey_lab(
         auth_profile=adapter.auth_profile,
     )
     if community_subscription_auth_root is not None:
-        plan = _native.codex_plan(plan, auth_root=community_subscription_auth_root)
+        plan = _native.codex_service_plan(
+            plan, community_subscription_auth_root, service, solver_executable_pin
+        )
     if "--approve-for-me" in plan.argv or "--ask-for-approval" in plan.argv:
         raise CodexCliAdapterError(
             "clean-native Codex Harvey LAB invocation must stay non-interactive"
@@ -453,7 +454,6 @@ def _lab_solver_prompt(*, instructions: Path, task: HarveyLabProjectedTask) -> s
 
 def _stage_solver_visible_task(task_dir: Path, sandbox_root: Path) -> Path:
     """Copy projected solver-visible files into the sandbox.
-
     Codex exec forbids ``--add-dir``. The copy keeps the projection root
     disjoint from the sandbox while still giving native tools a local tree.
     """

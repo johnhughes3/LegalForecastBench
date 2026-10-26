@@ -23,6 +23,7 @@ from legalforecast.multiharness.harvey_lab_subscription_operator import (
     run_community_subscription_harvey_lab,
 )
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
+from legalforecast.multiharness.local_cli_identity import sha256_file
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 
 from test_codex_lab_subscription_operator import _request
@@ -65,6 +66,11 @@ def test_community_timeout_reaches_solver_and_judge_specs(
         binary = request.evaluator_bin_dir / executable
         binary.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
         binary.chmod(0o700)
+    if harness == "codex":
+        request = replace(
+            request,
+            codex_sha256=sha256_file(request.evaluator_bin_dir / "codex"),
+        )
     runtime = build_community_subscription_runtime(request)
     observed: list[RunSpec] = []
 
