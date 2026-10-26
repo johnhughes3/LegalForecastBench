@@ -15,6 +15,7 @@ import ctypes
 import json
 import os
 import secrets
+import stat
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -195,7 +196,9 @@ def classify_hostile_probe(*, in_scope: bool, denied: bool, tampered: bool) -> s
 
 
 def _system_read_roots() -> tuple[Path, ...]:
-    roots = tuple(Path(root) for root in _SYSTEM_READ_ROOTS if Path(root).exists())
+    roots = tuple(
+        Path(root).resolve() for root in _SYSTEM_READ_ROOTS if Path(root).exists()
+    )
     resolver_targets = tuple(
         Path(path).resolve() for path in _SYSTEM_RESOLVER_FILES if Path(path).is_file()
     )
@@ -216,12 +219,11 @@ def _launch_read_paths(argv: Sequence[str]) -> tuple[Path, ...]:
 
 
 def _executable_read_paths(executable: Path) -> tuple[Path, ...]:
-    paths = [executable]
     try:
-        resolved = executable.resolve()
+        resolved = executable.resolve(strict=True)
     except OSError:
-        return tuple(paths)
-    paths.append(resolved)
+        return ()
+    paths = [resolved]
     if resolved.parent.name in {"bin", "Scripts"}:
         paths.append(resolved.parent.parent)
     return tuple(paths)
@@ -231,17 +233,18 @@ def _unique_existing(paths: Sequence[Path]) -> tuple[Path, ...]:
     seen: set[str] = set()
     unique: list[Path] = []
     for path in paths:
+        candidate = Path(os.path.abspath(os.fspath(path)))
         try:
-            resolved = path.resolve()
+            metadata = candidate.stat(follow_symlinks=False)
         except OSError:
             continue
-        if not resolved.exists():
-            continue
-        key = str(resolved)
+        if stat.S_ISLNK(metadata.st_mode):
+            raise ContributorBoundaryError("Landlock grant path must not be a symlink")
+        key = str(candidate)
         if key in seen:
             continue
         seen.add(key)
-        unique.append(resolved)
+        unique.append(candidate)
     return tuple(unique)
 
 

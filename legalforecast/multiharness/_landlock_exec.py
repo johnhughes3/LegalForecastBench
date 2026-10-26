@@ -183,13 +183,14 @@ def _add_path(
     access: int,
 ) -> None:
     flags = os.O_PATH | os.O_CLOEXEC
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
-    try:
-        parent_fd = os.open(path, flags | nofollow)
-    except OSError:
-        parent_fd = os.open(path, flags)
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise OSError(0, "landlock path admission requires O_NOFOLLOW")
+    parent_fd = os.open(path, flags | nofollow)
     try:
         mode = os.fstat(parent_fd).st_mode
+        if stat.S_ISLNK(mode) or not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            raise OSError(0, "landlock path must be a real file or directory")
         if stat.S_ISREG(mode):
             access &= _FS_FILE
         if not access:
