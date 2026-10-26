@@ -206,6 +206,8 @@ def validate_auth_only_config_root(
             "backups",
             ".last-cleanup",
             "sessions",
+            "shell-snapshots",
+            "session-env",
             "telemetry",
             "cache",
         }
@@ -226,7 +228,13 @@ def validate_auth_only_config_root(
         if executable == "codex" and entry.name in {"log", "tmp"}:
             _validate_codex_login_state(entry, codex_pin, codex_search_path)
             continue
-        if executable == "claude" and entry.name in {"sessions", "telemetry", "cache"}:
+        if executable == "claude" and entry.name in {
+            "sessions",
+            "shell-snapshots",
+            "session-env",
+            "telemetry",
+            "cache",
+        }:
             _validate_claude_runtime_state(entry)
             continue
         if entry.name == ".claude.json.lock" and executable == "claude":
@@ -268,10 +276,13 @@ def _validate_claude_runtime_state(directory: Path) -> None:
         if directory.name == "cache" and entry.name == "model-catalog":
             _validate_claude_runtime_state(entry)
             continue
+        if directory.name == "session-env" and re.fullmatch(_UUID_NAME, entry.name):
+            _validate_claude_runtime_state(entry)
+            continue
         pattern = (
             rf"1p_failed_events\.{_UUID_NAME}\.{_UUID_NAME}\.json"
             if directory.name == "telemetry"
-            else rf"{_UUID_NAME}-{_UUID_NAME}-cc\.json"
+            else rf"{_UUID_NAME}-[0-9a-f]{{12}}-cc\.json"
             if directory.name == "model-catalog"
             else None
         )

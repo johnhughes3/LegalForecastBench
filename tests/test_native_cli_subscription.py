@@ -253,6 +253,7 @@ def test_codex_vendor_state_cannot_link_outside_role_root(
 
 _UUID_A = "11111111-1111-4111-8111-111111111111"
 _UUID_B = "22222222-2222-4222-8222-222222222222"
+_CATALOG_NAME = f"{_UUID_A}-012345abcdef-cc.json"
 
 
 def _claude_runtime_bookkeeping(config: Path) -> None:
@@ -260,12 +261,14 @@ def _claude_runtime_bookkeeping(config: Path) -> None:
     cleanup.write_text("synthetic")
     cleanup.chmod(0o664)
     (config / "sessions").mkdir(mode=0o700)
+    (config / "shell-snapshots").mkdir(mode=0o700)
+    (config / "session-env" / _UUID_A).mkdir(mode=0o700, parents=True)
     telemetry = config / "telemetry"
     telemetry.mkdir(mode=0o775)
     (telemetry / f"1p_failed_events.{_UUID_A}.{_UUID_B}.json").write_text("{}")
     catalog = config / "cache" / "model-catalog"
     catalog.mkdir(mode=0o775, parents=True)
-    (catalog / f"{_UUID_A}-{_UUID_B}-cc.json").write_text("{}")
+    (catalog / _CATALOG_NAME).write_text("{}")
 
 
 def test_claude_runtime_bookkeeping_allows_repeat_metadata_validation(
@@ -288,6 +291,9 @@ def test_claude_runtime_bookkeeping_allows_repeat_metadata_validation(
         "cache/settings.json",
         "cache/model-catalog/settings.json",
         "sessions/history.jsonl",
+        "shell-snapshots/history.jsonl",
+        f"session-env/{_UUID_A}/settings.json",
+        "session-env/not-a-session",
     ],
 )
 def test_claude_runtime_bookkeeping_rejects_configuration_or_history(
@@ -305,11 +311,14 @@ def test_claude_runtime_bookkeeping_rejects_configuration_or_history(
     [
         ".last-cleanup",
         "sessions",
+        "shell-snapshots",
+        "session-env",
+        f"session-env/{_UUID_A}",
         "telemetry",
         "cache",
         "cache/model-catalog",
         f"telemetry/1p_failed_events.{_UUID_A}.{_UUID_B}.json",
-        f"cache/model-catalog/{_UUID_A}-{_UUID_B}-cc.json",
+        f"cache/model-catalog/{_CATALOG_NAME}",
     ],
 )
 def test_claude_runtime_bookkeeping_cannot_link_outside_role_root(
@@ -324,7 +333,16 @@ def test_claude_runtime_bookkeeping_cannot_link_outside_role_root(
 
 
 @pytest.mark.parametrize(
-    "entry", ["sessions", "telemetry", "cache", "cache/model-catalog"]
+    "entry",
+    [
+        "sessions",
+        "shell-snapshots",
+        "session-env",
+        f"session-env/{_UUID_A}",
+        "telemetry",
+        "cache",
+        "cache/model-catalog",
+    ],
 )
 def test_claude_runtime_metadata_directory_cannot_be_a_file(
     tmp_path: Path, entry: str
@@ -342,7 +360,7 @@ def test_claude_runtime_metadata_directory_cannot_be_a_file(
     [
         ".last-cleanup",
         f"telemetry/1p_failed_events.{_UUID_A}.{_UUID_B}.json",
-        f"cache/model-catalog/{_UUID_A}-{_UUID_B}-cc.json",
+        f"cache/model-catalog/{_CATALOG_NAME}",
     ],
 )
 def test_claude_runtime_metadata_file_cannot_hide_a_directory(
@@ -353,4 +371,18 @@ def test_claude_runtime_metadata_file_cannot_hide_a_directory(
     target.mkdir(parents=True)
     (target / "history.jsonl").write_text("synthetic")
     with pytest.raises(AuthProfileError, match="regular"):
+        validate_auth_only_config_root("claude", config, role="solver")
+
+
+@pytest.mark.parametrize(
+    "suffix", ["012345abcde", "012345abcdef0", "012345abcdeg", _UUID_B]
+)
+def test_claude_model_catalog_requires_observed_native_suffix(
+    tmp_path: Path, suffix: str
+) -> None:
+    config = _auth_root(tmp_path, "role", ".credentials.json")
+    catalog = config / "cache" / "model-catalog"
+    catalog.mkdir(parents=True)
+    (catalog / f"{_UUID_A}-{suffix}-cc.json").write_text("{}")
+    with pytest.raises(AuthProfileError, match="vendor bookkeeping"):
         validate_auth_only_config_root("claude", config, role="solver")

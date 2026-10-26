@@ -43,7 +43,7 @@ claude --version
 sha256sum "$(command -v claude)"
 ```
 
-The same isolated role roots can be reused after a run. The validator permits native `.last-cleanup`, failed-event JSON files in `telemetry/`, an empty `sessions/` directory, and model catalog JSON caches under `cache/model-catalog/`, alongside login state. Keep this vendor bookkeeping; settings, histories, plugins, extra cache directories, and symlinks remain rejected.
+The same isolated role roots can be reused after a run. The validator permits native `.last-cleanup`, failed-event JSON files in `telemetry/`, empty `sessions/` and `shell-snapshots/` directories, empty UUID-named directories under `session-env/`, and model catalog JSON caches named `UUID-12hex-cc.json` under `cache/model-catalog/`, alongside login state. Keep this vendor bookkeeping; settings, histories, plugins, extra cache directories, and symlinks remain rejected.
 
 ## Run the local community baseline
 
