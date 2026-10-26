@@ -7,6 +7,7 @@ on:
       - 'docs/papers/**'
       - 'site/public/paper/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
+      - 'docs/legalreasonbench-audit/litigation/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
       - 'pyproject.toml'
@@ -16,6 +17,7 @@ on:
       - 'docs/papers/**'
       - 'site/public/paper/**'
       - 'docs/harvey-lab-audit/litigation-dispute-resolution/human-review/**'
+      - 'docs/legalreasonbench-audit/litigation/human-review/**'
       - 'site/src/data/significance/**'
       - '.github/workflows/paper.yaml'
       - 'pyproject.toml'
@@ -82,6 +84,14 @@ jobs:
           MANUSCRIPT: ${{ matrix.manuscript }}
         run: >-
           uv run --frozen python docs/papers/lab-audit/analysis/lab_review.py --check
+          --manuscript "$MANUSCRIPT"
+
+      - name: Check the LegalReasonBench human-review appendix against the worksheet
+        if: matrix.name == 'lab-audit'
+        env:
+          MANUSCRIPT: ${{ matrix.manuscript }}
+        run: >-
+          uv run --frozen python docs/papers/lab-audit/analysis/lrb_review.py --check
           --manuscript "$MANUSCRIPT"
 
       - name: Compile with pinned TeX Live
