@@ -1,0 +1,22 @@
+Population 63 flagged criteria; sample 25; complete 25.
+Rubric verdicts: Defective 21, Arguable 0, Not defective 4, Unresolved 0
+AI reasoning: Correct 21, Partly correct 0, Wrong 4
+Task environment: Defective 9, Correct 16; assignments with a Defective environment 2 of 9 sampled
+  Rubric verdict x environment: Defective | Correct
+    Defective: 9 | 12
+    Arguable: 0 | 0
+    Not defective: 0 | 4
+    Unresolved: 0 | 0
+Defective by basis: Unambiguous objective error 7, Professional judgment 14; arising from the environment 9
+By agreement bucket (descriptive):
+  Both models: problematic: 6 sampled, 6 complete; Defective 6, Arguable 0, Not defective 0, Unresolved 0
+  Both models: arguable: 1 sampled, 1 complete; Defective 1, Arguable 0, Not defective 0, Unresolved 0
+  Both flagged, different strength (one problematic, one arguable): 5 sampled, 5 complete; Defective 5, Arguable 0, Not defective 0, Unresolved 0
+  Flagged by GPT-6 Sol only: 12 sampled, 12 complete; Defective 8, Arguable 0, Not defective 4, Unresolved 0
+  Flagged by Claude Opus 5.5 only: 1 sampled, 1 complete; Defective 1, Arguable 0, Not defective 0, Unresolved 0
+By later reconciliation (descriptive):
+  problematic: 8 sampled, 8 complete; Defective 8, Arguable 0, Not defective 0, Unresolved 0
+  arguable: 5 sampled, 5 complete; Defective 5, Arguable 0, Not defective 0, Unresolved 0
+  not retained: 12 sampled, 12 complete; Defective 8, Arguable 0, Not defective 4, Unresolved 0
+Defective 21 of 25 (84%); estimated 53 of the 63 flagged criteria; exact one-sided 95% hypergeometric lower bound 45 of 63.
+Secondary: unambiguous objective errors 7 of 25; one-sided 95% lower bound 11 of 63.
