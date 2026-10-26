@@ -13,9 +13,6 @@ import pytest
 from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
 from legalforecast.multiharness.claude_code import ClaudeCodeCliAdapterError
 from legalforecast.multiharness.codex_cli import CodexCliAdapter, CodexCliAdapterError
-from legalforecast.multiharness.community_subscription_sandbox import (
-    codex_daemon_runtime_directory,
-)
 from legalforecast.multiharness.harvey_lab_projection import project_harvey_lab_suite
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
     CommunitySubscriptionOperatorError,
@@ -25,6 +22,9 @@ from legalforecast.multiharness.harvey_lab_subscription_operator import (
 from legalforecast.multiharness.local_cli_contracts import ExecutionReceipt, RunSpec
 from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
+from legalforecast.multiharness.rootless_podman_boundary import (
+    ROOTLESS_PODMAN_FILESYSTEM_SCOPE,
+)
 from tests.test_harvey_lab_projection import FIXTURE_PIN, _issue_196_source
 from tests.test_harvey_lab_subscription_operator import (
     _install_runtime_double,
@@ -82,10 +82,8 @@ def test_codex_runtime_has_separate_native_pins_and_auth_roots(tmp_path: Path) -
     assert runtime.judge_service.executable_pin is not None
     assert runtime.judge_service.executable_pin.basename == "claude"
     assert runtime.judge_service.credential_source is None
-    assert solver.filesystem_read_paths == (
-        request.projection_root,
-        codex_daemon_runtime_directory(),
-    )
+    assert solver.filesystem_scope == ROOTLESS_PODMAN_FILESYSTEM_SCOPE
+    assert solver.filesystem_read_paths == (request.projection_root,)
     assert Path("/tmp") not in solver.filesystem_read_paths
     assert runtime.judge_service.filesystem_read_paths == ()
 

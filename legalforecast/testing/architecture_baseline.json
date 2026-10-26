@@ -1176,18 +1176,18 @@
         "cycle_id": "",
         "disposition_kind": "planned-seam",
         "disposition_owner": "legalforecastbench-m1pv.6",
-        "fan_in": 12,
-        "fan_out": 11,
+        "fan_in": 13,
+        "fan_out": 12,
         "flags": [
           "relative-path",
           "oversized"
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "_run_contained_cli",
-        "largest_symbol_lines": 230,
+        "largest_symbol_lines": 272,
         "layer": "application",
-        "line_count": 1151,
-        "nonblank_line_count": 1062,
+        "line_count": 1211,
+        "nonblank_line_count": 1122,
         "top_level_definition_count": 23
       },
       "legalforecast/multiharness/material_separation.py": {
@@ -1360,6 +1360,23 @@
         "layer": "application",
         "line_count": 602,
         "nonblank_line_count": 560,
+        "top_level_definition_count": 12
+      },
+      "legalforecast/multiharness/rootless_podman_boundary.py": {
+        "cycle_id": "",
+        "disposition_kind": "watch",
+        "disposition_owner": "multiharness",
+        "fan_in": 2,
+        "fan_out": 3,
+        "flags": [
+          "watch"
+        ],
+        "lane_owner": "multiharness",
+        "largest_symbol": "prepare_rootless_podman_boundary",
+        "largest_symbol_lines": 173,
+        "layer": "application",
+        "line_count": 531,
+        "nonblank_line_count": 485,
         "top_level_definition_count": 12
       },
       "legalforecast/multiharness/runner.py": {

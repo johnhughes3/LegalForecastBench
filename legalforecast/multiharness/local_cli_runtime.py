@@ -41,6 +41,7 @@ from legalforecast.multiharness.auth_profiles import (
     require_local_subscription_presence,
     resolve_auth_profile,
 )
+from legalforecast.multiharness.contributor_boundary import LINUX_LANDLOCK_FS_SCOPE
 from legalforecast.multiharness.local_cli_contracts import (
     ExecutionReceipt,
     RunSpec,
@@ -87,6 +88,10 @@ from legalforecast.multiharness.process_containment import (
     establish_process_containment,
     launch_failure_evidence,
     prepare_contained_command,
+)
+from legalforecast.multiharness.rootless_podman_boundary import (
+    ROOTLESS_PODMAN_FILESYSTEM_SCOPE,
+    RootlessPodmanBoundaryError,
 )
 from legalforecast.multiharness.spec import POSIX_PROCESS_GROUP_CONTAINMENT
 from legalforecast.multiharness.validation import (
@@ -439,10 +444,23 @@ def _execute_local_cli_bound(
             ContributorBoundaryError,
             require_filesystem_scope,
         )
+        from legalforecast.multiharness.rootless_podman_boundary import (
+            require_rootless_podman_scope,
+        )
 
         try:
-            require_filesystem_scope(spec.filesystem_scope)
-        except ContributorBoundaryError as exc:
+            if spec.filesystem_scope == LINUX_LANDLOCK_FS_SCOPE:
+                require_filesystem_scope(spec.filesystem_scope)
+            elif spec.filesystem_scope == ROOTLESS_PODMAN_FILESYSTEM_SCOPE:
+                require_rootless_podman_scope(spec.filesystem_scope)
+            else:
+                raise ContributorBoundaryError(
+                    "filesystem_scope must be "
+                    f"{LINUX_LANDLOCK_FS_SCOPE} or "
+                    f"{ROOTLESS_PODMAN_FILESYSTEM_SCOPE}",
+                    establishment="unsupported",
+                )
+        except (ContributorBoundaryError, RootlessPodmanBoundaryError) as exc:
             raise LocalCliRuntimeError(str(exc)) from exc
     try:
         observed = bind_executable_identity(
@@ -792,30 +810,60 @@ def _run_contained_cli(
     argv = observed.resolved_argv
     requested = spec.host_process_containment
     boundary_identity: Mapping[str, object] | None = None
+    podman_launch = None
     if spec.filesystem_scope is not None:
         from legalforecast.multiharness.contributor_boundary import (
             ContributorBoundaryError,
             require_filesystem_scope,
             wrap_argv_for_contributor_boundary,
         )
+        from legalforecast.multiharness.rootless_podman_boundary import (
+            prepare_rootless_podman_boundary,
+        )
 
         try:
-            require_filesystem_scope(spec.filesystem_scope)
-            argv, boundary_identity = wrap_argv_for_contributor_boundary(
-                argv,
-                scratch_root=scratch_root,
-                extra_read_paths=(
-                    *subscription_access.read_paths,
-                    *filesystem_read_paths,
-                    execution_cwd,
-                ),
-                extra_write_paths=(
-                    *subscription_access.write_paths,
-                    *filesystem_write_paths,
-                    execution_cwd,
-                ),
-            )
-        except ContributorBoundaryError as exc:
+            if spec.filesystem_scope == LINUX_LANDLOCK_FS_SCOPE:
+                require_filesystem_scope(spec.filesystem_scope)
+                argv, boundary_identity = wrap_argv_for_contributor_boundary(
+                    argv,
+                    scratch_root=scratch_root,
+                    extra_read_paths=(
+                        *subscription_access.read_paths,
+                        *filesystem_read_paths,
+                        execution_cwd,
+                    ),
+                    extra_write_paths=(
+                        *subscription_access.write_paths,
+                        *filesystem_write_paths,
+                        execution_cwd,
+                    ),
+                )
+            elif spec.filesystem_scope == ROOTLESS_PODMAN_FILESYSTEM_SCOPE:
+                podman_launch = prepare_rootless_podman_boundary(
+                    argv,
+                    execution_cwd=execution_cwd,
+                    executable=Path(observed.resolved_argv[0]),
+                    read_paths=(
+                        *subscription_access.read_paths,
+                        *filesystem_read_paths,
+                    ),
+                    write_paths=(
+                        *subscription_access.write_paths,
+                        *filesystem_write_paths,
+                        execution_cwd,
+                    ),
+                    container_environment=environment,
+                )
+                argv = podman_launch.argv
+                boundary_identity = podman_launch.boundary_identity
+            else:
+                raise ContributorBoundaryError(
+                    "filesystem_scope must be "
+                    f"{LINUX_LANDLOCK_FS_SCOPE} or "
+                    f"{ROOTLESS_PODMAN_FILESYSTEM_SCOPE}",
+                    establishment="unsupported",
+                )
+        except (ContributorBoundaryError, RootlessPodmanBoundaryError) as exc:
             raise LocalCliRuntimeError(str(exc)) from exc
     status = "launch_failed"
     exit_code: int | None = None
@@ -872,8 +920,14 @@ def _run_contained_cli(
             except LocalCliIdentityError as exc:
                 raise LocalCliRuntimeError(str(exc)) from exc
             child_env = dict(environment)
-            if spec.filesystem_scope is not None:
+            if spec.filesystem_scope == LINUX_LANDLOCK_FS_SCOPE:
                 child_env["PYTHONDONTWRITEBYTECODE"] = "1"
+            if podman_launch is not None:
+                try:
+                    podman_launch.revalidate()
+                except RootlessPodmanBoundaryError as exc:
+                    raise LocalCliRuntimeError(str(exc)) from exc
+                child_env = podman_launch.environment
             process = subprocess.Popen(
                 prepared.argv,
                 stdin=stdin_handle,
@@ -971,6 +1025,12 @@ def _run_contained_cli(
         raise LocalCliRuntimeError(
             "local CLI executable could not be launched"
         ) from exc
+    finally:
+        if podman_launch is not None:
+            try:
+                podman_launch.close()
+            except RootlessPodmanBoundaryError as exc:
+                raise LocalCliRuntimeError(str(exc)) from exc
 
     result = LocalCliExecutionResult(
         spec_id=spec.spec_id,
