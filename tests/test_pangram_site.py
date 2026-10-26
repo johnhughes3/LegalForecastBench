@@ -59,6 +59,26 @@ def test_page_text_keeps_main_prose_only() -> None:
         assert hidden not in joined
 
 
+def test_opted_in_prose_is_scored_inside_skipped_elements() -> None:
+    page = """<!doctype html><html><head><title>Data</title></head><body>
+<main><p>Main prose that a visitor reads on the data page.</p>
+<table><tr><td>Archive name and size <span role="tooltip" popover="manual">
+<span data-pangram="score">We replicate the commits so they stay available.
+</span>
+</span> trailing cell text</td></tr></table></main>
+<footer><div><p>Explore</p>
+<p data-pangram="score">An independent research benchmark.
+<a href="/">Author</a> wrote it.</p>
+<ul><li>Footer link label</li></ul></div></footer>
+</body></html>"""
+    _, paragraphs = pangram_site.page_text(page)
+    assert "We replicate the commits so they stay available." in paragraphs
+    assert "An independent research benchmark. Author wrote it." in paragraphs
+    joined = " ".join(paragraphs)
+    for hidden in ("Archive name", "trailing cell text", "Explore", "Footer link"):
+        assert hidden not in joined
+
+
 def test_tooltips_and_block_spans_are_their_own_paragraphs() -> None:
     row = (
         '<li>{name} <span role="tooltip"><span class="block">Eligible: the '
@@ -94,19 +114,23 @@ def test_site_units_exclude_routes_fragments_and_repeats(tmp_path: Path) -> None
     units, stats = pangram_site.site_units(
         _site(tmp_path), list(pangram_site.DEFAULT_EXCLUDE), []
     )
-    assert [u.key for u in units] == ["/", "/methods/"]
-    assert stats["excluded_pages"] == 2
+    # The paper page is the site's own prose; the Harvey LAB pages are not.
+    assert [u.key for u in units] == ["/", "/methods/", "/paper/"]
+    assert "Paper abstract" in units[2].text
+    assert stats["excluded_pages"] == 1
     assert "0.1176" not in units[0].text and stats["fragments"] >= 2
     # The methods page repeats the confidence sentence with other numbers.
     assert "12 of 91" not in units[1].text
     assert "Methods explain" in units[1].text
-    assert stats["repeated_paragraphs"] == 1
+    # The paper page repeats it too, verbatim.
+    assert "17 of 387" not in units[2].text
+    assert stats["repeated_paragraphs"] == 2
 
 
 def test_only_and_extra_exclusions(tmp_path: Path) -> None:
     dist = _site(tmp_path)
     default = list(pangram_site.DEFAULT_EXCLUDE)
-    units, _ = pangram_site.site_units(dist, [*default, "/methods/"], [])
+    units, _ = pangram_site.site_units(dist, [*default, "/methods/", "/paper/"], [])
     assert [u.key for u in units] == ["/"]
     units, _ = pangram_site.site_units(dist, default, ["/methods/"])
     assert [u.key for u in units] == ["/methods/"]
@@ -132,7 +156,8 @@ def test_extract_only_needs_no_key_and_writes_the_text(
     printed = capsys.readouterr().out
     assert "not a check of the whole site" in printed
     sent = (out / "site-1.txt").read_text(encoding="utf-8")
-    assert "Models forecast" in sent and "Paper abstract" not in sent
+    assert "Models forecast" in sent and "Paper abstract" in sent
+    assert "Harvey task" not in sent
     with pytest.raises(SystemExit, match=pangram_site.pangram.KEY_VARIABLE):
         pangram_site.main(["--dist", str(dist), "--out", str(out)])
 
