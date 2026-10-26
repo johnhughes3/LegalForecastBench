@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from dataclasses import replace
 from pathlib import Path
 
@@ -73,6 +74,7 @@ def test_codex_runtime_has_separate_native_pins_and_auth_roots(tmp_path: Path) -
     assert solver.executable_pin.basename == "codex"
     assert solver.executable_pin.sha256 == "b" * 64
     assert "--ignore-user-config" in solver.executable_pin.required_flags
+    assert "--config" in solver.executable_pin.required_flags
     assert runtime.judge_service.executable_pin is not None
     assert runtime.judge_service.executable_pin.basename == "claude"
     assert runtime.judge_service.credential_source is None
@@ -204,3 +206,14 @@ def test_codex_subscription_cli_seals_then_uses_same_claude_judge(
     assert "--ignore-user-config" in executed[0].argv
     assert "--ignore-rules" in executed[0].argv
     assert "--ephemeral" in executed[0].argv
+    assert "--sandbox" not in executed[0].argv
+    overrides = [
+        executed[0].argv[index + 1]
+        for index, value in enumerate(executed[0].argv)
+        if value == "-c"
+    ]
+    parsed = tomllib.loads("\n".join(overrides))
+    profile_name = parsed["default_permissions"]
+    filesystem = parsed["permissions"][profile_name]["filesystem"]
+    assert filesystem[str(args.solver_config_dir.resolve())] == "deny"
+    assert filesystem[":workspace_roots"] == {".": "write"}

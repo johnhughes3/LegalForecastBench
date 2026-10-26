@@ -140,7 +140,8 @@ def build_community_subscription_runtime(
         raise CommunitySubscriptionOperatorError("unsupported community solver harness")
     solver_executable = "codex" if request.harness == "codex" else "claude"
     solver_pin = replace(
-        judge_pin, required_flags=(*judge_pin.required_flags, "--allowedTools")
+        judge_pin,
+        required_flags=(*judge_pin.required_flags, "--allowedTools", "--settings"),
     )
     solver_manifest = manifest
     if request.harness == "codex":
@@ -161,6 +162,7 @@ def build_community_subscription_runtime(
                 "--ignore-user-config",
                 "--ignore-rules",
                 "--strict-config",
+                "--config",
             ),
         )
     solver_bound = bind_adapter_auth_profile(solver_manifest, CONTRIBUTOR_SUBSCRIPTION)
@@ -339,6 +341,7 @@ def run_community_subscription_harvey_lab(
             require_production_provenance=True,
             evaluator_execution_service=selected.judge_service,
             use_prepared_projection=True,
+            community_subscription_auth_root=request.solver_config_dir.resolve(),
         )
         if not isinstance(result, CodexCliHarveyLabMeasurementResult):
             raise CommunitySubscriptionOperatorError(
@@ -366,6 +369,7 @@ def run_community_subscription_harvey_lab(
         container_workspace=False,
         use_prepared_projection=True,
         allow_model_alias=True,
+        community_subscription_auth_root=request.solver_config_dir.resolve(),
     )
     if not isinstance(result, ClaudeCodeHarveyLabMeasurementResult):
         raise CommunitySubscriptionOperatorError(

@@ -42,7 +42,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     binary_root = tmp_path / "bin"
     binary_root.mkdir()
     flags = (
-        "--print --output-format --json-schema --tools --allowedTools "
+        "--print --output-format --json-schema --tools --allowedTools --settings "
         "--strict-mcp-config "
         "--no-session-persistence --setting-sources --model --add-dir --safe-mode "
         "--json --color --ephemeral --skip-git-repo-check --strict-config "

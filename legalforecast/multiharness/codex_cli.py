@@ -143,10 +143,7 @@ _REFUSAL_MARKERS = (
     "i'm not able to help",
     "i am unable to help",
 )
-_CANCELLED_MARKERS = (
-    "execution cancelled",
-    "was cancelled",
-)
+_CANCELLED_MARKERS = ("execution cancelled", "was cancelled")
 _IDENTITY_DRIFT_MARKERS = (
     "resume identity mismatch",
     "identity drift",
@@ -189,6 +186,7 @@ class CodexCliInvocationPlan:
     reasoning_effort: str
     timeout_seconds: float
     auth_profile: str = FIXTURE_NONE
+    sandbox_identity: str = CODEX_SANDBOX_MODE
 
     def public_config(self) -> dict[str, str]:
         """Path-independent invocation identity for deliverable binding."""
@@ -204,7 +202,7 @@ class CodexCliInvocationPlan:
             "json": "true",
             "model": self.requested_model,
             "reasoning_effort": self.reasoning_effort,
-            "sandbox": CODEX_SANDBOX_MODE,
+            "sandbox": self.sandbox_identity,
             "skip_git_repo_check": "true",
             "strict_config": "true",
             "subcommand": "exec",

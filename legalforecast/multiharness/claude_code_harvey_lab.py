@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from legalforecast.multiharness import community_subscription_sandbox as _native
 from legalforecast.multiharness.claude_code import (
     CLAUDE_CODE_CLEAN_NATIVE_TOOLS,
     CLAUDE_CODE_EXECUTABLE_NAME,
@@ -157,6 +158,7 @@ def run_claude_code_clean_native_harvey_lab(
     container_workspace: bool = False,
     use_prepared_projection: bool = False,
     allow_model_alias: bool = False,
+    community_subscription_auth_root: Path | None = None,
 ) -> ClaudeCodeHarveyLabPipelineResult | ClaudeCodeHarveyLabMeasurementResult:
     """Project a LAB task, run contained Claude Code, discover, and score."""
 
@@ -272,6 +274,8 @@ def run_claude_code_clean_native_harvey_lab(
         output_format=adapter.output_format,
         verbose=adapter.verbose,
     )
+    if community_subscription_auth_root is not None:
+        plan = _native.claude_plan(plan, auth_root=community_subscription_auth_root)
     if plan.argv[plan.argv.index("--tools") + 1] != tools_token:
         raise ClaudeCodeCliAdapterError(
             "clean-native --tools argv token drifted from the frozen encoding"
@@ -484,9 +488,7 @@ def _require_on_path(
 ) -> str:
     if "/" in command or "\\" in command or command in {".", ".."}:
         raise ClaudeCodeCliAdapterError(f"{label} must be a basename on PATH")
-    search_path = (
-        "/usr/bin" if parent_env is None else parent_env.get("PATH", "/usr/bin")
-    )
+    search_path = parent_env.get("PATH", "/usr/bin") if parent_env else "/usr/bin"
     located = shutil.which(command, path=search_path)
     if located is None:
         raise ClaudeCodeCliAdapterError(missing or f"{label} is not on PATH")

@@ -98,6 +98,7 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     assert solver_service.executable_pin is not None
     assert "--safe-mode" in solver_service.executable_pin.required_flags
     assert "--allowedTools" in solver_service.executable_pin.required_flags
+    assert "--settings" in solver_service.executable_pin.required_flags
 
 
 def test_missing_native_suppression_capability_fails_before_model_execution(
@@ -117,7 +118,7 @@ def test_missing_native_suppression_capability_fails_before_model_execution(
         "if sys.argv[1:] == ['--version']:\n"
         f"    print({version!r})\n"
         "elif sys.argv[1:] == ['--help']:\n"
-        "    print('--print --output-format --json-schema --tools "
+        "    print('--print --output-format --json-schema --tools --allowedTools "
         "--strict-mcp-config --no-session-persistence --setting-sources "
         "--model --add-dir --safe-mode')\n"
         "else:\n"
@@ -287,6 +288,22 @@ def test_run_community_subscription_cli_seals_then_judges_with_null_cost(
     assert len(boundary.before) == len(boundary.after) == 23
     assert solver.calls == 1
     assert "--safe-mode" in solver.specs[0].argv
+    settings = json.loads(
+        solver.specs[0].argv[solver.specs[0].argv.index("--settings") + 1]
+    )
+    assert settings["sandbox"]["allowUnsandboxedCommands"] is False
+    assert settings["sandbox"]["failIfUnavailable"] is True
+    assert settings["sandbox"]["filesystem"] == {
+        "denyRead": [str(args.solver_config_dir.resolve())],
+        "denyWrite": [str(args.solver_config_dir.resolve())],
+    }
+    absolute_rule = f"//{args.solver_config_dir.resolve().as_posix().lstrip('/')}"
+    assert settings["permissions"]["deny"] == [
+        f"Read({absolute_rule})",
+        f"Read({absolute_rule}/**)",
+        f"Edit({absolute_rule})",
+        f"Edit({absolute_rule}/**)",
+    ]
     assert (run_root / "sealed" / "issue-identification-memo.docx").is_file()
 
 
