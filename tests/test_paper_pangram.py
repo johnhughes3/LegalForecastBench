@@ -137,7 +137,7 @@ def test_legalreasonbench_text_is_left_out_and_the_authors_analysis_is_kept() ->
         assert hidden not in appendix
     assert "1. [...] (states_in_the_first_assignment_that_dci2018_10023" in appendix
     assert appendix.count("My analysis. ") == 25
-    assert "Confirmed. The rubric penalizes the model" in appendix
+    assert "Confirmed. This rubric penalizes the model" in appendix
 
 
 def test_lrb_fixture_keeps_only_the_analysis() -> None:
