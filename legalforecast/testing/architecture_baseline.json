@@ -1184,10 +1184,10 @@
         ],
         "lane_owner": "multiharness",
         "largest_symbol": "_run_contained_cli",
-        "largest_symbol_lines": 272,
+        "largest_symbol_lines": 303,
         "layer": "application",
-        "line_count": 1211,
-        "nonblank_line_count": 1122,
+        "line_count": 1242,
+        "nonblank_line_count": 1153,
         "top_level_definition_count": 23
       },
       "legalforecast/multiharness/material_separation.py": {

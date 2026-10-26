@@ -9,7 +9,6 @@ Codex keeps its native named filesystem policy inside that boundary.
 from __future__ import annotations
 
 import os
-import re
 import stat
 import subprocess
 import tempfile
@@ -32,7 +31,6 @@ _TMPFS: Final = "/tmp:rw,nosuid,nodev,mode=1777"
 _SYSTEM_TARGETS: Final = (Path("/usr"), Path("/bin"), Path("/lib"), Path("/lib64"))
 _CA_CERTIFICATE: Final = Path("/etc/ssl/certs/ca-certificates.crt")
 _CONTAINER_PATH: Final = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-_CONTAINER_ID = re.compile(r"[0-9a-f]{64}\Z")
 _ZERO_CAPABILITIES: Final = "0000000000000000"
 _ENTRYPOINT = (
     'test "$(/usr/bin/id -u)" = "$1" || exit 125; shift; '
@@ -68,10 +66,12 @@ class RootlessPodmanLaunch:
     boundary_identity: dict[str, object]
     control_root: Path
     _backend: Path
-    _cidfile: Path
+    _container_name: str
     _rootfs: Path
     _mounts: tuple[_MountIdentity, ...]
     _temporary: tempfile.TemporaryDirectory[str]
+    _spawn_attempted: bool = False
+    _container_absence_verified: bool = False
     _closed: bool = False
 
     def revalidate(self) -> None:
@@ -96,6 +96,84 @@ class RootlessPodmanLaunch:
                     "Podman mount source changed before launch"
                 )
 
+    def mark_spawn_attempted(self) -> None:
+        """Record that the retained container name may now identify a workload."""
+
+        self._spawn_attempted = True
+        self._container_absence_verified = False
+
+    def require_container_revalidation(self) -> None:
+        """Invalidate an absence check made while the Podman client was alive."""
+
+        if self._spawn_attempted:
+            self._container_absence_verified = False
+
+    def terminate_container(self) -> None:
+        """Stop with zero grace, remove, and verify the exact container is absent."""
+
+        if not self._spawn_attempted or self._container_absence_verified:
+            return
+        cleanup_error: RootlessPodmanBoundaryError | None = None
+        commands = (
+            ("stop", "--time=0", "--ignore", self._container_name),
+            ("rm", "--force", "--ignore", self._container_name),
+        )
+        for arguments in commands:
+            try:
+                completed = subprocess.run(
+                    (str(self._backend), *arguments),
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    check=False,
+                    timeout=30,
+                    env=self.environment,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                cleanup_error = cleanup_error or RootlessPodmanBoundaryError(
+                    "rootless Podman container cleanup failed"
+                )
+                cleanup_error.__cause__ = exc
+            else:
+                if (
+                    completed.returncode != 0
+                    or len(completed.stdout) > 65_536
+                    or len(completed.stderr) > 65_536
+                ):
+                    cleanup_error = cleanup_error or RootlessPodmanBoundaryError(
+                        "rootless Podman container cleanup failed"
+                    )
+        try:
+            exists = subprocess.run(
+                (
+                    str(self._backend),
+                    "container",
+                    "exists",
+                    self._container_name,
+                ),
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                check=False,
+                timeout=30,
+                env=self.environment,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            cleanup_error = cleanup_error or RootlessPodmanBoundaryError(
+                "rootless Podman container removal could not be verified"
+            )
+            cleanup_error.__cause__ = exc
+        else:
+            if (
+                exists.returncode != 1
+                or len(exists.stdout) > 65_536
+                or len(exists.stderr) > 65_536
+            ):
+                cleanup_error = cleanup_error or RootlessPodmanBoundaryError(
+                    "rootless Podman container removal could not be verified"
+                )
+        if cleanup_error is not None:
+            raise cleanup_error
+        self._container_absence_verified = True
+
     def close(self) -> None:
         """Remove any surviving container, then delete the private transient rootfs."""
 
@@ -104,37 +182,10 @@ class RootlessPodmanLaunch:
         self._closed = True
         cleanup_error: RootlessPodmanBoundaryError | None = None
         try:
-            container_id = _read_container_id(self._cidfile)
-            if container_id is not None:
-                try:
-                    completed = subprocess.run(
-                        (
-                            str(self._backend),
-                            "rm",
-                            "--force",
-                            "--ignore",
-                            container_id,
-                        ),
-                        stdin=subprocess.DEVNULL,
-                        capture_output=True,
-                        check=False,
-                        timeout=30,
-                        env=self.environment,
-                    )
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    cleanup_error = RootlessPodmanBoundaryError(
-                        "rootless Podman container cleanup failed"
-                    )
-                    cleanup_error.__cause__ = exc
-                else:
-                    if (
-                        completed.returncode != 0
-                        or len(completed.stdout) > 65_536
-                        or len(completed.stderr) > 65_536
-                    ):
-                        cleanup_error = RootlessPodmanBoundaryError(
-                            "rootless Podman container cleanup failed"
-                        )
+            try:
+                self.terminate_container()
+            except RootlessPodmanBoundaryError as exc:
+                cleanup_error = exc
         finally:
             try:
                 _restore_rootfs_ownership(
@@ -345,7 +396,7 @@ def prepare_rootless_podman_boundary(
             boundary_identity=boundary_identity,
             control_root=control_root,
             _backend=backend,
-            _cidfile=cidfile,
+            _container_name=name,
             _rootfs=rootfs,
             _mounts=tuple(mounts.values()),
             _temporary=temporary,
@@ -456,21 +507,6 @@ def _mount_argument(mount: _MountIdentity) -> str:
     return f"type=bind,source={mount.source},destination={mount.target}," + (
         "ro=true" if mount.mode == "ro" else "rw=true"
     )
-
-
-def _read_container_id(cidfile: Path) -> str | None:
-    if not cidfile.exists():
-        return None
-    try:
-        metadata = cidfile.stat(follow_symlinks=False)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 128:
-            raise RootlessPodmanBoundaryError("Podman cidfile is invalid")
-        container_id = cidfile.read_text(encoding="ascii").strip()
-    except (OSError, UnicodeError) as exc:
-        raise RootlessPodmanBoundaryError("Podman cidfile is invalid") from exc
-    if _CONTAINER_ID.fullmatch(container_id) is None:
-        raise RootlessPodmanBoundaryError("Podman cidfile is invalid")
-    return container_id
 
 
 def _restore_rootfs_ownership(

@@ -928,6 +928,7 @@ def _run_contained_cli(
                 except RootlessPodmanBoundaryError as exc:
                     raise LocalCliRuntimeError(str(exc)) from exc
                 child_env = podman_launch.environment
+                podman_launch.mark_spawn_attempted()
             process = subprocess.Popen(
                 prepared.argv,
                 stdin=stdin_handle,
@@ -972,32 +973,56 @@ def _run_contained_cli(
         finally:
             if stdin_file is not None:
                 stdin_file.close()
-            if process is not None:
-                if handle is None:
-                    handle = ProcessContainmentHandle(
-                        requested=requested,
-                        unit_name=prepared.unit_name,
-                        process_group_id=process.pid,
+            podman_cleanup_error: RootlessPodmanBoundaryError | None = None
+            podman_client_was_running = process is not None and process.poll() is None
+            if podman_launch is not None:
+                try:
+                    # The Podman client process group does not own the OCI
+                    # workload. Stop and verify the exact retained container
+                    # before pipe drains or ordinary transient-root cleanup.
+                    podman_launch.terminate_container()
+                except RootlessPodmanBoundaryError as exc:
+                    podman_cleanup_error = exc
+                if podman_client_was_running:
+                    podman_launch.require_container_revalidation()
+            process_cleanup_error: ProcessContainmentError | None = None
+            try:
+                if process is not None:
+                    if handle is None:
+                        handle = ProcessContainmentHandle(
+                            requested=requested,
+                            unit_name=prepared.unit_name,
+                            process_group_id=process.pid,
+                        )
+                    elif (
+                        handle.requested == POSIX_PROCESS_GROUP_CONTAINMENT
+                        and handle.process_group_id is None
+                    ):
+                        handle.process_group_id = process.pid
+                    evidence = cleanup_process_containment(
+                        handle,
+                        process,
+                        termination_grace_seconds,
                     )
-                elif (
-                    handle.requested == POSIX_PROCESS_GROUP_CONTAINMENT
-                    and handle.process_group_id is None
-                ):
-                    handle.process_group_id = process.pid
-                evidence = cleanup_process_containment(
-                    handle,
-                    process,
-                    termination_grace_seconds,
-                )
-                establishment = evidence.establishment
-                if process.returncode is not None:
-                    exit_code = process.returncode
-                if (
-                    status == "completed"
-                    and exit_code == 0
-                    and evidence.cleanup_requested
-                ):
-                    status = "process_group_cleanup_requested"
+                    establishment = evidence.establishment
+                    if process.returncode is not None:
+                        exit_code = process.returncode
+                    if (
+                        status == "completed"
+                        and exit_code == 0
+                        and evidence.cleanup_requested
+                    ):
+                        status = "process_group_cleanup_requested"
+            except ProcessContainmentError as exc:
+                process_cleanup_error = exc
+            finally:
+                if podman_launch is not None:
+                    try:
+                        # Close the startup race where interruption occurs
+                        # before Podman registers the retained container name.
+                        podman_launch.terminate_container()
+                    except RootlessPodmanBoundaryError as exc:
+                        podman_cleanup_error = podman_cleanup_error or exc
             drains_complete = join_pipe_drains(
                 drain_threads,
                 timeout_seconds=max(termination_grace_seconds, _DRAIN_JOIN_SECONDS),
@@ -1013,6 +1038,12 @@ def _run_contained_cli(
                 _mark_incomplete_drains((stdout_drain, stderr_drain), drain_threads)
             stdout, stdout_truncated = stdout_drain.finish()
             stderr, stderr_truncated = stderr_drain.finish()
+            if podman_cleanup_error is not None:
+                raise LocalCliRuntimeError(str(podman_cleanup_error)) from (
+                    podman_cleanup_error
+                )
+            if process_cleanup_error is not None:
+                raise process_cleanup_error
     except ProcessContainmentError as exc:
         raise LocalCliRuntimeError(
             f"required host process containment was unavailable: {exc}"

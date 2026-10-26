@@ -38,6 +38,15 @@ class _PodmanLaunchDouble:
     def revalidate(self) -> None:
         return
 
+    def mark_spawn_attempted(self) -> None:
+        return
+
+    def require_container_revalidation(self) -> None:
+        return
+
+    def terminate_container(self) -> None:
+        return
+
     def close(self) -> None:
         return
 
