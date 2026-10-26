@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 import tomllib
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from legalforecast.multiharness.codex_cli import (
 )
 from legalforecast.multiharness.community_subscription_sandbox import (
     CODEX_COMMUNITY_PERMISSION_PROFILE,
+    _prepare_codex_daemon_runtime_directory,
     claude_plan,
     codex_plan,
 )
@@ -133,6 +136,52 @@ def test_codex_policy_is_named_and_toml_parseable(tmp_path: Path) -> None:
     assert configured.sandbox_identity == (
         f"permissions:{CODEX_COMMUNITY_PERMISSION_PROFILE}"
     )
+
+
+def test_codex_daemon_runtime_directory_is_created_private(tmp_path: Path) -> None:
+    runtime = _prepare_codex_daemon_runtime_directory(tmp_path, uid=os.getuid())
+
+    metadata = runtime.stat(follow_symlinks=False)
+    assert runtime == tmp_path / f"codex-daemon-{os.getuid()}"
+    assert stat.S_ISDIR(metadata.st_mode)
+    assert metadata.st_uid == os.getuid()
+    assert stat.S_IMODE(metadata.st_mode) == 0o700
+
+
+def test_codex_daemon_runtime_directory_accepts_valid_existing_directory(
+    tmp_path: Path,
+) -> None:
+    runtime = tmp_path / f"codex-daemon-{os.getuid()}"
+    runtime.mkdir(mode=0o700)
+
+    assert _prepare_codex_daemon_runtime_directory(tmp_path, uid=os.getuid()) == runtime
+
+
+def test_codex_daemon_runtime_directory_rejects_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir(mode=0o700)
+    runtime = tmp_path / f"codex-daemon-{os.getuid()}"
+    runtime.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(CodexCliAdapterError, match="must be a real"):
+        _prepare_codex_daemon_runtime_directory(tmp_path, uid=os.getuid())
+
+
+def test_codex_daemon_runtime_directory_rejects_wrong_owner(tmp_path: Path) -> None:
+    other_uid = os.getuid() + 1
+    runtime = tmp_path / f"codex-daemon-{other_uid}"
+    runtime.mkdir(mode=0o700)
+
+    with pytest.raises(CodexCliAdapterError, match="owned by the current UID"):
+        _prepare_codex_daemon_runtime_directory(tmp_path, uid=other_uid)
+
+
+def test_codex_daemon_runtime_directory_rejects_wrong_mode(tmp_path: Path) -> None:
+    runtime = tmp_path / f"codex-daemon-{os.getuid()}"
+    runtime.mkdir(mode=0o500)
+
+    with pytest.raises(CodexCliAdapterError, match="mode 0700"):
+        _prepare_codex_daemon_runtime_directory(tmp_path, uid=os.getuid())
 
 
 def test_vendor_policy_requires_subscription_and_disjoint_absolute_roots(

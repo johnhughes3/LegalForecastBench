@@ -186,3 +186,47 @@ def test_system_resolver_symlink_target_readable_without_sibling_access(
         )
         record = json.loads(completed.stdout)
         assert record["ok"] is expected, completed.stderr.decode()
+
+
+def test_landlock_rejects_symlink_read_grant_at_admission(tmp_path: Path) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    target = tmp_path / "target"
+    target.mkdir()
+    planted = tmp_path / "planted"
+    planted.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(ContributorBoundaryError, match="must not be a symlink"):
+        wrap_argv_for_contributor_boundary(
+            (sys.executable, "-c", "raise SystemExit(0)"),
+            scratch_root=scratch,
+            extra_read_paths=(planted,),
+        )
+
+
+def test_landlock_rejects_read_grant_swapped_to_symlink_before_materialization(
+    tmp_path: Path,
+) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    granted = tmp_path / "codex-daemon-fixture"
+    granted.mkdir(mode=0o700)
+    target = tmp_path / "target"
+    target.mkdir()
+    wrapped, _identity = wrap_argv_for_contributor_boundary(
+        (sys.executable, "-c", "raise SystemExit(0)"),
+        scratch_root=scratch,
+        extra_read_paths=(granted,),
+    )
+    granted.rmdir()
+    granted.symlink_to(target, target_is_directory=True)
+
+    completed = subprocess.run(
+        wrapped,
+        cwd=scratch,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert completed.returncode == 125

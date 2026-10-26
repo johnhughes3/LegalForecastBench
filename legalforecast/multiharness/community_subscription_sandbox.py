@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from dataclasses import replace
 from pathlib import Path
 
+from legalforecast.immutable_io import ImmutableIOError, ensure_private_directory
 from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
 from legalforecast.multiharness.claude_code import (
     ClaudeCodeCliAdapterError,
@@ -152,9 +154,42 @@ def codex_plan(
 
 
 def codex_daemon_runtime_directory() -> Path:
-    """Return Codex's exact UID-scoped bubblewrap coordination directory."""
+    """Prepare Codex's exact UID-scoped bubblewrap coordination directory."""
 
-    return Path("/tmp") / f"codex-daemon-{os.getuid()}"
+    return _prepare_codex_daemon_runtime_directory(Path("/tmp"), uid=os.getuid())
+
+
+def _prepare_codex_daemon_runtime_directory(parent: Path, *, uid: int) -> Path:
+    """Create or validate the owner-only directory required by Codex bwrap."""
+
+    directory = parent / f"codex-daemon-{uid}"
+    try:
+        ensure_private_directory(directory)
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        directory_flag = getattr(os, "O_DIRECTORY", None)
+        if nofollow is None or directory_flag is None:
+            raise OSError("safe directory admission requires O_NOFOLLOW")
+        descriptor = os.open(
+            directory,
+            os.O_RDONLY | nofollow | directory_flag | getattr(os, "O_CLOEXEC", 0),
+        )
+    except (ImmutableIOError, OSError) as exc:
+        raise CodexCliAdapterError(
+            "Codex daemon runtime directory must be a real owner-only directory"
+        ) from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if metadata.st_uid != uid:
+            raise CodexCliAdapterError(
+                "Codex daemon runtime directory must be owned by the current UID"
+            )
+        if stat.S_IMODE(metadata.st_mode) != 0o700:
+            raise CodexCliAdapterError(
+                "Codex daemon runtime directory must have mode 0700"
+            )
+    finally:
+        os.close(descriptor)
+    return directory
 
 
 def codex_service_plan(
