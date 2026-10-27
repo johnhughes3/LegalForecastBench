@@ -353,5 +353,31 @@
     "venue": "Advances in Neural Information Processing Systems 36 (Datasets and Benchmarks)",
     "url": "https://proceedings.neurips.cc/paper_files/paper/2023/file/89e44582fd28ddfea1ea4dcb0ebbf4b0-Paper-Datasets_and_Benchmarks.pdf",
     "type": "paper"
+  },
+  {
+    "key": "knowledgeConflicts",
+    "title": "Adaptive Chameleon or Stubborn Sloth: Revealing the Behavior of Large Language Models in Knowledge Conflicts",
+    "authors": [
+      "Jian Xie",
+      "Kai Zhang",
+      "Jiangjie Chen",
+      "Renze Lou",
+      "Yu Su"
+    ],
+    "year": 2024,
+    "venue": "International Conference on Learning Representations",
+    "url": "https://arxiv.org/abs/2305.13300",
+    "type": "paper"
+  },
+  {
+    "key": "sycophancy",
+    "title": "Towards Understanding Sycophancy in Language Models",
+    "authors": [
+      "Mrinank Sharma et al."
+    ],
+    "year": 2023,
+    "venue": "arXiv:2310.13548",
+    "url": "https://arxiv.org/abs/2310.13548",
+    "type": "paper"
   }
 ]
