@@ -379,5 +379,17 @@
     "venue": "arXiv:2310.13548",
     "url": "https://arxiv.org/abs/2310.13548",
     "type": "paper"
+  },
+  {
+    "key": "scaliaGarner",
+    "title": "Making Your Case: The Art of Persuading Judges",
+    "authors": [
+      "Antonin Scalia",
+      "Bryan A. Garner"
+    ],
+    "year": 2008,
+    "venue": "Thomson/West",
+    "url": "",
+    "type": "book"
   }
 ]
