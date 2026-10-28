@@ -391,5 +391,31 @@
     "venue": "Thomson/West",
     "url": "",
     "type": "book"
+  },
+  {
+    "key": "needhamEvalAware",
+    "title": "Large Language Models Often Know When They Are Being Evaluated",
+    "authors": [
+      "Joe Needham",
+      "Giles Edkins",
+      "Govind Pimpale",
+      "Henning Bartsch",
+      "Marius Hobbhahn"
+    ],
+    "year": 2025,
+    "venue": "arXiv:2505.23836",
+    "url": "https://arxiv.org/abs/2505.23836",
+    "type": "paper"
+  },
+  {
+    "key": "anthropicBrowseComp",
+    "title": "Eval awareness in Claude Opus 4.6's BrowseComp performance",
+    "authors": [
+      "Anthropic"
+    ],
+    "year": 2026,
+    "venue": "Anthropic",
+    "url": "https://www.anthropic.com/research/eval-awareness-browsecomp",
+    "type": "blog post"
   }
 ]
