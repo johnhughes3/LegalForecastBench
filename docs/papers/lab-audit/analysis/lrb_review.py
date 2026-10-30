@@ -260,6 +260,13 @@ def statistics(sampler: Any, parsed: list[Item]) -> dict[str, Any]:
     population: int = record["population_size"]
     rows: list[dict[str, Any]] = record["sample"]
     n = len(parsed)
+    reports = comparison["report_counts"]
+    if comparison["blind_agreement"]["flagged_criteria"] != population:
+        raise SystemExit(
+            "the sampling frame is the union of the two blind reports, but "
+            f"comparison.json flags {comparison['blind_agreement']['flagged_criteria']}"
+            f" criteria and sample.json has a population of {population}"
+        )
 
     def count(field: str, value: str) -> int:
         return sum(1 for i in parsed if i.review[field] == value)
@@ -275,6 +282,10 @@ def statistics(sampler: Any, parsed: list[Item]) -> dict[str, Any]:
         "assignments": comparison["tasks_total"],
         "criteria_total": comparison["criteria_total"],
         "population": population,
+        "sol_flagged": reports["gpt_6_sol"]["flagged_criteria"],
+        "opus_flagged": reports["claude_opus_5_5"]["flagged_criteria"],
+        "reconciled": reports["reconciliation"]["flagged_criteria"],
+        "flagged_pct": f"{100 * population / comparison['criteria_total']:.1f}",
         "sample": n,
         "sample_assignments": len({r["task"] for r in rows}),
         "defective": len(defective),
@@ -320,6 +331,10 @@ MACROS = {
     "assignments": "lrbAssignments",
     "criteria_total": "lrbCriteria",
     "population": "lrbFlagged",
+    "sol_flagged": "lrbSolFlagged",
+    "opus_flagged": "lrbOpusFlagged",
+    "reconciled": "lrbReconciled",
+    "flagged_pct": "lrbFlaggedPct",
     "sample": "lrbSample",
     "sample_assignments": "lrbSampleAssignments",
     "defective": "lrbDefective",

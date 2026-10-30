@@ -46,6 +46,8 @@ def test_numbers_and_table_follow_the_worksheet() -> None:
     sampler, parsed = _parsed()
     stats = lrb_review.statistics(sampler, parsed)
     assert (stats["population"], stats["sample"]) == (63, 25)
+    assert (stats["sol_flagged"], stats["opus_flagged"]) == (51, 43)
+    assert (stats["reconciled"], stats["flagged_pct"]) == (36, "35.2")
     assert (stats["defective"], stats["arguable"], stats["not_defective"]) == (21, 0, 4)
     assert (stats["objective"], stats["judgment"], stats["from_env"]) == (7, 14, 6)
     assert (stats["env_items"], stats["env_assignments"]) == (12, 5)
