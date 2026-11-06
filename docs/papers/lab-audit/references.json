@@ -30,7 +30,7 @@
       "Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author"
     ],
     "year": 2026,
-    "venue": "AI-generated research artifact, not attorney-reviewed",
+    "venue": "AI-generated research artifact; a random sample attorney-reviewed",
     "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check",
     "type": "dataset"
   },
@@ -67,7 +67,7 @@
       "Julio Pereyra"
     ],
     "year": 2026,
-    "venue": "Primary online source",
+    "venue": "Harvey",
     "url": "https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark",
     "type": "company report"
   },
@@ -78,20 +78,21 @@
       "OpenAI"
     ],
     "year": 2026,
-    "venue": "Primary online source",
+    "venue": "OpenAI",
     "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
     "type": "company report"
   },
   {
     "key": "labAAboard",
-    "title": "Harvey LAB-AA evaluation results",
+    "title": "Harvey LAB-AA evaluation results (v1.1)",
     "authors": [
       "Artificial Analysis"
     ],
     "year": 2026,
-    "venue": "Leaderboard, accessed October 5, 2026",
+    "venue": "Leaderboard, accessed October 26, 2026",
     "url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
-    "type": "company report"
+    "type": "company report",
+    "notes": "v1.1 uses 120 private tasks and a hallucination-gated all-pass headline; Artificial Analysis states scores are not comparable across versions."
   },
   {
     "key": "lfbpaper",
@@ -103,5 +104,318 @@
     "venue": "Working paper",
     "url": "https://www.legalforecastbench.org/paper/",
     "type": "paper"
+  },
+  {
+    "key": "lrbaudit",
+    "title": "LegalReasonBench litigation rubric audit: AI screening, native model runs, and citation census, at dataset revision 1bfa904c",
+    "authors": [
+      "GPT-6 Sol and Claude Opus 5.5 audit workers, coordinated by the author"
+    ],
+    "year": 2026,
+    "venue": "Research artifact",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/legalreasonbench-audit/litigation",
+    "type": "primary artifact"
+  },
+  {
+    "key": "lrbreview",
+    "title": "Human review of AI-flagged LegalReasonBench litigation criteria: protocol, sample, worksheet, and stress tests",
+    "authors": [
+      "John Hughes"
+    ],
+    "year": 2026,
+    "venue": "Research artifact",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/legalreasonbench-audit/litigation/human-review",
+    "type": "dataset"
+  },
+  {
+    "key": "pereyraClarification",
+    "title": "Reverse engineering how Harvey built Legal Agent Benchmark (comment)",
+    "authors": [
+      "Julio Pereyra"
+    ],
+    "year": 2026,
+    "venue": "LinkedIn post",
+    "url": "https://www.linkedin.com/posts/julio-pereyra-411738147_reverse-engineering-how-harvey-built-legal-activity-7458656036388880384-taQ2",
+    "type": "social post",
+    "notes": "Not fetched during the October 26, 2026 revision; verify the wording before relying on it."
+  },
+  {
+    "key": "harveyPreference",
+    "title": "Augmenting Human Preference in Complex Domains",
+    "authors": [
+      "Julio Pereyra"
+    ],
+    "year": 2026,
+    "venue": "Harvey",
+    "url": "https://www.harvey.ai/blog/augmenting-human-preference-in-complex-domains",
+    "type": "company report",
+    "accessed": "2026-10-26",
+    "notes": "24 LAB tasks, 3 lawyers per task; Fleiss kappa 0.129; the Tenet Elo and preference figures are GRM-predicted."
+  },
+  {
+    "key": "harveyTenet",
+    "title": "Post-Training Update: Harvey Tenet (research preview)",
+    "authors": [
+      "Harvey"
+    ],
+    "year": 2026,
+    "venue": "Harvey",
+    "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "appliedCompute",
+    "title": "Case study: Harvey",
+    "authors": [
+      "Applied Compute"
+    ],
+    "year": 2026,
+    "venue": "Applied Compute",
+    "url": "https://www.appliedcompute.com/case-studies/harvey",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "micro1LRB",
+    "title": "LegalReasonBench: methodology and results",
+    "authors": [
+      "micro1"
+    ],
+    "year": 2026,
+    "venue": "micro1",
+    "url": "https://www.micro1.ai/benchmark/legal-reason-bench",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "naglSoK",
+    "title": "SoK: Grading Open-Text Legal Answers, from Law School Exams to Trustworthy Rubric Judges",
+    "authors": [
+      "Sebastian Nagl"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2610.19992",
+    "url": "https://arxiv.org/abs/2610.19992",
+    "type": "paper"
+  },
+  {
+    "key": "judgmentBench",
+    "title": "JudgmentBench: Comparing Rubric and Preference Evaluation for Quality Assessment",
+    "authors": [
+      "Russell Yang",
+      "Ruishi Chen",
+      "Pierce Kelaita",
+      "Riya Ranjan",
+      "Sibo Ma",
+      "Charles Dickens",
+      "Matthew Guillod",
+      "Megan Ma",
+      "Julian Nyarko"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.25240",
+    "url": "https://arxiv.org/abs/2605.25240",
+    "type": "paper"
+  },
+  {
+    "key": "legit",
+    "title": "Evaluating Legal Reasoning Traces with Legal Issue Tree Rubrics",
+    "authors": [
+      "Jinu Lee",
+      "Kyoung-Woon On",
+      "Simeng Han",
+      "Arman Cohan",
+      "Julia Hockenmaier"
+    ],
+    "year": 2025,
+    "venue": "arXiv:2512.01020",
+    "url": "https://arxiv.org/abs/2512.01020",
+    "type": "paper"
+  },
+  {
+    "key": "rlrr",
+    "title": "Reinforcement Learning with Robust Rubric Rewards",
+    "authors": [
+      "Ya-Qi Yu et al."
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.30244",
+    "url": "https://arxiv.org/abs/2605.30244",
+    "type": "paper"
+  },
+  {
+    "key": "rubricsAsRewards",
+    "title": "Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains",
+    "authors": [
+      "Anisha Gunjal",
+      "Anthony Wang",
+      "Elaine Lau",
+      "Vaskar Nath",
+      "Yunzhong He",
+      "Bing Liu",
+      "Sean Hendryx"
+    ],
+    "year": 2025,
+    "venue": "arXiv:2507.17746",
+    "url": "https://arxiv.org/abs/2507.17746",
+    "type": "paper"
+  },
+  {
+    "key": "drTulu",
+    "title": "DR Tulu: Reinforcement Learning with Evolving Rubrics for Deep Research",
+    "authors": [
+      "Rulin Shao et al."
+    ],
+    "year": 2025,
+    "venue": "arXiv:2511.19399",
+    "url": "https://arxiv.org/abs/2511.19399",
+    "type": "paper"
+  },
+  {
+    "key": "gaoOveropt",
+    "title": "Scaling Laws for Reward Model Overoptimization",
+    "authors": [
+      "Leo Gao",
+      "John Schulman",
+      "Jacob Hilton"
+    ],
+    "year": 2023,
+    "venue": "Proceedings of the 40th International Conference on Machine Learning, PMLR 202:10835-10866",
+    "url": "https://proceedings.mlr.press/v202/gao23h.html",
+    "type": "paper"
+  },
+  {
+    "key": "thomson",
+    "title": "Thomson: Continual Learning of Frontier Models for SovereignAI",
+    "authors": [
+      "Shengzhuang Chen",
+      "Jerrod Parker",
+      "Yejin Bang",
+      "et al."
+    ],
+    "year": 2026,
+    "venue": "arXiv:2608.27147",
+    "url": "https://arxiv.org/abs/2608.27147",
+    "type": "paper",
+    "notes": "The paper cites only the figures confirmed in the abstract and Section 1.3.2 (more than 3,000 blind expert-rated comparisons; preferred over each of five external systems; described as a system demonstration)."
+  },
+  {
+    "key": "legalOne",
+    "title": "LegalOne: A Family of Foundation Models for Reliable Legal Reasoning",
+    "authors": [
+      "Haitao Li et al."
+    ],
+    "year": 2026,
+    "venue": "arXiv:2602.00642",
+    "url": "https://arxiv.org/abs/2602.00642",
+    "type": "paper"
+  },
+  {
+    "key": "messick",
+    "title": "The Interplay of Evidence and Consequences in the Validation of Performance Assessments",
+    "authors": [
+      "Samuel Messick"
+    ],
+    "year": 1994,
+    "venue": "Educational Researcher 23(2):13-23; ETS Research Report, 1992",
+    "url": "https://www.ets.org/research/policy_research_reports/publications/report/1992/hxiv.html",
+    "type": "paper"
+  },
+  {
+    "key": "kaplow",
+    "title": "Rules versus Standards: An Economic Analysis",
+    "authors": [
+      "Louis Kaplow"
+    ],
+    "year": 1992,
+    "venue": "Duke Law Journal 42:557-629",
+    "type": "paper"
+  },
+  {
+    "key": "singer",
+    "title": "How Law Professors Can Write a Problem Solving Case",
+    "authors": [
+      "Joseph William Singer"
+    ],
+    "year": 2013,
+    "venue": "Harvard Law School Case Studies blog, August 20, 2013",
+    "url": "https://archive.blogs.harvard.edu/hlscasestudies/2013/08/20/how-any-law-professor-can-write-a-problem-solving-case/",
+    "type": "blog post"
+  },
+  {
+    "key": "legalBench",
+    "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
+    "authors": [
+      "Neel Guha et al."
+    ],
+    "year": 2023,
+    "venue": "Advances in Neural Information Processing Systems 36 (Datasets and Benchmarks)",
+    "url": "https://proceedings.neurips.cc/paper_files/paper/2023/file/89e44582fd28ddfea1ea4dcb0ebbf4b0-Paper-Datasets_and_Benchmarks.pdf",
+    "type": "paper"
+  },
+  {
+    "key": "knowledgeConflicts",
+    "title": "Adaptive Chameleon or Stubborn Sloth: Revealing the Behavior of Large Language Models in Knowledge Conflicts",
+    "authors": [
+      "Jian Xie",
+      "Kai Zhang",
+      "Jiangjie Chen",
+      "Renze Lou",
+      "Yu Su"
+    ],
+    "year": 2024,
+    "venue": "International Conference on Learning Representations",
+    "url": "https://arxiv.org/abs/2305.13300",
+    "type": "paper"
+  },
+  {
+    "key": "sycophancy",
+    "title": "Towards Understanding Sycophancy in Language Models",
+    "authors": [
+      "Mrinank Sharma et al."
+    ],
+    "year": 2023,
+    "venue": "arXiv:2310.13548",
+    "url": "https://arxiv.org/abs/2310.13548",
+    "type": "paper"
+  },
+  {
+    "key": "scaliaGarner",
+    "title": "Making Your Case: The Art of Persuading Judges",
+    "authors": [
+      "Antonin Scalia",
+      "Bryan A. Garner"
+    ],
+    "year": 2008,
+    "venue": "Thomson/West",
+    "url": "",
+    "type": "book"
+  },
+  {
+    "key": "needhamEvalAware",
+    "title": "Large Language Models Often Know When They Are Being Evaluated",
+    "authors": [
+      "Joe Needham",
+      "Giles Edkins",
+      "Govind Pimpale",
+      "Henning Bartsch",
+      "Marius Hobbhahn"
+    ],
+    "year": 2025,
+    "venue": "arXiv:2505.23836",
+    "url": "https://arxiv.org/abs/2505.23836",
+    "type": "paper"
+  },
+  {
+    "key": "anthropicBrowseComp",
+    "title": "Eval awareness in Claude Opus 4.6's BrowseComp performance",
+    "authors": [
+      "Anthropic"
+    ],
+    "year": 2026,
+    "venue": "Anthropic",
+    "url": "https://www.anthropic.com/research/eval-awareness-browsecomp",
+    "type": "blog post"
   }
 ]

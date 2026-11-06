@@ -5,11 +5,11 @@ This directory holds two working papers by the same author. Each lives in its ow
 | Paper | Source | Committed PDF |
 | --- | --- | --- |
 | **Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning** | [legalforecastbench/LegalForecastBench-paper.tex](legalforecastbench/LegalForecastBench-paper.tex) · [references](legalforecastbench/references.json) · [numerical inputs](legalforecastbench/data/empirical.json) | `site/public/paper/legalforecastbench-working.pdf` (served by the website) |
-| **The Challenge of Deriving Signal from Synthetic Legal Environments: Evidence from Harvey's Legal Agent Benchmark** | [lab-audit/LAB-audit-paper.tex](lab-audit/LAB-audit-paper.tex) · [references](lab-audit/references.json) | `docs/papers/lab-audit/LAB-audit-paper.pdf` (not yet on the website) |
+| **Rules, Standards, and Rubrics: What Two Legal AI Benchmarks Reward** | [lab-audit/LAB-audit-paper.tex](lab-audit/LAB-audit-paper.tex) · [references](lab-audit/references.json) | `docs/papers/lab-audit/LAB-audit-paper.pdf` (not yet on the website) |
 
 The LegalForecastBench paper reports the twenty-one-configuration ranked comparison on 91 cases and 387 claim–defendant units, plus GPT-4.1 as an unranked reference in the 22-configuration comparison family. Sixteen ranked configurations meet the maintained cutoff-eligibility rule and five remain qualified because a usable cutoff is unavailable or unresolved. The paper also reports a separate summary experiment and the proposed outcome-feedback research direction. The four summary conditions are reported separately and are not in the main table. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
 
-The LAB audit paper reports the AI-assisted audit of Harvey LAB's litigation rubrics, the human review of a random sample of the flagged criteria (with its per-criterion appendix), the citation check of the task environments, and a motion-to-dismiss case study. The two papers cite each other.
+The LAB audit paper reports the AI-assisted audits of the litigation rubrics in Harvey LAB and in micro1's LegalReasonBench, the human review of a random sample of the flagged criteria from each (with per-criterion appendices), the native grading of two frontier models on both benchmarks, the citation checks of the task environments, and a motion-to-dismiss case study. The two papers cite each other.
 
 ## Edit and build
 
@@ -70,7 +70,7 @@ uv run --frozen python docs/papers/lab-audit/analysis/lrb_review.py --check --ma
 
 ### Pangram check of the author-written prose
 
-`pangram_check.py` renders a manuscript to the plain text a reader sees and sends it to [Pangram](https://www.pangram.com/), an AI-text detector, as one document. It reports Pangram's result for the whole document and how many of its windows were flagged in each section. It is not part of the local build. Every scoring run spends Pangram credits (about 2,300 words for the LegalForecastBench paper and 14,400 for the LAB audit paper, roughly $1 and $7 at the published rate of $0.05 per 100 words); CI runs it on pull requests as described below, and the script prints its own estimate before sending anything and refuses to send if the estimate exceeds `--max-usd` (default $10).
+`pangram_check.py` renders a manuscript to the plain text a reader sees and sends it to [Pangram](https://www.pangram.com/), an AI-text detector, as one document. It reports Pangram's result for the whole document and how many of its windows were flagged in each section. It is not part of the local build. Every scoring run spends Pangram credits (about 2,300 words for the LegalForecastBench paper and 25,100 across two scans for the LAB audit paper, roughly $1 and $13 at the published rate of $0.05 per 100 words); CI runs it on pull requests as described below, and the script prints its own estimate before sending anything and refuses to send if the estimate exceeds `--max-usd` (default $10).
 
 Text the author did not write is left out, and each omission appears in the document as `[...]`. Left out are passages between `% BEGIN AI-PREPARED` and `% END AI-PREPARED` comment lines in the manuscript, which mark what the paper's AI-use statement discloses as prepared with AI; the criteria and task titles quoted from Harvey LAB and LegalReasonBench in the appendices; tables, figures, display equations, and the bibliography; and the generated blocks. LaTeX commands and source comments are never sent. For these manuscripts, AI-prepared prose exclusions are limited to Sections 3 and 4 of the LegalForecastBench paper. The LAB audit paper and all other sections remain in the scored text. Keep AI-prepared prose in scope while awaiting the author's rewrite; do not add exclusions to clear a failed check.
 
@@ -78,7 +78,8 @@ To see exactly what would be sent, without a key and without spending credits, w
 
 ```bash
 uv run --frozen python docs/papers/pangram_check.py --extract-only --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
-uv run --frozen python docs/papers/pangram_check.py --extract-only --manuscript docs/papers/lab-audit/LAB-audit-paper.tex
+uv run --frozen python docs/papers/pangram_check.py --extract-only --manuscript docs/papers/lab-audit/LAB-audit-paper.tex --exclude-section 'Human review of AI-flagged' --out docs/papers/lab-audit/build/pangram-main
+uv run --frozen python docs/papers/pangram_check.py --extract-only --manuscript docs/papers/lab-audit/LAB-audit-paper.tex --include-section 'Human review of AI-flagged' --out docs/papers/lab-audit/build/pangram-reviews
 ```
 
 To score it, put a Pangram API key in the `PANGRAM_API_KEY` environment variable and add Pangram's Python SDK for the one run. The script saves Pangram's raw response next to the document; `--verbose` prints an excerpt of every window Pangram did not label human-written, with its section.
@@ -86,6 +87,8 @@ To score it, put a Pangram API key in the `PANGRAM_API_KEY` environment variable
 ```bash
 uv run --frozen --with "pangram-sdk>=1.0" python docs/papers/pangram_check.py --manuscript docs/papers/legalforecastbench/LegalForecastBench-paper.tex
 ```
+
+The LAB audit exceeds the 18,725-word request ceiling, so CI scores two complementary documents: the two human-review appendices, selected by their shared heading text, and everything else. Each scan keeps the same threshold and $10 ceiling; together they cover all previously scored prose. Titles and omission markers remain in both documents. The same selections apply to the base manuscript, even when appendix letters differ. Each scan has its own text cache and result artifact.
 
 In CI, the Paper workflow's *Pangram check* job runs this for each paper on every pull request from this repository and fails unless Pangram classifies all of the scored text as human-written: any passage it labels AI-generated or AI-assisted fails the check (override with the `PANGRAM_MAX_AI_FRACTION` repository variable). At the default zero threshold, the gate uses segment classifications: tiny residual probabilities do not fail a document whose segments are all human-written. A response without segment classifications fails. A positive override uses the combined AI and AI-assisted fraction. It needs the `PANGRAM_API_KEY` repository secret. It skips scoring a paper when the pull request leaves its scored text identical to the base branch's (for example a dependency bump or a PDF rebuild), and it caches each result by the exact text sent, so later commits and reruns in the same pull request reuse it rather than paying again; the report appears in the job summary, and the scored text and Pangram's response are uploaded as an artifact. Forks and Dependabot pull requests are not scored.
 
@@ -99,7 +102,7 @@ uv run --frozen python scripts/pangram_site.py --extract-only
 uv run --frozen --with pangram-sdk==1.0.0 python scripts/pangram_site.py --verbose
 ```
 
-`--exclude-section` leaves out a whole section by its key in the printed table or part of its title, for example `--exclude-section A --exclude-section B`. Pangram's limits and prices are taken from its [API reference](https://docs.pangram.com/api-reference/introduction.md) and [input-size note](https://www.pangram.com/knowledge-hub/minimum-and-maximum-input-sizes).
+`--exclude-section` leaves out a whole section by its key in the printed table or part of its title, for example `--exclude-section A --exclude-section B`. `--include-section` instead keeps only matching sections; the two options are mutually exclusive. Pangram's limits and prices are taken from its [API reference](https://docs.pangram.com/api-reference/introduction.md) and [input-size note](https://www.pangram.com/knowledge-hub/minimum-and-maximum-input-sizes).
 
 ### Within-case clustering
 
