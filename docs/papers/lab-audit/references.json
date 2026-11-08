@@ -84,6 +84,19 @@
     "notes": "v1.1 uses 120 private tasks and a hallucination-gated all-pass headline; Artificial Analysis states scores are not comparable across versions."
   },
   {
+    "key": "labAAv1snapshot",
+    "title": "Harvey LAB-AA v1.0 criterion pass rates, October 7, 2026 snapshot",
+    "authors": [
+      "Artificial Analysis"
+    ],
+    "year": 2026,
+    "venue": "Historical results recovered from Village LLM Atlas",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/00a6c1aa76504d73b67ab0df27146751f2aace8e/site/public/data/lab-audit/lab-aa-v1-2026-10-07",
+    "accessed": "2026-11-08",
+    "type": "dataset extract",
+    "notes": "Recovered from https://atlas.village.dev/data.json, which attributes these 60 configuration scores to the October 7, 2026 AA snapshot and identifies https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa as its archive URL. The archived AA page was unavailable during retrieval; this extract is not independently verified against that page. Ranking retains the highest-scoring configuration per model: 43 models, GPT-5.6 Luna 17th at 87.899840787379%, Muse Spark 1.3 first at 95.484151107251%; spread 7.584310319872 percentage points. Excludes an older August entry for Muse Spark 1.1."
+  },
+  {
     "key": "lfbpaper",
     "title": "Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning",
     "authors": [
