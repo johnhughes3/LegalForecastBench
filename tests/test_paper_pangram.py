@@ -177,7 +177,11 @@ def test_preamble_macros_are_expanded() -> None:
 
 def test_the_lab_audit_is_scored_with_its_own_paper() -> None:
     forecasting, audit = _paper(), _paper(LAB_MANUSCRIPT)
-    for moved in ("Mercor", "forum selection clause", "SWE-bench Verified"):
+    for moved in (
+        "Mercor",
+        "forum selection clause",
+        "Outcome forecasting suggests a further experiment",
+    ):
         assert moved not in forecasting
         assert moved in audit
 
