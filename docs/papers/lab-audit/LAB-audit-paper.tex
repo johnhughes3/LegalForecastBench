@@ -171,7 +171,7 @@ The rubric audit revealed that some of the task documents on Harvey's LAB contai
 \subsection{Results}
 \label{sec:results}
 
-Table~\ref{tab:main} reports the results. As noted, this analysis was designed as two distinct audits of the benchmarks, not a statistical comparison of defect rates. The one-sided 95\% lower bounds of \labDefectiveLB{} and \lrbDefectiveLB{} are \labDefectiveShare\% and \lrbDefectiveShareLB\% of the respective audited populations, the point estimates \labDefectivePointShare\% and \lrbDefectivePointShare\%. Note that the bounds cover sampling uncertainty, not uncertainty about the accuracy of my verdicts, and in both benchmarks, there are cases where several sampled criteria share one underlying problem, so the verdicts are not truly independent. Regardless, the results establish that defects likely occur at rates that significantly exceed the differences in criterion pass rates that separate frontier models on these benchmarks. The exhibits in Section~\ref{sec:mechanisms} establish what they do.
+Table~\ref{tab:main} reports the results. As noted, this analysis was designed as two distinct audits of the benchmarks, not a statistical comparison of defect rates. The one-sided 95\% lower bounds of \labDefectiveLB{} and \lrbDefectiveLB{} are \labDefectiveShare\% and \lrbDefectiveShareLB\% of the respective audited populations, the point estimates \labDefectivePointShare\% and \lrbDefectivePointShare\%. Note that the bounds cover sampling uncertainty, not uncertainty about the accuracy of my verdicts, and in both benchmarks, there are cases where several sampled criteria share one underlying problem, so the verdicts are not truly independent. Regardless, the results establish that defects likely occur at rates that significantly exceed the differences in criteria pass rates that separate frontier models on these benchmarks. The exhibits in Section~\ref{sec:mechanisms} establish what they do.
 
 \begin{table}[ht]\centering\small
 \begin{tabular}{lrr}\toprule
@@ -421,7 +421,9 @@ The key result of this audit is that a meaningful minority of the audited rubric
 \subsection{Legal benchmark rankings may be unreliable}
 \label{sec:scores}
 
-The audit raises questions about how reliably current legal benchmarks can distinguish between frontier models. Table~\ref{tab:defects-and-spreads} separates the estimated prevalence of defective criteria from the published score spreads. Even the conservative lower bounds exceed the gaps among the four leading models on each benchmark. If even a small portion of the defects end up penalizing one model more than another, correcting them could conceivably change the rankings.
+The audit raises questions about how reliably current legal benchmarks can distinguish between frontier models. Table~\ref{tab:defects-and-spreads} shows the
+
+separates the estimated prevalence of defective criteria from the published score spreads. Even the conservative lower bounds exceed the gaps among the four leading models on each benchmark. If even a small portion of the defects end up penalizing one model more than another, correcting them could conceivably change the rankings.
 
 \begin{table}[htbp]
 \centering\small
@@ -440,7 +442,7 @@ Two-sided 95\% confidence interval & 12.5--23.9\% & 24.0--32.4\% \\
 One-sided 95\% lower bound & \labDefectiveShare\% & \lrbDefectiveShareLB\% \\
 \midrule
 \multicolumn{3}{@{}l}{\textbf{B. Published scores: full leaderboards}} \\
-Score metric & Criterion pass rate & Weighted reward \\
+Score metric & Criteria pass rate & Weighted reward \\
 Models listed & 43 & 9 \\
 Highest score & 95.48\% & 50.83\% \\
 Lowest score & 13.89\% & 31.95\% \\
@@ -458,7 +460,7 @@ Leader's gap to GPT-5.6 Luna & 7.58 pp & --- \\
 \end{minipage}
 \end{table}
 
-LAB's all-pass rule can also magnify the impact of small defects, because a single defective requirement can result in an otherwise excellent response receiving a failing grade. In our audit, GPT-6 Luna failed 59.4\% of the defective LAB criteria, while Opus failed 34.4\%, but the difference was not statistically significant (p=0.117). In the two diagnostic runs in Appendix~\ref{app:native}, criterion pass rates of 83.8\% and 90.8\% corresponded to all-pass rates, averaged across the two judges, of 1.9\% and 2.9\%.
+LAB's all-pass rule can also magnify the impact of small defects, because a single defective requirement can result in an otherwise excellent response receiving a failing grade. In our audit, GPT-6 Luna failed 59.4\% of the defective LAB criteria, while Opus failed 34.4\%, but the difference was not statistically significant (p=0.117). In the two diagnostic runs in Appendix~\ref{app:native}, criteria pass rates of 83.8\% and 90.8\% corresponded to all-pass rates, averaged across the two judges, of 1.9\% and 2.9\%.
 
 The observation is consistent with anecdotal observations: Harvey's product allows lawyers to choose from a variety of models from Anthropic, OpenAI, and Google in the model picker, and anecdotally, many lawyers who use AI frequently identify models from one of those labs as their preferred choice--generally preferring them to current-generation models from Meta or SpaceXAI, which currently have the highest ratings. That anecdotal data should not be taken out of context; a vertical AI company may consider a variety of factors like user familiarity/demand, cost, speed, and existing integrations--and we have not endeavored to do a blinded or systematic analysis of lawyer preferences. Nevertheless, the audit makes it at least plausible to consider whether some of the reported difference in models could reflect the extraordinary difficulty of reducing legal judgment to rubrics and some defective criteria. The rubrics may still provide valuable information, but it may be that they are best understood as one part of a broader range of information that should be considered in identifying the best model.
 
@@ -548,7 +550,7 @@ These audits identify substantive failures in the criteria used to evaluate lega
 
 \bibitem{labAAboard} Artificial Analysis. Harvey LAB-AA evaluation results (v1.1). \emph{Leaderboard, accessed October 26, 2026}. \url{https://artificialanalysis.ai/evaluations/harvey-lab-aa}.
 
-\bibitem{labAAv1snapshot} Artificial Analysis. Harvey LAB-AA v1.0 criterion pass rates, October 7, 2026 snapshot. \emph{Historical results recovered from Village LLM Atlas on November 8, 2026}. The original archived AA page was unavailable during retrieval. Preserved numerical extract, source links, and ranking calculation: \url{https://github.com/johnhughes3/LegalForecastBench/tree/00a6c1aa76504d73b67ab0df27146751f2aace8e/site/public/data/lab-audit/lab-aa-v1-2026-10-07}.
+\bibitem{labAAv1snapshot} Artificial Analysis. Harvey LAB-AA v1.0 criteria pass rates, October 7, 2026 snapshot. \emph{Historical results recovered from Village LLM Atlas on November 8, 2026}. The original archived AA page was unavailable during retrieval. Preserved numerical extract, source links, and ranking calculation: \url{https://github.com/johnhughes3/LegalForecastBench/tree/00a6c1aa76504d73b67ab0df27146751f2aace8e/site/public/data/lab-audit/lab-aa-v1-2026-10-07}.
 
 \bibitem{lfbpaper} John J. Hughes, III. Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning. \emph{Working paper}, 2026. \url{https://www.legalforecastbench.org/paper/}.
 
@@ -584,7 +586,7 @@ LAB's litigation tasks were run at Harvey commit \texttt{1dd81403} with the orig
 
 \begin{table}[ht]\centering\footnotesize
 \begin{tabular}{llrrrr}\toprule
-Solver & Effort & Tasks & Criterion pass rate & All-pass cells & All-pass by both judges\\\midrule
+Solver & Effort & Tasks & Criteria pass rate & All-pass cells & All-pass by both judges\\\midrule
 GPT-6 Luna & xhigh & 52 & 83.80\% & 2 of 104 (1.92\%) & 1 of 52 tasks\\
 Claude Opus 5.5 & low & 52 & 90.81\% & 3 of 104 (2.88\%) & 1 of 52 tasks\\
 \bottomrule\end{tabular}
