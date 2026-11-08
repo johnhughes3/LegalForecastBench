@@ -1,0 +1,551 @@
+{
+	"title": "Harvey LAB-AA v1.0 criterion pass rates, October 7, 2026 snapshot",
+	"original_evaluator": "Artificial Analysis",
+	"recovered_from": "https://atlas.village.dev/data.json",
+	"retrieved_date": "2026-11-08",
+	"atlas_generated_at": "2026-11-06",
+	"snapshot_date": "2026-10-07",
+	"provenance_note": "Decoded numerical extract from Village LLM Atlas. The original Internet Archive page could not be retrieved during recovery; its URL is retained as supplied by Atlas. This is not an independent verification of the archived AA page or an official AA export.",
+	"records": [
+		{
+			"model_slug": "muse-spark-1-3",
+			"model": "Muse Spark 1.3",
+			"configuration": "muse-spark-1-3-xhigh",
+			"criterion_pass_rate_percent": 95.484151107251,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "kimi-k3",
+			"model": "Kimi K3",
+			"configuration": "kimi-k3-max",
+			"criterion_pass_rate_percent": 94.644666377189,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "qwen3-8-max-0902",
+			"model": "Qwen3.8 Max (0902)",
+			"configuration": "qwen3-8-max-0902-thinking",
+			"criterion_pass_rate_percent": 93.645969025908,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5",
+			"model": "Claude Fable 5",
+			"configuration": "claude-fable-5-max",
+			"criterion_pass_rate_percent": 93.559125777971,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5",
+			"model": "Claude Opus 5",
+			"configuration": "claude-opus-5-max",
+			"criterion_pass_rate_percent": 93.457808655377,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "step-5-preview",
+			"model": "Step 5 Preview",
+			"configuration": "step-5-preview",
+			"criterion_pass_rate_percent": 93.443334780721,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5-1",
+			"model": "Claude Fable 5.1",
+			"configuration": "claude-fable-5-1-xhigh",
+			"criterion_pass_rate_percent": 93.269648284846,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5-5",
+			"model": "Claude Sonnet 5.5",
+			"configuration": "claude-sonnet-5-5-max",
+			"criterion_pass_rate_percent": 93.067014039658,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5-1",
+			"model": "Claude Fable 5.1",
+			"configuration": "claude-fable-5-1-max",
+			"criterion_pass_rate_percent": 93.02359241569,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5-1",
+			"model": "Claude Fable 5.1",
+			"configuration": "claude-fable-5-1-high",
+			"criterion_pass_rate_percent": 92.951223042408,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5-1",
+			"model": "Claude Fable 5.1",
+			"configuration": "claude-fable-5-1-medium",
+			"criterion_pass_rate_percent": 92.647271674627,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5-5",
+			"model": "Claude Sonnet 5.5",
+			"configuration": "claude-sonnet-5-5-xhigh",
+			"criterion_pass_rate_percent": 92.415689680127,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "grok-4-5",
+			"model": "Grok 4.5",
+			"configuration": "grok-4-5",
+			"criterion_pass_rate_percent": 92.415689680127,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-fable-5-1",
+			"model": "Claude Fable 5.1",
+			"configuration": "claude-fable-5-1-low",
+			"criterion_pass_rate_percent": 92.32884643219,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5-5",
+			"model": "Claude Sonnet 5.5",
+			"configuration": "claude-sonnet-5-5-high",
+			"criterion_pass_rate_percent": 92.09726443769,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5-5",
+			"model": "Claude Sonnet 5.5",
+			"configuration": "claude-sonnet-5-5-medium",
+			"criterion_pass_rate_percent": 91.822260819221,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5-5",
+			"model": "Claude Opus 5.5",
+			"configuration": "claude-opus-5-5-xhigh",
+			"criterion_pass_rate_percent": 91.243305832972,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5-5",
+			"model": "Claude Opus 5.5",
+			"configuration": "claude-opus-5-5-max",
+			"criterion_pass_rate_percent": 91.199884209003,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-4-8",
+			"model": "Opus 4.8",
+			"configuration": "claude-opus-4-8-max",
+			"criterion_pass_rate_percent": 91.084093211753,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "glm-5-2",
+			"model": "GLM-5.2",
+			"configuration": "glm-5-2-max",
+			"criterion_pass_rate_percent": 90.968302214503,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5-5",
+			"model": "Claude Opus 5.5",
+			"configuration": "claude-opus-5-5-high",
+			"criterion_pass_rate_percent": 90.881458966565,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemini-3-7-flash",
+			"model": "Gemini 3.7 Flash",
+			"configuration": "gemini-3-7-flash-high",
+			"criterion_pass_rate_percent": 90.664350846722,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5-5",
+			"model": "Claude Opus 5.5",
+			"configuration": "claude-opus-5-5-medium",
+			"criterion_pass_rate_percent": 90.259082356347,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5",
+			"model": "Sonnet 5",
+			"configuration": "claude-sonnet-5-max",
+			"criterion_pass_rate_percent": 90.070921985816,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-5-5",
+			"model": "Claude Haiku 5.5",
+			"configuration": "claude-haiku-5-5-xhigh",
+			"criterion_pass_rate_percent": 89.897235489941,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-5-5",
+			"model": "Claude Haiku 5.5",
+			"configuration": "claude-haiku-5-5-max",
+			"criterion_pass_rate_percent": 89.868287740628,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-5-5",
+			"model": "Claude Haiku 5.5",
+			"configuration": "claude-haiku-5-5-high",
+			"criterion_pass_rate_percent": 89.520914748878,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-5-5",
+			"model": "Claude Haiku 5.5",
+			"configuration": "claude-haiku-5-5-medium",
+			"criterion_pass_rate_percent": 89.231437255753,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-opus-5-5",
+			"model": "Claude Opus 5.5",
+			"configuration": "claude-opus-5-5-low",
+			"criterion_pass_rate_percent": 89.13012013316,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-5-5",
+			"model": "Claude Sonnet 5.5",
+			"configuration": "claude-sonnet-5-5-low",
+			"criterion_pass_rate_percent": 89.028803010566,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "minimax-m3",
+			"model": "MiniMax M3",
+			"configuration": "minimax-m3-thinking",
+			"criterion_pass_rate_percent": 88.406426400347,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-6-luna",
+			"model": "GPT-5.6 Luna",
+			"configuration": "gpt-5-6-luna-max",
+			"criterion_pass_rate_percent": 87.899840787379,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-5-5",
+			"model": "Claude Haiku 5.5",
+			"configuration": "claude-haiku-5-5-low",
+			"criterion_pass_rate_percent": 87.85641916341,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-6-sol",
+			"model": "GPT-5.6 Sol",
+			"configuration": "gpt-5-6-sol-max",
+			"criterion_pass_rate_percent": 87.176147054566,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-5",
+			"model": "GPT-5.5",
+			"configuration": "gpt-5-5-xhigh",
+			"criterion_pass_rate_percent": 86.278766825879,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-4-6",
+			"model": "Sonnet 4.6",
+			"configuration": "claude-sonnet-4-6-max",
+			"criterion_pass_rate_percent": 85.974815458098,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-6-terra",
+			"model": "GPT-5.6 Terra",
+			"configuration": "gpt-5-6-terra-max",
+			"criterion_pass_rate_percent": 85.178752352005,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemini-3-6-flash",
+			"model": "Gemini 3.6 Flash",
+			"configuration": "gemini-3-6-flash-high",
+			"criterion_pass_rate_percent": 85.149804602692,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "kimi-k2-7-code",
+			"model": "Kimi K2.7 Code",
+			"configuration": "kimi-k2-7-code",
+			"criterion_pass_rate_percent": 85.019539730786,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-sonnet-4-6",
+			"model": "Sonnet 4.6",
+			"configuration": "claude-sonnet-4-6-no-thinking-high",
+			"criterion_pass_rate_percent": 84.440584744536,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "deepseek-v4-pro",
+			"model": "DeepSeek-V4-Pro",
+			"configuration": "deepseek-v4-pro-max",
+			"criterion_pass_rate_percent": 84.397163120567,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "kimi-k2-6",
+			"model": "Kimi K2.6",
+			"configuration": "kimi-k2-6-thinking",
+			"criterion_pass_rate_percent": 84.122159502099,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "qwen3-7-max",
+			"model": "Qwen3.7-Max (source unspecified)",
+			"configuration": "qwen3-7-max",
+			"criterion_pass_rate_percent": 83.427413518599,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "qwen3-6-27b",
+			"model": "Qwen3.6 27B",
+			"configuration": "qwen3-6-27b-thinking",
+			"criterion_pass_rate_percent": 82.298451295412,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemini-3-5-flash",
+			"model": "Gemini 3.5 Flash",
+			"configuration": "gemini-3-5-flash-high",
+			"criterion_pass_rate_percent": 82.081343175568,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "qwen3-7-plus",
+			"model": "Qwen3.7-Plus (source unspecified)",
+			"configuration": "qwen3-7-plus",
+			"criterion_pass_rate_percent": 81.791865682443,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "nemotron-3-ultra-550b-a55b-bf16",
+			"model": "Nemotron 3 Ultra 550B A55B",
+			"configuration": "nemotron-3-ultra-550b-a55b-bf16-thinking",
+			"criterion_pass_rate_percent": 81.719496309162,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "deepseek-v4-flash",
+			"model": "DeepSeek-V4-Flash",
+			"configuration": "deepseek-v4-flash-max",
+			"criterion_pass_rate_percent": 81.328701693443,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "mimo-v2-5-pro",
+			"model": "MiMo-V2.5-Pro",
+			"configuration": "mimo-v2-5-pro-thinking",
+			"criterion_pass_rate_percent": 73.252279635258,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "step-3-7-flash",
+			"model": "Step 3.7 Flash",
+			"configuration": "step-3-7-flash",
+			"criterion_pass_rate_percent": 72.731220147634,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "qwen3-5-397b-a17b",
+			"model": "Qwen3.5 397B A17B",
+			"configuration": "qwen3-5-397b-a17b-thinking",
+			"criterion_pass_rate_percent": 72.383847155884,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "mistral-medium-3-5-128b",
+			"model": "Mistral Medium 3.5",
+			"configuration": "mistral-medium-3-5-128b-high",
+			"criterion_pass_rate_percent": 69.098277608916,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "grok-4-3",
+			"model": "Grok 4.3",
+			"configuration": "grok-4-3-high",
+			"criterion_pass_rate_percent": 68.38905775076,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "claude-haiku-4-5-20251001",
+			"model": "Haiku 4.5",
+			"configuration": "claude-haiku-4-5-20251001-thinking",
+			"criterion_pass_rate_percent": 61.050803300043,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-4-mini",
+			"model": "GPT-5.4 Mini",
+			"configuration": "gpt-5-4-mini-xhigh",
+			"criterion_pass_rate_percent": 60.746851932262,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemini-3-1-pro-preview",
+			"model": "Gemini 3.1 Pro Preview",
+			"configuration": "gemini-3-1-pro",
+			"criterion_pass_rate_percent": 58.850774352294,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-5-4-nano",
+			"model": "GPT-5.4 Nano",
+			"configuration": "gpt-5-4-nano-xhigh",
+			"criterion_pass_rate_percent": 52.23621363439,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemma-4-31b-it",
+			"model": "Gemma 4 31B IT",
+			"configuration": "gemma-4-31b-it-thinking",
+			"criterion_pass_rate_percent": 47.228253003329,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gemini-3-1-flash-lite",
+			"model": "Gemini 3.1 Flash-Lite",
+			"configuration": "gemini-3-1-flash-lite-thinking",
+			"criterion_pass_rate_percent": 31.14777826024,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		},
+		{
+			"model_slug": "gpt-oss-120b",
+			"model": "gpt-oss-120b",
+			"configuration": "gpt-oss-120b-high",
+			"criterion_pass_rate_percent": 13.894919669996,
+			"source_url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
+			"source_label": "Harvey LAB-AA v1.0 criterion pass rate (Artificial Analysis snapshot 2026-10-07)",
+			"archive_url": "https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa"
+		}
+	]
+}
