@@ -191,6 +191,18 @@
     "accessed": "2026-10-26"
   },
   {
+    "key": "lrbLeaderboardSnapshot",
+    "title": "LegalReasonBench: published leaderboard and paired comparisons",
+    "authors": [
+      "micro1"
+    ],
+    "year": 2026,
+    "venue": "Leaderboard labeled October 26, 2026; preserved numerical extract",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/8c916227353e46248b4d03d528abec3dbf82bdb5/site/public/data/lab-audit/legalreasonbench-2026-11-08",
+    "type": "dataset",
+    "accessed": "2026-11-08"
+  },
+  {
     "key": "naglSoK",
     "title": "SoK: Grading Open-Text Legal Answers, from Law School Exams to Trustworthy Rubric Judges",
     "authors": [

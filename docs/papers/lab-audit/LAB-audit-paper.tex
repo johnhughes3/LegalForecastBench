@@ -421,12 +421,46 @@ The key result of this audit is that a meaningful minority of the audited rubric
 \subsection{Legal benchmark rankings may be unreliable}
 \label{sec:scores}
 
-The audit raises questions about how reliably current legal benchmarks can distinguish between frontier models. Even using the conservative lower bound of the 95\% confidence interval, my analysis suggests that \labDefectiveShare\% of the public LAB litigation criteria and \lrbDefectiveShareLB\% of LegalReasonBench's had defects. In the recovered October 7, 2026 snapshot of Artificial Analysis's LAB-AA v1.0 results, the difference in criterion pass rate between the top-ranked model and the 17th-ranked model (GPT-5.6 Luna, a small, inexpensive model) was 7.58 percentage points \citep{labAAv1snapshot}.\footnote{This ranking counts each of the 43 models once, using its highest-scoring configuration. Muse Spark 1.3 (xhigh) scored 95.48\%; GPT-5.6 Luna (max) scored 87.90\%.}
-By comparison, leading models on the private LAB leaderboard are separated by only a few points of criterion pass rate \citep{labAAboard}. If even a modest portion of the defects penalizes one model more than another, correcting them could plausibly change a close ordering. The audit does not establish a ranking reversal or measure the error rate of the private holdout. It does establish enough defects in the public samples that a small score advantage should not, by itself, be taken as evidence of better legal performance.
+The audit raises questions about how reliably current legal benchmarks can distinguish between frontier models. Table~\ref{tab:defects-and-spreads} separates the estimated prevalence of defective criteria from the published score spreads. Even the conservative lower bounds exceed the gaps among the four leading models on each benchmark. If even a small portion of the defects end up penalizing one model more than another, correcting them could conceivably change the rankings.
 
-This concern is consistent with an anecdotal observation: the models that top rubric-based legal comparisons do not necessarily match those vertical AI providers choose for production. Production choices also reflect cost, speed, and integration, so the mismatch is not itself proof that a ranking is wrong. It is a reason to ask what the score captures that matters in practice.
+\begin{table}[htbp]
+\centering\small
+\caption{Rubric defect estimates and published leaderboard spreads. Defect shares count criteria; score gaps measure differences in model performance against the published rubrics.}
+\label{tab:defects-and-spreads}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{.40\linewidth}>{\centering\arraybackslash}p{.28\linewidth}>{\centering\arraybackslash}p{.28\linewidth}@{}}
+\toprule
+ & Harvey LAB & LegalReasonBench \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{A. Defect estimates: audited public litigation criteria}} \\
+Criteria in audited scope & \labCriteria{} & \lrbCriteria{} \\
+Estimated defective share & \labDefectivePointShare\% & \lrbDefectivePointShare\% \\
+Two-sided 95\% confidence interval & 12.5--23.9\% & 24.0--32.4\% \\
+One-sided 95\% lower bound & \labDefectiveShare\% & \lrbDefectiveShareLB\% \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{B. Published scores: full leaderboards}} \\
+Score metric & Criterion pass rate & Weighted reward \\
+Models listed & 43 & 9 \\
+Highest score & 95.48\% & 50.83\% \\
+Lowest score & 13.89\% & 31.95\% \\
+Highest-to-lowest gap & 81.59 pp & 18.89 pp \\
+First-to-fourth gap & 1.93 pp & 10.39 pp \\
+GPT-5.6 Luna rank & 17 of 43 & Not listed \\
+GPT-5.6 Luna score & 87.90\% & --- \\
+Leader's gap to GPT-5.6 Luna & 7.58 pp & --- \\
+\bottomrule
+\end{tabular}
 
-LAB's all-pass rule creates a further problem. A single defective requirement can fail an otherwise excellent response. In the two diagnostic runs in Appendix~\ref{app:native}, criterion pass rates of 83.8\% and 90.8\% corresponded to all-pass rates, averaged across the two judges, of 1.9\% and 2.9\%. The audit does not establish how many of those task failures the defects caused. But a low all-pass rate cannot simply be read as the distance between a model and competent legal work: some of the remaining requirements ask the model to do something a good lawyer should avoid. Readers need to know what the model failed, not just how many requirements it failed.
+\smallskip
+\begin{minipage}{\linewidth}\footnotesize
+\textit{Notes.} pp = percentage points. Panel A estimates defects within the AI-flagged frame as a share of all audited criteria. Exact hypergeometric intervals cover sampling uncertainty conditional on the author's verdicts; they do not bound defects among unflagged criteria. The two-sided intervals correspond to 358--683 defective LAB criteria and 43--58 defective LRB criteria. Panel B covers broader benchmark populations, including held-out tasks; these defect shares are not estimates of score error. LAB-AA v1.0 uses the October 7, 2026 snapshot, with each model's highest-scoring configuration \citep{labAAv1snapshot}. LRB uses the October 26 leaderboard, captured November 8, with unrounded scores from its accompanying report; Argon answered revised versions of 17 matters, so the gaps are descriptive, not matched-version comparisons \citep{micro1LRB,lrbLeaderboardSnapshot}.
+\end{minipage}
+\end{table}
+
+LAB's all-pass rule can also magnify the impact of small defects, because a single defective requirement can result in an otherwise excellent response receiving a failing grade. In our audit, GPT-6 Luna failed 59.4\% of the defective LAB criteria, while Opus failed 34.4\%, but the difference was not statistically significant (p=0.117). In the two diagnostic runs in Appendix~\ref{app:native}, criterion pass rates of 83.8\% and 90.8\% corresponded to all-pass rates, averaged across the two judges, of 1.9\% and 2.9\%.
+
+The observation is consistent with anecdotal observations: Harvey's product allows lawyers to choose from a variety of models from Anthropic, OpenAI, and Google in the model picker, and anecdotally, many lawyers who use AI frequently identify models from one of those labs as their preferred choice--generally preferring them to current-generation models from Meta or SpaceXAI, which currently have the highest ratings. That anecdotal data should not be taken out of context; a vertical AI company may consider a variety of factors like user familiarity/demand, cost, speed, and existing integrations--and we have not endeavored to do a blinded or systematic analysis of lawyer preferences. Nevertheless, the audit makes it at least plausible to consider whether some of the reported difference in models could reflect the extraordinary difficulty of reducing legal judgment to rubrics and some defective criteria. The rubrics may still provide valuable information, but it may be that they are best understood as one part of a broader range of information that should be considered in identifying the best model.
 
 \subsection{Some rewards favor worse lawyering}
 \label{sec:training}
@@ -509,6 +543,8 @@ These audits identify substantive failures in the criteria used to evaluate lega
 \bibitem{appliedCompute} Applied Compute. Case study: Harvey. \emph{Applied Compute}, 2026. \url{https://www.appliedcompute.com/case-studies/harvey}.
 
 \bibitem{micro1LRB} micro1. LegalReasonBench: methodology and results. \emph{micro1}, 2026. \url{https://www.micro1.ai/benchmark/legal-reason-bench}.
+
+\bibitem{lrbLeaderboardSnapshot} micro1. LegalReasonBench: published leaderboard and paired comparisons. \emph{Leaderboard labeled October 26, 2026; retrieved November 8, 2026}. Preserved numerical extract of the nine-model leaderboard and accompanying eight-model report, with original source links: \url{https://github.com/johnhughes3/LegalForecastBench/tree/8c916227353e46248b4d03d528abec3dbf82bdb5/site/public/data/lab-audit/legalreasonbench-2026-11-08}.
 
 \bibitem{labAAboard} Artificial Analysis. Harvey LAB-AA evaluation results (v1.1). \emph{Leaderboard, accessed October 26, 2026}. \url{https://artificialanalysis.ai/evaluations/harvey-lab-aa}.
 
