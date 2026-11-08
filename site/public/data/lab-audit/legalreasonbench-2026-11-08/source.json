@@ -1,0 +1,23 @@
+{
+	"title": "LegalReasonBench (micro1): published leaderboard and paired comparisons",
+	"source_url": "https://www.micro1.ai/benchmark/legal-reason-bench",
+	"retrieved_date": "2026-11-08",
+	"widget_last_updated": "October 26, 2026",
+	"current_widget_models": 9,
+	"original_report_models": 8,
+	"matters": 50,
+	"runs_per_model_per_matter": 3,
+	"score": "Mean across matters of the mean of three weighted rubric rewards, including signed penalties. Not an unweighted criterion pass rate.",
+	"extraction": {
+		"leaderboard.csv": "Embedded window.benchmarks_data[\"legal-reason-bench\"] mean and best-at-3 tabs; displayed percentages. Position preserves widget row order; equal rounded scores are not necessarily exact ties.",
+		"original-report.csv": "Embedded MODELS, LABELS, and chart-headline arrays; unrounded means and bootstrap confidence intervals on the 0-to-1 reward scale.",
+		"paired-comparisons.csv": "The report table cells and their title attributes; differences and intervals on the 0-to-1 reward scale, rounded as published."
+	},
+	"qualifications": [
+		"The page says Kimi K3.1 Pro was added after the original report. The original report has no Kimi confidence interval or pairwise comparisons.",
+		"Gemini 4 Argon answered revised versions of 17 of 50 matters. Pairwise comparisons restrict to shared matching-version matters; Muse Spark comparisons also have varying matching-version counts.",
+		"No Luna model is listed in either captured leaderboard.",
+		"The captured leaderboard concerns the full 50-matter benchmark. The audit concerns 179 criteria in 11 public litigation assignments across four matters at dataset revision 1bfa904c8f255925baf2610c0f86aa7c05d94ed9. No exact revision mapping from that public release to each leaderboard run is disclosed here.",
+		"Our 25.1% conservative defect bound and 29.6% point estimate count criteria. They are not estimates of the percentage of rubric weight affected or the change in leaderboard scores."
+	]
+}
