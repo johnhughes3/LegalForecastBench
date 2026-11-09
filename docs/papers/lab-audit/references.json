@@ -142,38 +142,29 @@
     "notes": "Not fetched during the October 26, 2026 revision; verify the wording before relying on it."
   },
   {
-    "key": "harveyPreference",
-    "title": "Augmenting Human Preference in Complex Domains",
-    "authors": [
-      "Julio Pereyra"
-    ],
-    "year": 2026,
-    "venue": "Harvey",
-    "url": "https://www.harvey.ai/blog/augmenting-human-preference-in-complex-domains",
-    "type": "company report",
-    "accessed": "2026-10-26",
-    "notes": "24 LAB tasks, 3 lawyers per task; Fleiss kappa 0.129; the Tenet Elo and preference figures are GRM-predicted."
-  },
-  {
     "key": "harveyTenet",
-    "title": "Post-Training Update: Harvey Tenet (research preview)",
+    "title": "Harvey Tenet Research Preview",
     "authors": [
-      "Harvey"
+      "Calvin Qi",
+      "Vasudha Rengarajan",
+      "Julio Pereyra",
+      "Niko Grupen",
+      "Gabe Pereyra"
     ],
     "year": 2026,
-    "venue": "Harvey",
+    "venue": "Harvey, August 20, 2026",
     "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
     "type": "company report",
     "accessed": "2026-10-26"
   },
   {
     "key": "appliedCompute",
-    "title": "Case study: Harvey",
+    "title": "Training a State-of-the-Art Legal Agent with Harvey",
     "authors": [
       "Applied Compute"
     ],
     "year": 2026,
-    "venue": "Applied Compute",
+    "venue": "Case study, June 22, 2026",
     "url": "https://www.appliedcompute.com/case-studies/harvey",
     "type": "company report",
     "accessed": "2026-10-26"
@@ -327,5 +318,276 @@
     "venue": "arXiv:2305.18290",
     "url": "https://arxiv.org/abs/2305.18290",
     "type": "research paper"
+  },
+  {
+    "key": "rubricGenerality",
+    "title": "Are the LAB and LegalReasonBench litigation rubrics task-specific? Classification of a seeded random sample of 120 LAB criteria and all 179 LegalReasonBench criteria",
+    "authors": [
+      "AI classification agent, coordinated by the author"
+    ],
+    "year": 2026,
+    "venue": "AI-generated research artifact, November 8, 2026",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/papers/lab-audit/analysis/rubric-generality-check.md",
+    "type": "primary artifact",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "harveyBaseten",
+    "title": "Post-Training Open Legal Agents With Baseten Research",
+    "authors": [
+      "Niko Grupen",
+      "Gabe Pereyra",
+      "Spencer Poff",
+      "Julio Pereyra",
+      "Charlie O'Neill",
+      "Mudith Jayasekara",
+      "Matthew Blau",
+      "Aaron Ellis-Bloor"
+    ],
+    "year": 2026,
+    "venue": "Harvey, May 27, 2026",
+    "url": "https://www.harvey.ai/blog/post-training-open-legal-agents-with-baseten-research",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "harveyDiligence",
+    "title": "Post-Training RLM Agents for End-to-End M&A Diligence",
+    "authors": [
+      "Niko Grupen",
+      "Julio Pereyra",
+      "Gabe Pereyra",
+      "Charlie O'Neill",
+      "Mudith Jayasekara",
+      "Aaron Ellis-Bloor",
+      "Jonathon Liu",
+      "Matthew Blau"
+    ],
+    "year": 2026,
+    "venue": "Harvey, September 8, 2026",
+    "url": "https://www.harvey.ai/blog/post-training-rlm-agents-for-m-and-a-diligence",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "trajectoryNemotronSuper",
+    "title": "The Sovereign Path for Continual Learning: Early Results on Harvey LAB with NVIDIA Nemotron",
+    "authors": [
+      "Jerry Chan"
+    ],
+    "year": 2026,
+    "venue": "Trajectory field notes, May 29, 2026",
+    "url": "https://www.trajectory.ai/field-notes/the-sovereign-path-for-continual-agent-learning-early-results-on-harvey-lab-with-nvidia-nemotron",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "trajectoryNemotronUltra",
+    "title": "Post-Training NVIDIA Nemotron 3 Ultra on Harvey LAB in Under 24 Hours",
+    "authors": [
+      "Jerry Chan"
+    ],
+    "year": 2026,
+    "venue": "Trajectory field notes, June 9, 2026",
+    "url": "https://www.trajectory.ai/field-notes/harvey-nemotron-3-ultra",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "adaptionLabs",
+    "title": "A Better Harness Can Unlock Smaller Models",
+    "authors": [
+      "Dhruv Naik",
+      "Sudip Roy"
+    ],
+    "year": 2026,
+    "venue": "Adaption Labs, September 9, 2026",
+    "url": "https://adaptionlabs.ai/blog/a-better-harness-can-unlock-smaller-models",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "mercorFoody",
+    "title": "How RL Environments Are Built, and Why They're Your AI Moat",
+    "authors": [
+      "Brendan Foody"
+    ],
+    "year": 2026,
+    "venue": "Sequoia Capital, Own Your Intelligence, August 2026",
+    "url": "https://sequoiacap.com/podcast/how-rl-environments-are-built-and-why-they-re-your-ai-moat",
+    "type": "video",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "xaiGrok47",
+    "title": "Introducing Grok 4.7",
+    "authors": [
+      "xAI (SpaceXSI)"
+    ],
+    "year": 2026,
+    "venue": "Release announcement, September 21, 2026",
+    "url": "https://x.ai/news/grok-4-7",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "googleGemini4Argon",
+    "title": "Gemini 4 Argon: our next era of frontier intelligence",
+    "authors": [
+      "Google DeepMind"
+    ],
+    "year": 2026,
+    "venue": "Blog post and model evaluation methodology, September 30, 2026",
+    "url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "anthropicOpus55Card",
+    "title": "Claude Opus 5.5 System Card, §8.14.2 (Legal Agent Benchmark)",
+    "authors": [
+      "Anthropic"
+    ],
+    "year": 2026,
+    "venue": "System card, September 22, 2026",
+    "url": "https://anthropic.com/claude-opus-5-5-system-card",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "metaMuseWonder",
+    "title": "Muse Wonder: A Frontier Model for Personal and Professional AI Agents",
+    "authors": [
+      "Meta"
+    ],
+    "year": 2026,
+    "venue": "Release post and model card, October 12, 2026",
+    "url": "https://research.meta.ai/blog/muse-wonder",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "mistralLarge4",
+    "title": "Introducing Mistral Large 4",
+    "authors": [
+      "Mistral AI"
+    ],
+    "year": 2026,
+    "venue": "Release announcement, October 6, 2026",
+    "url": "https://mistral.ai/news/mistral-large-4/",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "charlotinDatabase",
+    "title": "AI Hallucination Cases Database",
+    "authors": [
+      "Damien Charlotin"
+    ],
+    "year": 2026,
+    "venue": "Database of court and tribunal decisions, last updated November 5, 2026",
+    "url": "https://www.damiencharlotin.com/hallucinations/",
+    "type": "dataset",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "geirhosShortcut",
+    "title": "Shortcut Learning in Deep Neural Networks",
+    "authors": [
+      "Robert Geirhos",
+      "Jörn-Henrik Jacobsen",
+      "Claudio Michaelis",
+      "Richard Zemel",
+      "Wieland Brendel",
+      "Matthias Bethge",
+      "Felix A. Wichmann"
+    ],
+    "year": 2020,
+    "venue": "Nature Machine Intelligence 2:665-673, 2020",
+    "url": "https://arxiv.org/abs/2004.07780",
+    "type": "paper"
+  },
+  {
+    "key": "skalseRewardHacking",
+    "title": "Defining and Characterizing Reward Hacking",
+    "authors": [
+      "Joar Skalse",
+      "Nikolaus H. R. Howe",
+      "Dmitrii Krasheninnikov",
+      "David Krueger"
+    ],
+    "year": 2022,
+    "venue": "Advances in Neural Information Processing Systems 35 (NeurIPS 2022)",
+    "url": "https://arxiv.org/abs/2209.13085",
+    "type": "paper"
+  },
+  {
+    "key": "mahmoudRubricHacking",
+    "title": "Reward Hacking in Rubric-Based Reinforcement Learning",
+    "authors": [
+      "Anas Mahmoud",
+      "MohammadHossein Rezaei",
+      "Zihao Wang",
+      "Anisha Gunjal",
+      "Bing Liu",
+      "Yunzhong He"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.12474, May 12, 2026",
+    "url": "https://arxiv.org/abs/2605.12474",
+    "type": "paper"
+  },
+  {
+    "key": "yangRubricDropout",
+    "title": "Rubric Dropout: A Simple Way to Mitigate Reward Hacking in Rubric-Based RL",
+    "authors": [
+      "Minglai Yang",
+      "Xinyu Guo",
+      "Zhengliang Shi",
+      "Utkarsh Tyagi",
+      "Mian Zhang",
+      "Razvan Dumitru",
+      "Sunjie Hou",
+      "Yunzhong He",
+      "Daniel Yue Zhang",
+      "Dan Roth",
+      "Ying Liu"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2608.11669, August 12, 2026 (revised October 21, 2026)",
+    "url": "https://arxiv.org/abs/2608.11669",
+    "type": "paper"
+  },
+  {
+    "key": "legalbench",
+    "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
+    "authors": [
+      "Neel Guha",
+      "Julian Nyarko",
+      "Daniel E. Ho",
+      "Christopher Ré",
+      "Adam Chilton",
+      "et al."
+    ],
+    "year": 2023,
+    "venue": "Advances in Neural Information Processing Systems 36 (NeurIPS 2023), Datasets and Benchmarks Track, 2023",
+    "url": "https://arxiv.org/abs/2308.11462",
+    "type": "paper"
+  },
+  {
+    "key": "sycophancy",
+    "title": "Towards Understanding Sycophancy in Language Models",
+    "authors": [
+      "Mrinank Sharma",
+      "Meg Tong",
+      "Tomasz Korbak",
+      "David Duvenaud",
+      "Amanda Askell",
+      "et al."
+    ],
+    "year": 2024,
+    "venue": "International Conference on Learning Representations (ICLR 2024), 2024",
+    "url": "https://arxiv.org/abs/2310.13548",
+    "type": "paper"
   }
 ]
