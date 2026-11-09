@@ -12,15 +12,11 @@
 \urlstyle{same}
 \captionsetup{font=small,labelfont=bf}
 % Drafting markers. A line starting with % TODO is visible only in the source.
-% Colored macros mark provisional prose. For a clean PDF, redefine \draft,
-% \checkcite, \checknum, \authornote, and \pending to return their argument unchanged.
+% Colored macros mark provisional prose. For a clean PDF, redefine \draft and
+% \pending to return their argument unchanged.
 \newcommand{\draft}[1]{\textcolor{red}{#1}}
-\newcommand{\checkcite}[1]{\textcolor{blue}{#1}}
-\newcommand{\checknum}[1]{\textcolor{orange}{#1}}
-% Bracketed questions from the author to reviewers; delete once resolved.
-\newcommand{\authornote}[1]{\textcolor{purple}{[Author note: #1]}}
 % Statements describing Harvey's comments or its response to the audit, pending Harvey's review
-% of the wording. Redefine to the identity, with \draft, \checkcite, and \checknum, for a clean PDF.
+% of the wording.
 \newcommand{\pending}[1]{\textcolor{teal}{#1}}
 % A criterion quoted verbatim from Harvey's LAB task files: an indented block with a
 % label above and the source below, so quoted text is never mistaken for the author's.
@@ -131,7 +127,7 @@
 
 \begin{document}
 \maketitle
-\begin{center}\small\fbox{\parbox{0.9\linewidth}{\textbf{Note on this draft.} Colored text marks passages that are not final. \textcolor{red}{Red} is provisional prose that I am still revising. \textcolor{teal}{Teal} describes comments Harvey made on earlier drafts, or steps Harvey has taken in response to the audit; those passages are my characterizations, Harvey has not yet reviewed the wording, and I ask that they not be quoted. \textcolor{blue!45!black}{Blue} marks a citation and \textcolor{orange}{orange} a number that I am still verifying. The verdicts, counts, and bounds in black are final as of this draft.}}\end{center}
+\begin{center}\small\fbox{\parbox{0.9\linewidth}{\textbf{Note on this draft.} Colored text marks passages that are not final. \textcolor{red}{Red} is provisional prose that I am still revising. \textcolor{teal}{Teal} describes comments Harvey made on earlier drafts, or steps Harvey has taken in response to the audit; those passages are my characterizations, Harvey has not yet reviewed the wording, and I ask that they not be quoted. The verdicts, counts, and bounds in black are final as of this draft.}}\end{center}
 \begin{abstract}
 Legal AI benchmarks now double as training environments. Harvey's Legal Agent Benchmark (LAB) and micro1's LegalReasonBench grade AI-drafted legal work against rubrics written by lawyers, and rubrics of the same kind are used as reinforcement-learning rewards. I audited the litigation portions of both public releases. AI auditors screened every criterion (\labCriteria{} in LAB's \labTasks{} litigation tasks; \lrbCriteria{} in LegalReasonBench's \lrbAssignments{} litigation assignments), and I reviewed a random sample of \labSample{} flagged criteria from each under sampling protocols committed before the draws. In LAB, \labDefective{} of \labSample{} sampled criteria were defective, \labObjective{} of them objective errors in which the record, the law, or the arithmetic contradicts the rubric. In LegalReasonBench, \lrbDefective{} of \lrbSample{} were defective, \lrbObjective{} objective. Within the flagged sets, at least \labDefectiveLB{} LAB criteria (\labDefectiveShare\% of all litigation criteria) and at least \lrbDefectiveLB{} LegalReasonBench criteria (\lrbDefectiveShareLB\%) are defective, each at 95\% confidence, and at least \labObjectiveLB{} and \lrbObjectiveLB{} of them, about 6\% of each benchmark's litigation criteria, are objective errors.
 
