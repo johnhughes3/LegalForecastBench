@@ -83,3 +83,15 @@ def test_defective_criterion_grades_and_paired_test() -> None:
     ) == (19, 11, 32)
     assert (stats["against_luna"], stats["against_opus"]) == (6, 2)
     assert stats["paired_p"] == "0.117"
+
+
+def test_population_grade_failures_cover_every_criterion_four_times() -> None:
+    stats = lab_review.statistics(lab_review._sampler())
+    assert (
+        stats["flagged_grades"] + stats["unflagged_grades"]
+        == 4 * stats["criteria_total"]
+    )
+    assert (stats["flagged_grade_fails"], stats["flagged_grades"]) == (819, 3340)
+    assert (stats["unflagged_grade_fails"], stats["unflagged_grades"]) == (723, 8092)
+    assert stats["flagged_grade_fail_pct"] == "24.5"
+    assert stats["unflagged_grade_fail_pct"] == "8.9"

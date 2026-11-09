@@ -156,6 +156,46 @@ def defective_run_grades(
     }
 
 
+def population_grade_failures(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Failed judge grades on flagged versus unflagged criteria, over both native runs.
+
+    LAB grades every criterion separately for each judge and averages the judges, so
+    one judge's grade on one criterion for one run is the scoring unit; every criterion
+    contributes four grades here (two judges, two runs). A criterion is flagged if the
+    comparison gives it an agreement bucket, the same frame the sample was drawn from.
+    """
+    flagged = {(r["task"], r["criterion"]) for r in rows if r["bucket"]}
+    fails: dict[tuple[bool, str], int] = {}
+    grades: dict[tuple[bool, str], int] = {}
+    for task_dir in sorted((AUDIT / "model-runs").iterdir()):
+        if not task_dir.is_dir():
+            continue
+        for cond in CONDITIONS:
+            for judge in JUDGES:
+                results = json.loads(
+                    (task_dir / cond / judge).read_text(encoding="utf-8")
+                )
+                for r in results["criteria_results"]:
+                    key = ((task_dir.name, r["id"]) in flagged, cond)
+                    grades[key] = grades.get(key, 0) + 1
+                    fails[key] = fails.get(key, 0) + (r["verdict"] == "fail")
+    out: dict[str, Any] = {}
+    for name, is_flagged in (("flagged", True), ("unflagged", False)):
+        f = sum(fails[(is_flagged, c)] for c in CONDITIONS)
+        n = sum(grades[(is_flagged, c)] for c in CONDITIONS)
+        out[f"{name}_grades"] = n
+        out[f"{name}_grade_fails"] = f
+        out[f"{name}_grade_fail_pct"] = f"{100 * f / n:.1f}"
+        for model, cond in (("luna", CONDITIONS[0]), ("opus", CONDITIONS[1])):
+            pct = 100 * fails[(is_flagged, cond)] / grades[(is_flagged, cond)]
+            out[f"{model}_{name}_grade_fail_pct"] = f"{pct:.1f}"
+    all_fails = out["flagged_grade_fails"] + out["unflagged_grade_fails"]
+    out["flagged_fail_share_pct"] = (
+        f"{100 * out['flagged_grade_fails'] / all_fails:.1f}"
+    )
+    return out
+
+
 def statistics(sampler: Any) -> dict[str, Any]:
     rows: list[dict[str, Any]] = json.loads(
         (AUDIT / "comparison.json").read_text(encoding="utf-8")
@@ -215,6 +255,7 @@ def statistics(sampler: Any) -> dict[str, Any]:
         ),
     }
     stats.update(defective_run_grades(sample, verdict))
+    stats.update(population_grade_failures(rows))
     for key in ("defective", "objective", "env_items", "any_defect"):
         stats[f"{key}_lb"] = sampler.lower_bound(flagged, n, stats[key])
         stats[f"{key}_point"] = round(stats[key] * flagged / n)
@@ -267,6 +308,17 @@ MACROS = {
     "against_luna": "labAgainstLuna",
     "against_opus": "labAgainstOpus",
     "paired_p": "labPairedP",
+    "flagged_grades": "labFlaggedGrades",
+    "flagged_grade_fails": "labFlaggedGradeFails",
+    "flagged_grade_fail_pct": "labFlaggedGradeFailPct",
+    "unflagged_grades": "labUnflaggedGrades",
+    "unflagged_grade_fails": "labUnflaggedGradeFails",
+    "unflagged_grade_fail_pct": "labUnflaggedGradeFailPct",
+    "luna_flagged_grade_fail_pct": "labLunaFlaggedGradeFailPct",
+    "luna_unflagged_grade_fail_pct": "labLunaUnflaggedGradeFailPct",
+    "opus_flagged_grade_fail_pct": "labOpusFlaggedGradeFailPct",
+    "opus_unflagged_grade_fail_pct": "labOpusUnflaggedGradeFailPct",
+    "flagged_fail_share_pct": "labFlaggedFailSharePct",
 }
 
 
