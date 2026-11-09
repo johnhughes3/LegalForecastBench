@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import itertools
 import json
 import re
 import sys
@@ -98,6 +99,63 @@ def items(worksheet: str) -> list[dict[str, Any]]:
     return out
 
 
+JUDGES = ("scores_claude-sonnet-4-6.json", "scores_gpt-5.5.json")
+CONDITIONS = ("gpt6luna-xhigh", "opus55-low")
+
+
+def defective_run_grades(
+    sample: list[dict[str, Any]], verdict: dict[int, str]
+) -> dict[str, Any]:
+    """LAB's judge grades on the defective sampled criteria in the two native runs.
+
+    Loss on a criterion is the mean of the two judges' fail indicators (0, 0.5, or 1).
+    The paired test sign-flips each criterion's Luna-minus-Opus loss difference and
+    enumerates every flip of the nonzero differences; p is the two-sided share whose
+    absolute sum reaches the observed one. The 32 criterion-judge grades are not
+    independent (both judges graded one response, and both models were graded on one
+    criterion), so this criterion-level paired test is the one the paper reports.
+    """
+    fails = dict.fromkeys(CONDITIONS, 0)
+    diffs: list[float] = []
+    for i, row in enumerate(sample, 1):
+        if verdict[i] != "Defective":
+            continue
+        loss: dict[str, float] = {}
+        for cond in CONDITIONS:
+            run = AUDIT / "model-runs" / row["task"] / cond
+            failed = []
+            for judge in JUDGES:
+                results = json.loads((run / judge).read_text(encoding="utf-8"))
+                grade = next(
+                    r["verdict"]
+                    for r in results["criteria_results"]
+                    if r["id"] == row["criterion"]
+                )
+                failed.append(grade == "fail")
+            fails[cond] += sum(failed)
+            loss[cond] = sum(failed) / len(failed)
+        diffs.append(loss[CONDITIONS[0]] - loss[CONDITIONS[1]])
+    nonzero = [d for d in diffs if d]
+    observed = abs(sum(diffs))
+    hits = sum(
+        1
+        for signs in itertools.product((1, -1), repeat=len(nonzero))
+        if abs(sum(s * d for s, d in zip(signs, nonzero, strict=True)))
+        >= observed - 1e-9
+    )
+    grades = 2 * len(diffs)
+    return {
+        "luna_defective_fails": fails[CONDITIONS[0]],
+        "opus_defective_fails": fails[CONDITIONS[1]],
+        "defective_grades": grades,
+        "luna_defective_fail_pct": f"{100 * fails[CONDITIONS[0]] / grades:.1f}",
+        "opus_defective_fail_pct": f"{100 * fails[CONDITIONS[1]] / grades:.1f}",
+        "against_luna": sum(1 for d in diffs if d > 0),
+        "against_opus": sum(1 for d in diffs if d < 0),
+        "paired_p": f"{hits / 2 ** len(nonzero):.3f}",
+    }
+
+
 def statistics(sampler: Any) -> dict[str, Any]:
     rows: list[dict[str, Any]] = json.loads(
         (AUDIT / "comparison.json").read_text(encoding="utf-8")
@@ -156,6 +214,7 @@ def statistics(sampler: Any) -> dict[str, Any]:
             lambda i: i not in both and verdict[i] == "Defective"
         ),
     }
+    stats.update(defective_run_grades(sample, verdict))
     for key in ("defective", "objective", "env_items", "any_defect"):
         stats[f"{key}_lb"] = sampler.lower_bound(flagged, n, stats[key])
         stats[f"{key}_point"] = round(stats[key] * flagged / n)
@@ -200,6 +259,14 @@ MACROS = {
     "env_items_point": "labEnvPoint",
     "any_defect_lb": "labAnyLB",
     "any_defect_point": "labAnyPoint",
+    "luna_defective_fails": "labLunaDefectiveFails",
+    "opus_defective_fails": "labOpusDefectiveFails",
+    "defective_grades": "labDefectiveGrades",
+    "luna_defective_fail_pct": "labLunaDefectiveFailPct",
+    "opus_defective_fail_pct": "labOpusDefectiveFailPct",
+    "against_luna": "labAgainstLuna",
+    "against_opus": "labAgainstOpus",
+    "paired_p": "labPairedP",
 }
 
 
