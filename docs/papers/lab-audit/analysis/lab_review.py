@@ -123,11 +123,13 @@ def defective_run_grades(
         loss: dict[str, float] = {}
         for cond in CONDITIONS:
             run = AUDIT / "model-runs" / row["task"] / cond
-            failed = []
+            failed: list[bool] = []
             for judge in JUDGES:
-                results = json.loads((run / judge).read_text(encoding="utf-8"))
-                grade = next(
-                    r["verdict"]
+                results: dict[str, Any] = json.loads(
+                    (run / judge).read_text(encoding="utf-8")
+                )
+                grade: str = next(
+                    str(r["verdict"])
                     for r in results["criteria_results"]
                     if r["id"] == row["criterion"]
                 )
