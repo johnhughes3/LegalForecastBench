@@ -5,6 +5,7 @@
 \usepackage{amsmath,amssymb,booktabs,array,longtable}
 \PassOptionsToPackage{svgnames}{xcolor}
 \usepackage{graphicx,xcolor,tikz}
+\usepackage{colortbl}
 \usepackage{caption}
 \usepackage[numbers,sort&compress]{natbib}
 \PassOptionsToPackage{hyphens}{url}
@@ -19,6 +20,7 @@
 % Statements describing Harvey's comments or its response to the audit, pending Harvey's review
 % of the wording.
 \newcommand{\pending}[1]{\textcolor{teal}{#1}}
+\newcommand{\faintrule}{\arrayrulecolor{black!25}\specialrule{0.3pt}{3pt}{3pt}\arrayrulecolor{black}}
 % A criterion quoted verbatim from Harvey's LAB task files: an indented block with a
 % label above and the source below, so quoted text is never mistaken for the author's.
 \newenvironment{labquote}[1]{\def\labquotesource{#1}\begin{quote}\small
@@ -508,38 +510,38 @@ Nevertheless, the results suggest that it could be valuable to try to isolate th
 Exacerbating the difficulty of isolating the effect of legal-domain training is that many providers use one set of LAB tasks as training signal, and then evaluate the model's improvement based largely on its performance on a held-out set of LAB tasks. Examples are collected in Table~\ref{tab:same-benchmark}. This proves that legal-domain training changes the models' outputs in ways that generalize beyond the specific tasks that they were trained on. The problem is that the rubrics are only a proxy for what providers are really trying to accomplish, namely, higher-quality legal output---and evaluating models that have been trained on LAB tasks only on a held-out set of LAB tasks does not provide any evidence that the rubrics themselves are valid or improving underlying legal capabilities. Just as a teacher might improve students' scores a few points by teaching them "tricks" to do well on a standardized test, training on LAB could make models better at scoring well on LAB without meaningfully improving the underlying legal capabilities. We ideally would want to see extrinsic evidence, from lawyer preference scores or perhaps a range of legal benchmarks that are constructed in a completely different way and that involve meaningfully different challenges to be confident that the training improved underlying legal capabilities and not merely a proxy. Several authors have previously noted the danger of relying on essentially the same rubrics as proof that a given training signal is useful \citep{geirhosShortcut,gaoOveropt,skalseRewardHacking,mahmoudRubricHacking,yangRubricDropout}. In the legal domain, that problem is currently widespread because there are so few rigorous benchmarks that challenge the models at the relevant frontier.
 
 \begin{table}[htbp]
-\centering\footnotesize
+\centering\small
 \caption{\draft{Published reports of legal post-training gains, and whether any evidence outside the training benchmark was offered.}}
 \label{tab:same-benchmark}
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.05}
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{.18\linewidth}>{\raggedright\arraybackslash}p{.24\linewidth}>{\raggedright\arraybackslash}p{.25\linewidth}>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.06\linewidth}@{}}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{.20\linewidth}>{\raggedright\arraybackslash}p{.23\linewidth}>{\raggedright\arraybackslash}p{.23\linewidth}>{\raggedright\arraybackslash}p{.21\linewidth}>{\raggedright\arraybackslash}p{.06\linewidth}@{}}
 \toprule
 Report & Training signal & Gain reported on held-out tasks from the same benchmark & Other evidence of improvement presented & Source \\
 \midrule
-Harvey and Baseten Research; Qwen3.5-9B (May 2026) & RL on the public LAB tasks, split into training and hold-out sets; reward ``exclusively from the LAB rubric'' & Criterion pass rate 42.5\% to 63.0\% on the hold-out set after 40 training steps & None & \citep{harveyBaseten} \\
-\addlinespace[2pt]
-Harvey and Baseten Research; Qwen3.5-27B (May 2026) & Supervised fine-tuning on rubric-passing rollouts from teacher models given ``privileged access to the rubric'' & Criterion and all-pass rates brought ``into the closed-source frontier band'' on 120 LAB tasks & None & \citep{harveyBaseten} \\
-\addlinespace[2pt]
-Harvey and Trajectory; NVIDIA Nemotron 3 Super (May 2026) & Post-trained ``on our Legal Agent Benchmark (LAB)''; recipe not published & All-pass rate matched GPT-5.5; tasks passing about 30\% of the time rose to about 90\% & None & \citep{trajectoryNemotronSuper} \\
-\addlinespace[2pt]
-Harvey and Trajectory; Nemotron 3 Ultra (June 2026) & Same data and recipe as Nemotron 3 Super & All-pass rate 0\% to 5.8\% and criteria passed 52\% to 83\% on held-out LAB tasks & None & \citep{trajectoryNemotronUltra} \\
-\addlinespace[2pt]
-Applied Compute and Harvey; GLM-5.1 (June 2026) & Full-parameter RL with LAB rubric grading as the reward; harness and grader also changed & Rubric pass rate 0.853 to 0.913 and all-pass rate 0.059 to 0.126 on a 180-task held-out LAB split & None & \citep{appliedCompute} \\
-\addlinespace[2pt]
-Harvey Tenet; Kimi K3 (August 2026) & RL on about 1,750 environments that ``share the structure of'' LAB tasks & ``Almost twice as many held out tasks'' completed on the LAB hold-out set; all-pass rate up 9 points on LAB and 2 on LAB Contracts & Gains on Mercor's APEX Agents and Crosby's Redline Bench (both LLM-judged rubrics); no regression on LegalBench, CUAD, MAUD, or APEX v1 & \citep{harveyTenet} \\
-\addlinespace[2pt]
-Mercor; GLM 4.7 (August 2026) & RL on 1,800 APEX Agents tasks, Mercor's own rubric-graded environments & APEX Agents corporate-law score 4.7\% to 26.6\% & Generalization to GDPval and APEX v1 asserted; no figures published & \citep{mercorFoody} \\
-\addlinespace[2pt]
-Harvey and Baseten Research; Qwen3.5-122B-A10B orchestrator (September 2026) & RL ``using the judged rubric criteria pass rate as the reward'' on LAB Diligence data rooms & Criteria pass rate 29.9\% to 63.0\% on 50 held-out LAB Diligence data rooms & None & \citep{harveyDiligence} \\
-\addlinespace[2pt]
-Adaption Labs; Qwen3.6-27B (September 2026) & Supervised training on ``successful end-to-end trajectories'' from LAB training tasks, after harness changes & Criterion pass rate 85.92\% to 88.03\% and all-pass rate 5.67\% to 9.22\% on 140 held-out LAB tasks & None & \citep{adaptionLabs} \\
+\textbf{Harvey and Baseten Research}\newline Qwen3.5-9B, May 2026 & Reward ``exclusively from the LAB rubric'' & Criterion pass rate 42.5\% to 63.0\% on held-out LAB tasks & None & \citep{harveyBaseten} \\
+\faintrule
+\textbf{Harvey and Baseten Research}\newline Qwen3.5-27B, May 2026 & Fine-tuned on rubric-passing LAB rollouts & Brought ``into the closed-source frontier band'' on held-out LAB tasks & None & \citep{harveyBaseten} \\
+\faintrule
+\textbf{Harvey and Trajectory}\newline Nemotron 3 Super, May 2026 & Post-trained ``on our Legal Agent Benchmark (LAB)'' & All-pass rate matched GPT-5.5 on held-out LAB tasks & None & \citep{trajectoryNemotronSuper} \\
+\faintrule
+\textbf{Harvey and Trajectory}\newline Nemotron 3 Ultra, June 2026 & Same recipe as Nemotron 3 Super & All-pass rate 0\% to 5.8\% on held-out LAB tasks & None & \citep{trajectoryNemotronUltra} \\
+\faintrule
+\textbf{Applied Compute and Harvey}\newline GLM-5.1, June 2026 & LAB rubric grading as the RL reward & Rubric pass rate 0.853 to 0.913 on held-out LAB tasks & None & \citep{appliedCompute} \\
+\faintrule
+\textbf{Harvey Tenet}\newline Kimi K3, August 2026 & RL on environments that ``share the structure of'' LAB tasks & All-pass rate up 9 points on the LAB hold-out set & Gains on APEX Agents and Redline Bench, both rubric-graded; no regression on LegalBench, CUAD, MAUD, APEX v1 & \citep{harveyTenet} \\
+\faintrule
+\textbf{Mercor}\newline GLM 4.7, August 2026 & RL on 1,800 APEX Agents tasks & Corporate-law score 4.7\% to 26.6\% on APEX Agents & Generalization to GDPval and APEX v1 asserted, without figures & \citep{mercorFoody} \\
+\faintrule
+\textbf{Harvey and Baseten Research}\newline Qwen3.5-122B-A10B, September 2026 & ``Judged rubric criteria pass rate as the reward'' on LAB Diligence & Criteria pass rate 29.9\% to 63.0\% on held-out LAB Diligence data rooms & None & \citep{harveyDiligence} \\
+\faintrule
+\textbf{Adaption Labs}\newline Qwen3.6-27B, September 2026 & Trained on ``successful end-to-end trajectories'' from LAB tasks & Criterion pass rate 85.92\% to 88.03\% on held-out LAB tasks & None & \citep{adaptionLabs} \\
 \bottomrule
 \end{tabular}
 
 \smallskip
 \begin{minipage}{\linewidth}\footnotesize
-\draft{\textit{Notes.} RL = reinforcement learning. ``None'' means the report offers no evaluation outside the benchmark family used for training; figures are as each report states them. Harvey Tenet's other evidence comes from benchmarks of the same construction as LAB, expert rubrics scored by LLM judges, and its APEX Agents comparison ran in Harvey's own harness, which by itself raised the base model's score.}
+\draft{\textit{Notes.} RL = reinforcement learning. ``None'' means the report evaluates only on the benchmark family used for training. Harvey Tenet's other benchmarks share LAB's construction: expert rubrics scored by LLM judges.}
 \end{minipage}
 \end{table}
 
