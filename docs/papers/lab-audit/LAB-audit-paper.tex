@@ -201,22 +201,22 @@ Table~\ref{tab:main} reports the results. As noted, this analysis was designed a
 \begin{tabular}{lrr}\toprule
  & Harvey LAB & LegalReasonBench\\
  & public litigation tasks & public litigation assignments\\\midrule
-Audited scope & \labTasks{} tasks & \lrbAssignments{} assignments in 4 matters\\
+Scope of Audit & \labTasks{} tasks & \lrbAssignments{} assignments in 4 matters\\
 Criteria & \labCriteria{} & \lrbCriteria{}\\
-AI-flagged frame & \labFlagged{} & \lrbFlagged{}\\
-Human-reviewed sample & \labSample{} (\labSampleTasks{} tasks) & \lrbSample{} (\lrbSampleAssignments{} assignments)\\
+AI-flagged as problematic & \labFlagged{} & \lrbFlagged{}\\
+Lawyer-reviewed & \labSample{} (\labSampleTasks{} tasks) & \lrbSample{} (\lrbSampleAssignments{} assignments)\\
 \quad Defective & \labDefective{} & \lrbDefective{}\\
 \quad\quad of which objective error & \labObjective{} & \lrbObjective{}\\
 \quad\quad of which professional judgment & 7 & \lrbJudgment{}\\
 \quad Arguable & \labArguable{} & \lrbArguable{}\\
 \quad Not defective & \labNotDefective{} & \lrbNotDefective{}\\
 In a task environment with a defect & \labEnvItems{} & \lrbEnvItems{}\\
-Defective within frame, point estimate & \labDefectivePoint{} & \lrbDefectivePoint{}\\
-Defective within frame, 95\% lower bound & \labDefectiveLB{} & \lrbDefectiveLB{}\\
+Defective within audit scope, point estimate & \labDefectivePoint{} & \lrbDefectivePoint{}\\
+Defective within audit scope, 95\% lower bound & \labDefectiveLB{} & \lrbDefectiveLB{}\\
 \quad as a share of all audited criteria & \labDefectiveShare\% & \lrbDefectiveShareLB\%\\
-Objective errors within frame, lower bound & \labObjectiveLB{} & \lrbObjectiveLB{}\\
+Objective errors within audit scope, lower bound & \labObjectiveLB{} & \lrbObjectiveLB{}\\
 \bottomrule\end{tabular}
-\caption{Human review of random samples of AI-flagged criteria. The frames differ (Section~\ref{sec:design}); the lower bounds are exact one-sided 95\% hypergeometric bounds within each frame, conditional on the reviewer's verdicts. Point-estimate shares of all audited criteria are \labDefectivePointShare\% and \lrbDefectivePointShare\%.}
+\caption{Lawyer review of a random sample of AI-flagged criteria. The point estimate shares of all audited criteria that have defects are \labDefectivePointShare\% for LAB and \lrbDefectivePointShare\% for LegalReasonBench.}
 \label{tab:main}
 \end{table}
 
@@ -313,7 +313,7 @@ In LegalReasonBench's police-discipline matter, criterion 8 of the first assignm
 \textbf{Reward criterion, +28 points.} Identifies that the comparator memorandum's stated coverage years conflict with the dates of the cases it summarizes.
 \end{lrbquote}
 
-There does not seem to be any conflict. The memo says it covers calendar years 2018 through 2021. And the four cases it describes arose in August 2018, November 2019, May 2020, and March 2021 and were resolved between January 2019 and October 2021. So every date is inside the stated window. Both Luna and Opus correctly did not report a conflict and received zero of 28 points. A response that invented one would have been rewarded for it.
+There does not seem to be any conflict. The memo says it covers calendar years 2018 through 2021. And the four cases it describes arose in August 2018, November 2019, May 2020, and March 2021 and were resolved between January 2019 and October 2021. So every date is inside the stated window. Luna and Opus correctly did not report a conflict and thus received zero of 28 points, but a model that hallucinated some sort of conflict would have received a reward for doing so.
 
 \subsection{Misspecified tasks or incorrect requirements}
 \label{sec:stating}
