@@ -5,7 +5,7 @@ This directory holds two working papers by the same author. Each lives in its ow
 | Paper | Source | Committed PDF |
 | --- | --- | --- |
 | **Law as a Verifiable Domain: Using Real-World Judicial Outcomes to Evaluate AI Legal Reasoning** | [legalforecastbench/LegalForecastBench-paper.tex](legalforecastbench/LegalForecastBench-paper.tex) · [references](legalforecastbench/references.json) · [numerical inputs](legalforecastbench/data/empirical.json) | `site/public/paper/legalforecastbench-working.pdf` (served by the website) |
-| **Rules, Standards, and Rubrics: What Two Legal AI Benchmarks Reward** | [lab-audit/LAB-audit-paper.tex](lab-audit/LAB-audit-paper.tex) · [references](lab-audit/references.json) | `docs/papers/lab-audit/LAB-audit-paper.pdf` (not yet on the website) |
+| **When Good Lawyering Gets a Bad Score: An Audit of Two Legal AI Benchmarks** | [lab-audit/LAB-audit-paper.tex](lab-audit/LAB-audit-paper.tex) · [references](lab-audit/references.json) | `docs/papers/lab-audit/LAB-audit-paper.pdf` (not yet on the website) |
 
 The LegalForecastBench paper reports the twenty-one-configuration ranked comparison on 91 cases and 387 claim–defendant units, plus GPT-4.1 as an unranked reference in the 22-configuration comparison family. Sixteen ranked configurations meet the maintained cutoff-eligibility rule and five remain qualified because a usable cutoff is unavailable or unresolved. The paper also reports a separate summary experiment and the proposed outcome-feedback research direction. The four summary conditions are reported separately and are not in the main table. Draft annotations remain visible; a successful build is not a claim that the paper has completed scientific or editorial review.
 
