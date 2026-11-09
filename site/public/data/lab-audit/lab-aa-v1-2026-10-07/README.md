@@ -1,6 +1,6 @@
 # Harvey LAB-AA v1.0: October 7, 2026 snapshot
 
-This numerical extract preserves the historical comparison cited in *Rules, Standards, and Rubrics: What Two Legal AI Benchmarks Reward*. Artificial Analysis produced the benchmark results. We recovered this copy from [Village LLM Atlas's downloadable data](https://atlas.village.dev/data.json) on November 8, 2026.
+This numerical extract preserves the historical comparison cited in *When Good Lawyering Gets a Bad Score: An Audit of Two Legal AI Benchmarks*. Artificial Analysis produced the benchmark results. We recovered this copy from [Village LLM Atlas's downloadable data](https://atlas.village.dev/data.json) on November 8, 2026.
 
 ## Files and source
 
