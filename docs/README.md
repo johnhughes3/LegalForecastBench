@@ -32,6 +32,7 @@ Corpus construction, private source bytes, selection, unitization, and quality c
 - [Working papers and PDF builds](papers/README.md): the LegalForecastBench and Harvey LAB audit manuscripts, public numerical inputs, and build and publication instructions.
 - [Paper figure reproduction](papers/legalforecastbench/figures/README.md): regenerate the manuscript CSVs and TikZ result figures from public inputs.
 - [Paper clustering analysis](papers/legalforecastbench/analysis/README.md): reproduce within-case dependence estimates.
+- [LAB rubric specificity classification](papers/lab-audit/analysis/rubric-generality-check.md): AI-generated classification of a seeded sample of LAB litigation criteria and all LegalReasonBench litigation criteria by task specificity, cited in the LAB audit paper.
 - [Rationale review export](rationale-audit.md): prepare private, model-blinded rationales from saved forecasts for qualitative lawyer review.
 - [AI-generated Harvey LAB litigation audits](harvey-lab-audit/litigation-dispute-resolution/README.md): unverified, human-steered analysis of rubric and grading drift by GPT-6 Sol and Claude Opus 5.5 across 52 tasks, with its own file index. Inclusion is not verification.
 - [AI-generated LegalReasonBench litigation audit](legalreasonbench-audit/litigation/README.md): a pinned audit of the public sample's litigation assignments using the Harvey rubric-defect taxonomy. Findings are unverified AI judgments, with source extractions and reproducible counts.

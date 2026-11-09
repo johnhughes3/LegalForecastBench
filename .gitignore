@@ -79,3 +79,6 @@ node_modules/
 
 # Astro generated types
 site/.astro/
+
+# Texpad build artifacts
+docs/papers/lab-audit/.texpadtmp/

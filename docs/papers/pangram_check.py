@@ -243,8 +243,10 @@ def manuscript_units(tex: str) -> list[Unit]:
     return units
 
 
-def exclude(units: list[Unit], selectors: list[str]) -> list[Unit]:
-    """Leave out the sections named by --exclude-section."""
+def exclude(
+    units: list[Unit], selectors: list[str], *, include_only: bool = False
+) -> list[Unit]:
+    """Select sections by key or title; optionally keep only the matches."""
     dropped: set[str] = set()
     for selector in selectors:
         wanted = selector.casefold()
@@ -254,12 +256,15 @@ def exclude(units: list[Unit], selectors: list[str]) -> list[Unit]:
         if not found:
             keys = ", ".join(u.key for u in units)
             raise SystemExit(
-                f"--exclude-section {selector!r} matches no section (keys: {keys})"
+                f"section selector {selector!r} matches no section (keys: {keys})"
             )
         dropped |= {u.key for u in found}
     return [
-        u._replace(text=OMITTED, excluded="by --exclude-section")
-        if u.key in dropped
+        u._replace(
+            text=OMITTED,
+            excluded="by --include-section" if include_only else "by --exclude-section",
+        )
+        if (u.key in dropped) != include_only
         else u
         for u in units
     ]
@@ -380,7 +385,16 @@ def _arguments(argv: list[str] | None) -> argparse.Namespace:
         action="store_true",
         help="write the document and print the section table without calling Pangram",
     )
-    parser.add_argument(
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--include-section",
+        action="append",
+        default=[],
+        metavar="SELECTOR",
+        help="score only matching sections, by key or part of title (repeatable); "
+        "complements --exclude-section for splitting a long paper across scans",
+    )
+    selection.add_argument(
         "--exclude-section",
         action="append",
         default=[],
@@ -556,7 +570,8 @@ def main(argv: list[str] | None = None) -> int:
 
     units = exclude(
         manuscript_units(args.manuscript.read_text(encoding="utf-8")),
-        args.exclude_section,
+        args.include_section or args.exclude_section,
+        include_only=bool(args.include_section),
     )
     text, _ = document(units)
     words = sum(u.words for u in units)

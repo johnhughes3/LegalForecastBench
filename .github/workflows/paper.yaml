@@ -146,13 +146,21 @@ jobs:
         include:
           - name: legalforecastbench
             manuscript: docs/papers/legalforecastbench/LegalForecastBench-paper.tex
-          - name: lab-audit
+            selection: all
+          # Complementary title selections also work on the older base paper,
+          # whose human-review appendices have different letters.
+          - name: lab-audit-main
             manuscript: docs/papers/lab-audit/LAB-audit-paper.tex
+            selection: exclude
+          - name: lab-audit-reviews
+            manuscript: docs/papers/lab-audit/LAB-audit-paper.tex
+            selection: include
     runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 10
     env:
       OUT: docs/papers/${{ matrix.name }}/build/pangram
       MANUSCRIPT: ${{ matrix.manuscript }}
+      SELECTION: ${{ matrix.selection }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -181,14 +189,18 @@ jobs:
         id: extract
         run: |
           set -euo pipefail
-          uv run --frozen python docs/papers/pangram_check.py \
+          selection=()
+          if [[ "$SELECTION" != all ]]; then
+            selection=("--$SELECTION-section" 'Human review of AI-flagged')
+          fi
+          uv run --frozen python docs/papers/pangram_check.py "${selection[@]}" \
             --extract-only --manuscript "$MANUSCRIPT" --out "$OUT"
           hash=$(sha256sum "$OUT/paper.txt" | cut -d' ' -f1)
           echo "hash=$hash" >> "$GITHUB_OUTPUT"
           # A pull request that leaves the scored text unchanged (a dependency
           # bump, a PDF rebuild, a worksheet edit) has nothing new to score.
           if [[ -f "base/$MANUSCRIPT" ]]; then
-            uv run --frozen python docs/papers/pangram_check.py \
+            uv run --frozen python docs/papers/pangram_check.py "${selection[@]}" \
               --extract-only --manuscript "base/$MANUSCRIPT" --out base-pangram
             if [[ "$(sha256sum base-pangram/paper.txt | cut -d' ' -f1)" == "$hash" ]]; then
               echo "unchanged=true" >> "$GITHUB_OUTPUT"
@@ -218,6 +230,9 @@ jobs:
           set -euo pipefail
           args=(--manuscript "$MANUSCRIPT" --out "$OUT" --verbose
                 --fail-above "$MAX_AI_FRACTION")
+          if [[ "$SELECTION" != all ]]; then
+            args+=("--$SELECTION-section" 'Human review of AI-flagged')
+          fi
           if [[ "$CACHE_HIT" == true ]]; then
             args+=(--response "$OUT/response.json")
           elif [[ -z "$PANGRAM_API_KEY" ]]; then

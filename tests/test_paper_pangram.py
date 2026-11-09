@@ -122,7 +122,7 @@ def test_harvey_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
 
 def test_legalreasonbench_text_is_left_out_and_the_authors_analysis_is_kept() -> None:
     paper = _paper(LAB_MANUSCRIPT)
-    appendix = paper.split("C. Human review of AI-flagged LegalReasonBench criteria")[1]
+    appendix = paper.split("Human review of AI-flagged LegalReasonBench criteria")[1]
     for hidden in (
         "States in the first assignment that DCI2018-10023",  # quoted criterion
         "Petition for Writ of Certiorari",  # task title
@@ -177,7 +177,11 @@ def test_preamble_macros_are_expanded() -> None:
 
 def test_the_lab_audit_is_scored_with_its_own_paper() -> None:
     forecasting, audit = _paper(), _paper(LAB_MANUSCRIPT)
-    for moved in ("Mercor", "forum selection clause", "SWE-bench Verified"):
+    for moved in (
+        "Mercor",
+        "forum selection clause",
+        "Outcome forecasting suggests a further experiment",
+    ):
         assert moved not in forecasting
         assert moved in audit
 
@@ -214,6 +218,50 @@ def test_exclude_section_replaces_the_section_with_an_omission() -> None:
     assert kept["1"].text == units[1].text
     with pytest.raises(SystemExit, match="matches no section"):
         pangram_check.exclude(units, ["nonexistent"])
+
+
+@pytest.mark.parametrize("manuscript", [FIXTURE, LAB_MANUSCRIPT.read_text()])
+def test_complementary_scans_preserve_every_section(manuscript: str) -> None:
+    units = pangram_check.manuscript_units(manuscript)
+    selector = "review" if manuscript == FIXTURE else "Human review of AI-flagged"
+    main = pangram_check.exclude(units, [selector])
+    reviews = pangram_check.exclude(units, [selector], include_only=True)
+    for original, first, second in zip(units, main, reviews, strict=True):
+        assert (first.excluded is None) != (second.excluded is None)
+        kept = first if first.excluded is None else second
+        assert kept == original
+    assert sum(u.words for u in main + reviews) == sum(u.words for u in units)
+    for scan in (main, reviews):
+        text, _ = pangram_check.document(scan)
+        assert len(text.split()) <= pangram_check.MAX_WORDS
+        assert pangram_check.estimate(text)[1] <= 10
+
+
+def test_include_section_cli_extracts_only_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(pangram_check.KEY_VARIABLE, raising=False)
+    monkeypatch.setattr(pangram_check, "MIN_WORDS", 3)
+    manuscript = tmp_path / "paper.tex"
+    manuscript.write_text(FIXTURE)
+    out = tmp_path / "out"
+    args = [
+        "--manuscript",
+        str(manuscript),
+        "--out",
+        str(out),
+        "--extract-only",
+        "--include-section",
+        "Review",
+    ]
+    assert pangram_check.main(args) == 0
+    text = (out / "paper.txt").read_text()
+    assert "The rubric is wrong." in text
+    assert "Outcome feedback works" not in text
+    with pytest.raises(SystemExit, match="matches no section"):
+        pangram_check.main([*args, "--include-section", "nonexistent"])
+    with pytest.raises(SystemExit):
+        pangram_check.main([*args, "--exclude-section", "abstract"])
 
 
 def test_extract_only_needs_no_key_and_reports_what_was_left_out(
