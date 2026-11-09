@@ -537,7 +537,7 @@ Report & Training signal & Gain reported on held-out tasks from the same benchma
 
 \smallskip
 \begin{minipage}{\linewidth}\footnotesize
-\textit{Notes.} RL = reinforcement learning. ``None'' means the published report evaluated the post-t-raining gains exclusively using a held-out set of tasks from the same benchmark family used for training.
+\textit{Notes.} RL = reinforcement learning. ``None'' means the published report evaluated the post-training gains exclusively using a held-out set of tasks from the same benchmark family used for training.
 \end{minipage}
 \end{table}
 
@@ -558,7 +558,7 @@ Although this audit found that some of the leading benchmarks have defects, rubr
 
 This audit suggests that there may be approaches that could improve rubric design and reward signals in evaluation and training data for legal work.
 
-\paragraph{Audit environments before training on them.} Using frontier models to audit tasks and environments before using them as training signal could significantly improve quality. In this audit, instances where two distinct models (Sol and Opus) both found a defect in an environment were overwhelmingly real defects: \labBothDefective{} of \labBothFlagged{} such criteria in the LAB sample and \lrbBothDefective{} of \lrbBothFlagged{} in LegalReasonBench's. An automated citation check of the environment documents is cheaper still; the LAB check established at least 303 real citation errors and flagged 76 citations to authorities that could not be found (Appendix~\ref{app:citecheck}). Environment buyers may wish to have models adversarially inspect the environment and provided rubrics for defects, and to ask sellers to improve environments if the defect rate is unusually high.
+\paragraph{Audit environments before training on them.} Using frontier models to audit tasks and environments before using them as training signal could significantly improve quality. In this audit, instances where two distinct models (GPT-6 Sol and Claude Opus 5.5) both found a defect in an environment were overwhelmingly real defects: \labBothDefective{} of \labBothFlagged{} such criteria in the LAB sample and \lrbBothDefective{} of \lrbBothFlagged{} in LegalReasonBench's. An automated citation check of the environment documents is cheaper still; the LAB check established at least 303 real citation errors and flagged 76 citations to authorities that could not be found (Appendix~\ref{app:citecheck}). Environment buyers may wish to have models adversarially inspect the environment and provided rubrics for defects, and to ask sellers to improve environments if the defect rate is unusually high.
 
 \paragraph{Review rubrics against real model runs.} Rubric authors should review how the rubrics apply in practice and confirm how well they are being applied by judges. For example, the recurring issue in LegalReasonBench where models were punished for rebutting an opponent's argument [[cite section]] likely could have been caught by reviewing the scores from a real frontier model run, as I did in this audit. While it appears to be the case that, in many instances, one company (such as a data vendor) will create rubrics and a different one (a lab) actually. uses them for training, the quality of these training signals could be improved significantly if one of the organizations involved in the process takes on the responsibility of validating rubrics end to end to ensure that their practical application provides the intended training signal. Otherwise, misspecifications can go undetected.
 
