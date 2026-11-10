@@ -83,6 +83,7 @@ def test_defective_criterion_grades_and_paired_test() -> None:
     ) == (19, 11, 32)
     assert (stats["against_luna"], stats["against_opus"]) == (6, 2)
     assert stats["paired_p"] == "0.117"
+    assert stats["defective_point_share"] == "18.7"
 
 
 def test_population_grade_failures_cover_every_criterion_four_times() -> None:

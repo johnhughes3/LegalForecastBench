@@ -324,6 +324,13 @@ def statistics(sampler: Any, parsed: list[Item]) -> dict[str, Any]:
     for key in ("defective", "objective"):
         stats[f"{key}_lb"] = sampler.lower_bound(population, n, stats[key])
         stats[f"{key}_point"] = round(stats[key] * population / n)
+    # Truncate lower-bound shares, as in the LAB generator; round point estimates.
+    for key in ("defective", "objective"):
+        tenths = 1000 * stats[f"{key}_lb"] // stats["criteria_total"]
+        stats[f"{key}_share_lb"] = f"{tenths // 10}.{tenths % 10}"
+    stats["defective_point_share"] = (
+        f"{100 * stats['defective_point'] / stats['criteria_total']:.1f}"
+    )
     return stats
 
 
@@ -356,7 +363,10 @@ MACROS = {
     "single_defective": "lrbSingleDefective",
     "defective_lb": "lrbDefectiveLB",
     "defective_point": "lrbDefectivePoint",
+    "defective_share_lb": "lrbDefectiveShareLB",
+    "defective_point_share": "lrbDefectivePointShare",
     "objective_lb": "lrbObjectiveLB",
+    "objective_share_lb": "lrbObjectiveShareLB",
     "objective_point": "lrbObjectivePoint",
 }
 

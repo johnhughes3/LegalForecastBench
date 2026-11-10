@@ -52,7 +52,12 @@ def test_numbers_and_table_follow_the_worksheet() -> None:
     assert (stats["objective"], stats["judgment"], stats["from_env"]) == (7, 14, 6)
     assert (stats["env_items"], stats["env_assignments"]) == (12, 5)
     assert (stats["defective_point"], stats["defective_lb"]) == (53, 45)
+    assert (stats["defective_point_share"], stats["defective_share_lb"]) == (
+        "29.6",
+        "25.1",
+    )
     assert (stats["objective_point"], stats["objective_lb"]) == (18, 11)
+    assert stats["objective_share_lb"] == "6.1"
     assert (stats["both_flagged"], stats["both_defective"]) == (12, 12)
     table = lrb_review.render_table(stats, parsed)
     assert "Defective & 10 & 11 & 21\\\\" in table

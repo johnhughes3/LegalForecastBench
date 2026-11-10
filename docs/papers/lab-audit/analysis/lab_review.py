@@ -258,10 +258,14 @@ def statistics(sampler: Any) -> dict[str, Any]:
     }
     stats.update(defective_run_grades(sample, verdict))
     stats.update(population_grade_failures(rows))
+    stats["judgment"] = stats["defective"] - stats["objective"]
     for key in ("defective", "objective", "env_items", "any_defect"):
         stats[f"{key}_lb"] = sampler.lower_bound(flagged, n, stats[key])
         stats[f"{key}_point"] = round(stats[key] * flagged / n)
     stats["flagged_pct"] = f"{100 * flagged / criteria_total:.1f}"
+    stats["defective_point_share"] = (
+        f"{100 * stats['defective_point'] / criteria_total:.1f}"
+    )
     for key in ("defective", "objective", "env_items"):
         # Truncate, not round: these shares are lower bounds, cited as "more than".
         tenths = 1000 * stats[f"{key}_lb"] // criteria_total
@@ -283,6 +287,7 @@ MACROS = {
     "arguable": "labArguable",
     "not_defective": "labNotDefective",
     "objective": "labObjective",
+    "judgment": "labJudgment",
     "env_items": "labEnvItems",
     "env_tasks": "labEnvTasks",
     "any_defect": "labAnyDefect",
@@ -293,6 +298,7 @@ MACROS = {
     "single_defective": "labSingleDefective",
     "defective_lb": "labDefectiveLB",
     "defective_point": "labDefectivePoint",
+    "defective_point_share": "labDefectivePointShare",
     "defective_share": "labDefectiveShare",
     "objective_lb": "labObjectiveLB",
     "objective_point": "labObjectivePoint",

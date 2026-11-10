@@ -589,5 +589,63 @@
     "venue": "International Conference on Learning Representations (ICLR 2024), 2024",
     "url": "https://arxiv.org/abs/2310.13548",
     "type": "paper"
+  },
+  {
+    "key": "northcuttLabelErrors",
+    "title": "Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks",
+    "authors": [
+      "Curtis G. Northcutt",
+      "Anish Athalye",
+      "Jonas Mueller"
+    ],
+    "year": 2021,
+    "venue": "Proceedings of the Neural Information Processing Systems Track on Datasets and Benchmarks",
+    "url": "https://arxiv.org/abs/2103.14749",
+    "type": "paper"
+  },
+  {
+    "key": "xiaoPolicyBench",
+    "title": "Follow the Policy, Fail the Benchmark: Auditing and Revising Policy-Based Decision Benchmarks",
+    "authors": [
+      "Yuxuan Xiao",
+      "Hairan Cai"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2611.07042",
+    "url": "https://arxiv.org/abs/2611.07042",
+    "type": "preprint"
+  },
+  {
+    "key": "openaiSwebench",
+    "title": "Why We No Longer Evaluate SWE-bench Verified",
+    "authors": [
+      "OpenAI"
+    ],
+    "year": 2026,
+    "venue": "OpenAI blog",
+    "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
+    "type": "blog post"
+  },
+  {
+    "key": "terminalBenchAudit",
+    "title": "Terminal-Bench 4 Is Saturated",
+    "authors": [
+      "Preference Model"
+    ],
+    "year": 2026,
+    "venue": "Blog post",
+    "url": "https://preferencemodel.com/blog/terminal-bench-4-is-saturated/",
+    "type": "blog post"
+  },
+  {
+    "key": "surgeDayjob",
+    "title": "DAYJOB: Benchmarks for Real-World Knowledge Work",
+    "authors": [
+      "Surge AI"
+    ],
+    "year": 2026,
+    "venue": "Surge AI blog",
+    "url": "https://surgehq.ai/blog/dayjob",
+    "type": "blog post"
   }
 ]
