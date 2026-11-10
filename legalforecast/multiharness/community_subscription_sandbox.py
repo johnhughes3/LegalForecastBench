@@ -27,8 +27,9 @@ from legalforecast.multiharness.local_cli_identity import (
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 
 # Security ABI allowlist: new Claude versions require source review, not a semver floor.
+# Nested keys are documented in https://code.claude.com/docs/en/settings-reference.
 CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE = "claude_native_sandbox.v1"
-CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION = "2.1.310 (Claude Code)"
+CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION = "2.1.322 (Claude Code)"
 CODEX_COMMUNITY_PERMISSION_PROFILE = "lfb_community_solver"
 # Handwritten Read/Edit rules are not escaped by Claude; reject their pattern grammar.
 _CLAUDE_PERMISSION_PATTERN_METACHARACTERS = frozenset("*?[]\\!#()")

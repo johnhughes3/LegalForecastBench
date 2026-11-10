@@ -14,6 +14,10 @@ from legalforecast.multiharness.auth_profiles import (
     CONTRIBUTOR_SUBSCRIPTION,
     SubscriptionRuntimeAccess,
 )
+from legalforecast.multiharness.community_subscription_sandbox import (
+    CODEX_COMMUNITY_PERMISSION_PROFILE,
+    codex_permissions_override,
+)
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
     CommunitySubscriptionOperatorRequest,
     _run_codex_native_sandbox_canary,
@@ -23,7 +27,7 @@ from legalforecast.multiharness.local_cli_identity import executable_pin_for
 from legalforecast.multiharness.local_cli_runtime import LocalCliExecutionService
 
 _EXPECTED_CODEX_SHA256 = (
-    "b93f6811d3f653f0fb83be4050d857fb9abbb111dfa2ce160563327daff7f306"
+    "cdcb45aaa01d0f14e298985e09465aebccd47f64ecd298aea44814af7b62bbda"
 )
 
 
@@ -279,7 +283,7 @@ def test_actual_shared_executor_preserves_parent_and_native_boundaries(
     executable = Path(located).resolve(strict=True)
     pin = executable_pin_for(
         executable,
-        version="codex-cli 0.164.0",
+        version="codex-cli 0.167.0",
         distribution_kind="standalone-cli",
     )
     assert pin.sha256 == _EXPECTED_CODEX_SHA256
@@ -312,12 +316,7 @@ def test_actual_shared_executor_preserves_parent_and_native_boundaries(
                 write_paths=(auth,),
             )
 
-    permissions = (
-        'permissions={probe={filesystem={":minimal"="read",'
-        '":workspace_roots"={"."="write"},'
-        f'"{executable}"="read","{auth}"="deny"'
-        "}}}"
-    )
+    permissions = codex_permissions_override(auth, executable)
     probe = (
         "printf ok > output; "
         'if cat "$1"; then exit 91; fi; '
@@ -337,7 +336,7 @@ def test_actual_shared_executor_preserves_parent_and_native_boundaries(
     service = LocalCliExecutionService(
         adapter_id="codex-podman-e2e",
         display_name="Codex Podman E2E",
-        adapter_version="0.164.0",
+        adapter_version="0.167.0",
         auth_profile=CONTRIBUTOR_SUBSCRIPTION,
         supported_auth_profiles=(CONTRIBUTOR_SUBSCRIPTION,),
         executable_pin=pin,
@@ -355,7 +354,7 @@ def test_actual_shared_executor_preserves_parent_and_native_boundaries(
                 "--cd",
                 str(workspace),
                 "-c",
-                'default_permissions="probe"',
+                f'default_permissions="{CODEX_COMMUNITY_PERMISSION_PROFILE}"',
                 "-c",
                 permissions,
                 "sandbox",
@@ -391,7 +390,7 @@ def test_actual_shared_executor_preserves_parent_and_native_boundaries(
             solver_model="unused",
             judge_model="unused",
             harness="codex",
-            codex_version="codex-cli 0.164.0",
+            codex_version="codex-cli 0.167.0",
             codex_sha256=_EXPECTED_CODEX_SHA256,
         ),
         service,

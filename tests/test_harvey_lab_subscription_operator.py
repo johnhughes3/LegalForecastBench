@@ -70,7 +70,7 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
         evaluator_bin_dir=tmp_path / "bin",
         solver_config_dir=solver_config,
         judge_config_dir=judge_config,
-        claude_version="2.1.310 (Claude Code)",
+        claude_version="2.1.322 (Claude Code)",
         claude_sha256="a" * 64,
         solver_model="sonnet",
         judge_model="sonnet",
@@ -96,7 +96,7 @@ def test_runtime_uses_distinct_subscription_services_and_blinds_private_root(
     )
     assert solver_service.run_in_working_directory is True
     assert solver_service.executable_pin is not None
-    assert solver_service.executable_pin.version == "2.1.310 (Claude Code)"
+    assert solver_service.executable_pin.version == "2.1.322 (Claude Code)"
     assert "--safe-mode" in solver_service.executable_pin.required_flags
     assert "--allowedTools" in solver_service.executable_pin.required_flags
     assert "--settings" in solver_service.executable_pin.required_flags
@@ -148,7 +148,7 @@ def test_missing_native_suppression_capability_fails_before_model_execution(
     evaluator_bin.mkdir()
     claude = evaluator_bin / "claude"
     calls = tmp_path / "claude-calls.jsonl"
-    version = "2.1.310 (Claude Code)"
+    version = "2.1.322 (Claude Code)"
     claude.write_text(
         "#!/usr/bin/env python3\n"
         "import json, pathlib, sys\n"
@@ -515,7 +515,7 @@ def _run_subscription_args(
             "--judge-config-dir",
             str(judge_config),
             "--claude-version",
-            "2.1.310 (Claude Code)",
+            "2.1.322 (Claude Code)",
             "--claude-sha256",
             "a" * 64,
             "--solver-model",
