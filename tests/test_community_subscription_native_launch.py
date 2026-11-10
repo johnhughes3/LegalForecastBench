@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import json
 import shlex
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Literal
 
 import pytest
+from legalforecast.multiharness import rootless_podman_boundary
 from legalforecast.multiharness.auth_profiles import CONTRIBUTOR_SUBSCRIPTION
 from legalforecast.multiharness.claude_code import build_claude_invocation_plan
 from legalforecast.multiharness.harvey_lab_subscription_operator import (
@@ -25,6 +27,43 @@ from test_harvey_lab_projection import FIXTURE_PIN
 from test_harvey_lab_subscription_judge import _production_judge_call
 
 
+class _PodmanLaunchDouble:
+    def __init__(self, argv: tuple[str, ...], environment: Mapping[str, str]) -> None:
+        self.argv = argv
+        self.environment = dict(environment)
+        self.boundary_identity: dict[str, object] = {
+            "policy_id": "test-rootless-podman-boundary",
+        }
+
+    def revalidate(self) -> None:
+        return
+
+    def mark_spawn_attempted(self) -> None:
+        return
+
+    def require_container_revalidation(self) -> None:
+        return
+
+    def terminate_container(self) -> None:
+        return
+
+    def close(self) -> None:
+        return
+
+
+def _prepare_podman_launch_double(
+    argv: tuple[str, ...],
+    *,
+    execution_cwd: Path,
+    executable: Path,
+    read_paths: Sequence[Path],
+    write_paths: Sequence[Path],
+    container_environment: Mapping[str, str],
+) -> _PodmanLaunchDouble:
+    del execution_cwd, executable, read_paths, write_paths
+    return _PodmanLaunchDouble(argv, container_environment)
+
+
 @pytest.mark.parametrize(
     ("harness", "claude_supports_allowed_tools"),
     [("claude-code", True), ("codex", True), ("claude-code", False), ("codex", False)],
@@ -39,6 +78,15 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     # The production CI refusal has separate negative coverage.
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    if harness == "codex":
+        # The explicit LFB_CODEX_PODMAN_E2E tests exercise real Podman. Keep
+        # this ordinary offline native-launch test portable to CI hosts that
+        # do not install the production rootless backend.
+        monkeypatch.setattr(
+            rootless_podman_boundary,
+            "prepare_rootless_podman_boundary",
+            _prepare_podman_launch_double,
+        )
     binary_root = tmp_path / "bin"
     binary_root.mkdir()
     flags = (

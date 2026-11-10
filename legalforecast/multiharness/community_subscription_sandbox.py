@@ -139,7 +139,7 @@ def codex_plan(
             "-c",
             f'default_permissions="{CODEX_COMMUNITY_PERMISSION_PROFILE}"',
             "-c",
-            _codex_permissions_override(root, executable),
+            codex_permissions_override(root, executable),
         )
     )
     if "danger-full-access" in argv:
@@ -214,7 +214,9 @@ def codex_service_plan(
     )
 
 
-def _codex_permissions_override(auth_root: Path, executable: Path) -> str:
+def codex_permissions_override(auth_root: Path, executable: Path) -> str:
+    """Return the reviewed named native policy for one auth root and binary."""
+
     quoted_root = json.dumps(str(auth_root), ensure_ascii=True)
     quoted_executable = json.dumps(str(executable), ensure_ascii=True)
     return (
@@ -271,6 +273,7 @@ __all__ = [
     "CODEX_COMMUNITY_PERMISSION_PROFILE",
     "claude_plan",
     "codex_daemon_runtime_directory",
+    "codex_permissions_override",
     "codex_plan",
     "codex_service_plan",
 ]

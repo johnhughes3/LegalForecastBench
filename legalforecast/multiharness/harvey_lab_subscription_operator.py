@@ -32,7 +32,8 @@ from legalforecast.multiharness.codex_cli_harvey_lab import (
 from legalforecast.multiharness.community_subscription_sandbox import (
     CLAUDE_COMMUNITY_SANDBOX_POLICY_PROFILE,
     CLAUDE_COMMUNITY_SANDBOX_POLICY_VERSION,
-    codex_daemon_runtime_directory,
+    CODEX_COMMUNITY_PERMISSION_PROFILE,
+    codex_permissions_override,
 )
 from legalforecast.multiharness.harvey_lab_evaluator import (
     EvaluatorProvenanceProvider,
@@ -49,9 +50,11 @@ from legalforecast.multiharness.harvey_lab_subscription_judge import (
     build_subscription_judge,
     observed_model_from_receipt,
 )
+from legalforecast.multiharness.local_cli_contracts import RunSpec
 from legalforecast.multiharness.local_cli_identity import (
     ExecutableIdentityPin,
     LocalCliIdentityError,
+    verify_executable_digest,
 )
 from legalforecast.multiharness.local_cli_manifest import (
     LocalCliAdapterManifest,
@@ -63,6 +66,9 @@ from legalforecast.multiharness.native_cli_preflight import preflight_native_cli
 from legalforecast.multiharness.native_cli_subscription import (
     NativeCliSubscriptionPresence,
     validate_role_config_separation,
+)
+from legalforecast.multiharness.rootless_podman_boundary import (
+    ROOTLESS_PODMAN_FILESYSTEM_SCOPE,
 )
 
 
@@ -200,10 +206,6 @@ def build_community_subscription_runtime(
         "claude", config_root=judge_config, role="judge"
     )
     solver_read_paths = (request.projection_root,)
-    if request.harness == "codex":
-        # Codex opens this owner-only directory while constructing bwrap.
-        # Grant the exact UID path, never /tmp or another user's runtime.
-        solver_read_paths = (*solver_read_paths, codex_daemon_runtime_directory())
     solver_service = contained_execution_service(
         solver_bound,
         parent_env=parent_env,
@@ -215,6 +217,11 @@ def build_community_subscription_runtime(
         filesystem_write_paths=(request.run_root / "solver-workspace",),
         run_in_working_directory=True,
     )
+    if request.harness == "codex":
+        solver_service = replace(
+            solver_service,
+            filesystem_scope=ROOTLESS_PODMAN_FILESYSTEM_SCOPE,
+        )
     judge_service = contained_execution_service(
         bound,
         parent_env=parent_env,
@@ -310,6 +317,8 @@ def preflight_community_subscription_runtime(
         runtime.judge_service,
         executable_pin=replace(runtime.judge_service.executable_pin, required_flags=()),
     )
+    if request.harness == "codex":
+        _run_codex_native_sandbox_canary(request, solver_service)
     runner, boundary, provenance = build_subscription_judge(
         service=judge_service,
         model=request.judge_model,
@@ -326,6 +335,60 @@ def preflight_community_subscription_runtime(
         judge_boundary=boundary,
         evaluator_provenance_provider=provenance,
     )
+
+
+def _run_codex_native_sandbox_canary(
+    request: CommunitySubscriptionOperatorRequest,
+    service: LocalCliExecutionService,
+) -> None:
+    """Prove the reviewed Podman and native Codex sandboxes before model use."""
+
+    pin = service.executable_pin
+    if pin is None:
+        raise CommunitySubscriptionOperatorError(
+            "community Codex native sandbox canary has no executable pin"
+        )
+    search_path = (service.parent_env or os.environ).get("PATH", "/usr/bin")
+    try:
+        observed = verify_executable_digest(pin, ("codex",), search_path=search_path)
+    except LocalCliIdentityError as exc:
+        raise CommunitySubscriptionOperatorError(
+            "community Codex native sandbox canary could not bind the executable"
+        ) from exc
+    executable = Path(observed.resolved_argv[0])
+    auth_root = request.solver_config_dir.resolve()
+    with tempfile.TemporaryDirectory(prefix="lfb-codex-native-canary-") as temporary:
+        workspace = Path(temporary) / "workspace"
+        workspace.mkdir(mode=0o700)
+        canary_service = replace(
+            service,
+            filesystem_read_paths=(),
+            filesystem_write_paths=(workspace,),
+            run_in_working_directory=True,
+        )
+        receipt = canary_service.execute(
+            RunSpec(
+                spec_id="community-codex-native-sandbox-canary",
+                argv=(
+                    "codex",
+                    "--cd",
+                    str(workspace),
+                    "-c",
+                    f'default_permissions="{CODEX_COMMUNITY_PERMISSION_PROFILE}"',
+                    "-c",
+                    codex_permissions_override(auth_root, executable),
+                    "sandbox",
+                    "/bin/true",
+                ),
+                working_directory=workspace,
+                environment={},
+                timeout_seconds=30,
+            )
+        )
+    if receipt.status != "succeeded":
+        raise CommunitySubscriptionOperatorError(
+            "community Codex native sandbox canary failed before execution"
+        )
 
 
 def run_community_subscription_harvey_lab(
