@@ -70,9 +70,10 @@ def test_plan_uses_exact_mounts_rootless_network_and_truthful_identity(
     )
     try:
         argv = launch.argv
-        assert argv[:4] == (
+        assert argv[:5] == (
             "/usr/bin/podman",
             "run",
+            "--interactive",
             "--rm",
             "--cidfile",
         )

@@ -338,6 +338,7 @@ def prepare_rootless_podman_boundary(
         command: list[str] = [
             str(backend),
             "run",
+            "--interactive",
             "--rm",
             "--cidfile",
             str(cidfile),

@@ -94,6 +94,8 @@ def test_container_termination_uses_zero_grace_and_verifies_removal(
         container_environment={"CODEX_HOME": str(auth)},
     )
     calls: list[tuple[str, ...]] = []
+    assert "--interactive" in launch.argv
+    assert "--tty" not in launch.argv
 
     def completed(
         command: tuple[str, ...], **_kwargs: object
@@ -318,3 +320,42 @@ def test_actual_shared_executor_stops_oci_workload_at_timeout(
     time.sleep(2)
     assert not workspace_after_deadline.exists()
     assert not auth_after_deadline.exists()
+
+
+@pytest.mark.skipif(
+    os.environ.get("LFB_CODEX_PODMAN_E2E") != "1",
+    reason="set LFB_CODEX_PODMAN_E2E=1 for the rootless Podman boundary test",
+)
+def test_actual_shared_executor_forwards_prompt_stdin(tmp_path: Path) -> None:
+    located = shutil.which("dash")
+    assert located is not None
+    executable = Path(located).resolve(strict=True)
+    workspace = tmp_path / "workspace"
+    auth = tmp_path / "auth"
+    workspace.mkdir(mode=0o700)
+    auth.mkdir(mode=0o700)
+    service = LocalCliExecutionService(
+        adapter_id="podman-stdin-e2e",
+        display_name="Podman stdin E2E",
+        adapter_version="fixture",
+        auth_profile=CONTRIBUTOR_SUBSCRIPTION,
+        supported_auth_profiles=(CONTRIBUTOR_SUBSCRIPTION,),
+        executable_pin=executable_pin_for(executable, version="fixture"),
+        parent_env={"PATH": f"{executable.parent}:/usr/bin:/bin"},
+        filesystem_scope=podman_boundary.ROOTLESS_PODMAN_FILESYSTEM_SCOPE,
+        subscription_presence=_SyntheticPresence(auth),
+        filesystem_write_paths=(workspace,),
+        run_in_working_directory=True,
+    )
+    prompt = b"Read the projected brief.\nWrite the requested analysis.\n"
+    receipt = service.execute(
+        RunSpec(
+            spec_id="podman-prompt-stdin",
+            argv=(executable.name, "-c", "cat > received-prompt"),
+            stdin_bytes=prompt,
+            working_directory=workspace,
+            timeout_seconds=10,
+        )
+    )
+    assert receipt.status == "succeeded", receipt.stderr
+    assert (workspace / "received-prompt").read_bytes() == prompt
