@@ -30,7 +30,7 @@
       "Claude Sonnet 5.5 and Claude Opus 5.5 citation-check agents, coordinated by the author"
     ],
     "year": 2026,
-    "venue": "AI-generated research artifact, not attorney-reviewed",
+    "venue": "AI-generated research artifact; a random sample attorney-reviewed",
     "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/harvey-lab-audit/litigation-dispute-resolution/citation-check",
     "type": "dataset"
   },
@@ -67,31 +67,34 @@
       "Julio Pereyra"
     ],
     "year": 2026,
-    "venue": "Primary online source",
+    "venue": "Harvey",
     "url": "https://www.harvey.ai/blog/introducing-harveys-legal-agent-benchmark",
     "type": "company report"
   },
   {
-    "key": "swecritique",
-    "title": "Why SWE-bench Verified no longer measures frontier coding capabilities",
-    "authors": [
-      "OpenAI"
-    ],
-    "year": 2026,
-    "venue": "Primary online source",
-    "url": "https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/",
-    "type": "company report"
-  },
-  {
     "key": "labAAboard",
-    "title": "Harvey LAB-AA evaluation results",
+    "title": "Harvey LAB-AA evaluation results (v1.1)",
     "authors": [
       "Artificial Analysis"
     ],
     "year": 2026,
-    "venue": "Leaderboard, accessed October 5, 2026",
+    "venue": "Leaderboard, accessed October 26, 2026",
     "url": "https://artificialanalysis.ai/evaluations/harvey-lab-aa",
-    "type": "company report"
+    "type": "company report",
+    "notes": "v1.1 uses 120 private tasks and a hallucination-gated all-pass headline; Artificial Analysis states scores are not comparable across versions."
+  },
+  {
+    "key": "labAAv1snapshot",
+    "title": "Harvey LAB-AA v1.0 criteria pass rates, October 7, 2026 snapshot",
+    "authors": [
+      "Artificial Analysis"
+    ],
+    "year": 2026,
+    "venue": "Historical results recovered from Village LLM Atlas",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/00a6c1aa76504d73b67ab0df27146751f2aace8e/site/public/data/lab-audit/lab-aa-v1-2026-10-07",
+    "accessed": "2026-11-08",
+    "type": "dataset extract",
+    "notes": "Recovered from https://atlas.village.dev/data.json, which attributes these 60 configuration scores to the October 7, 2026 AA snapshot and identifies https://web.archive.org/web/20261007050139/https://artificialanalysis.ai/evaluations/harvey-lab-aa as its archive URL. The archived AA page was unavailable during retrieval; this extract is not independently verified against that page. Ranking retains the highest-scoring configuration per model: 43 models, GPT-5.6 Luna 17th at 87.899840787379%, Muse Spark 1.3 first at 95.484151107251%; spread 7.584310319872 percentage points. Excludes an older August entry for Muse Spark 1.1."
   },
   {
     "key": "lfbpaper",
@@ -102,6 +105,489 @@
     "year": 2026,
     "venue": "Working paper",
     "url": "https://www.legalforecastbench.org/paper/",
+    "type": "paper"
+  },
+  {
+    "key": "lrbaudit",
+    "title": "LegalReasonBench litigation rubric audit: AI screening, native model runs, and citation census, at dataset revision 1bfa904c",
+    "authors": [
+      "GPT-6 Sol and Claude Opus 5.5 audit workers, coordinated by the author"
+    ],
+    "year": 2026,
+    "venue": "Research artifact",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/legalreasonbench-audit/litigation",
+    "type": "primary artifact"
+  },
+  {
+    "key": "lrbreview",
+    "title": "Human review of AI-flagged LegalReasonBench litigation criteria: protocol, sample, worksheet, and stress tests",
+    "authors": [
+      "John Hughes"
+    ],
+    "year": 2026,
+    "venue": "Research artifact",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/main/docs/legalreasonbench-audit/litigation/human-review",
+    "type": "dataset"
+  },
+  {
+    "key": "pereyraClarification",
+    "title": "Reverse engineering how Harvey built Legal Agent Benchmark (comment)",
+    "authors": [
+      "Julio Pereyra"
+    ],
+    "year": 2026,
+    "venue": "LinkedIn post",
+    "url": "https://www.linkedin.com/posts/julio-pereyra-411738147_reverse-engineering-how-harvey-built-legal-activity-7458656036388880384-taQ2",
+    "type": "social post",
+    "notes": "Not fetched during the October 26, 2026 revision; verify the wording before relying on it."
+  },
+  {
+    "key": "harveyTenet",
+    "title": "Harvey Tenet Research Preview",
+    "authors": [
+      "Calvin Qi",
+      "Vasudha Rengarajan",
+      "Julio Pereyra",
+      "Niko Grupen",
+      "Gabe Pereyra"
+    ],
+    "year": 2026,
+    "venue": "Harvey, August 20, 2026",
+    "url": "https://www.harvey.ai/blog/post-training-update-harvey-tenet",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "appliedCompute",
+    "title": "Training a State-of-the-Art Legal Agent with Harvey",
+    "authors": [
+      "Applied Compute"
+    ],
+    "year": 2026,
+    "venue": "Case study, June 22, 2026",
+    "url": "https://www.appliedcompute.com/case-studies/harvey",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "micro1LRB",
+    "title": "LegalReasonBench: methodology and results",
+    "authors": [
+      "micro1"
+    ],
+    "year": 2026,
+    "venue": "micro1",
+    "url": "https://www.micro1.ai/benchmark/legal-reason-bench",
+    "type": "company report",
+    "accessed": "2026-10-26"
+  },
+  {
+    "key": "lrbLeaderboardSnapshot",
+    "title": "LegalReasonBench: published leaderboard and paired comparisons",
+    "authors": [
+      "micro1"
+    ],
+    "year": 2026,
+    "venue": "Leaderboard labeled October 26, 2026; preserved numerical extract",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/tree/8c916227353e46248b4d03d528abec3dbf82bdb5/site/public/data/lab-audit/legalreasonbench-2026-11-08",
+    "type": "dataset",
+    "accessed": "2026-11-08"
+  },
+  {
+    "key": "naglSoK",
+    "title": "SoK: Grading Open-Text Legal Answers, from Law School Exams to Trustworthy Rubric Judges",
+    "authors": [
+      "Sebastian Nagl"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2610.19992",
+    "url": "https://arxiv.org/abs/2610.19992",
+    "type": "paper"
+  },
+  {
+    "key": "judgmentBench",
+    "title": "JudgmentBench: Comparing Rubric and Preference Evaluation for Quality Assessment",
+    "authors": [
+      "Russell Yang",
+      "Ruishi Chen",
+      "Pierce Kelaita",
+      "Riya Ranjan",
+      "Sibo Ma",
+      "Charles Dickens",
+      "Matthew Guillod",
+      "Megan Ma",
+      "Julian Nyarko"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.25240",
+    "url": "https://arxiv.org/abs/2605.25240",
+    "type": "paper"
+  },
+  {
+    "key": "legit",
+    "title": "Evaluating Legal Reasoning Traces with Legal Issue Tree Rubrics",
+    "authors": [
+      "Jinu Lee",
+      "Kyoung-Woon On",
+      "Simeng Han",
+      "Arman Cohan",
+      "Julia Hockenmaier"
+    ],
+    "year": 2025,
+    "venue": "arXiv:2512.01020",
+    "url": "https://arxiv.org/abs/2512.01020",
+    "type": "paper"
+  },
+  {
+    "key": "gaoOveropt",
+    "title": "Scaling Laws for Reward Model Overoptimization",
+    "authors": [
+      "Leo Gao",
+      "John Schulman",
+      "Jacob Hilton"
+    ],
+    "year": 2023,
+    "venue": "Proceedings of the 40th International Conference on Machine Learning, PMLR 202:10835-10866",
+    "url": "https://proceedings.mlr.press/v202/gao23h.html",
+    "type": "paper"
+  },
+  {
+    "key": "thomson",
+    "title": "Thomson: Continual Learning of Frontier Models for SovereignAI",
+    "authors": [
+      "Shengzhuang Chen",
+      "Jerrod Parker",
+      "Yejin Bang",
+      "et al."
+    ],
+    "year": 2026,
+    "venue": "arXiv:2608.27147",
+    "url": "https://arxiv.org/abs/2608.27147",
+    "type": "paper",
+    "notes": "The paper cites only the figures confirmed in the abstract and Section 1.3.2 (more than 3,000 blind expert-rated comparisons; preferred over each of five external systems; described as a system demonstration)."
+  },
+  {
+    "key": "kaplow",
+    "title": "Rules versus Standards: An Economic Analysis",
+    "authors": [
+      "Louis Kaplow"
+    ],
+    "year": 1992,
+    "venue": "Duke Law Journal 42:557-629",
+    "type": "paper"
+  },
+  {
+    "key": "knowledgeConflicts",
+    "title": "Adaptive Chameleon or Stubborn Sloth: Revealing the Behavior of Large Language Models in Knowledge Conflicts",
+    "authors": [
+      "Jian Xie",
+      "Kai Zhang",
+      "Jiangjie Chen",
+      "Renze Lou",
+      "Yu Su"
+    ],
+    "year": 2024,
+    "venue": "International Conference on Learning Representations",
+    "url": "https://arxiv.org/abs/2305.13300",
+    "type": "paper"
+  },
+  {
+    "key": "scaliaGarner",
+    "title": "Making Your Case: The Art of Persuading Judges",
+    "authors": [
+      "Antonin Scalia",
+      "Bryan A. Garner"
+    ],
+    "year": 2008,
+    "venue": "Thomson/West",
+    "url": "",
+    "type": "book"
+  },
+  {
+    "key": "dpo",
+    "title": "Direct Preference Optimization: Your Language Model is Secretly a Reward Model",
+    "authors": [
+      "Rafael Rafailov",
+      "Archit Sharma",
+      "Eric Mitchell",
+      "Stefano Ermon",
+      "Christopher D. Manning",
+      "Chelsea Finn"
+    ],
+    "year": 2023,
+    "venue": "arXiv:2305.18290",
+    "url": "https://arxiv.org/abs/2305.18290",
+    "type": "research paper"
+  },
+  {
+    "key": "rubricGenerality",
+    "title": "Are the LAB and LegalReasonBench litigation rubrics task-specific? Classification of a seeded random sample of 120 LAB criteria and all 179 LegalReasonBench criteria",
+    "authors": [
+      "AI classification agent, coordinated by the author"
+    ],
+    "year": 2026,
+    "venue": "AI-generated research artifact, November 8, 2026",
+    "url": "https://github.com/johnhughes3/LegalForecastBench/blob/main/docs/papers/lab-audit/analysis/rubric-generality-check.md",
+    "type": "primary artifact",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "harveyBaseten",
+    "title": "Post-Training Open Legal Agents With Baseten Research",
+    "authors": [
+      "Niko Grupen",
+      "Gabe Pereyra",
+      "Spencer Poff",
+      "Julio Pereyra",
+      "Charlie O'Neill",
+      "Mudith Jayasekara",
+      "Matthew Blau",
+      "Aaron Ellis-Bloor"
+    ],
+    "year": 2026,
+    "venue": "Harvey, May 27, 2026",
+    "url": "https://www.harvey.ai/blog/post-training-open-legal-agents-with-baseten-research",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "harveyDiligence",
+    "title": "Post-Training RLM Agents for End-to-End M&A Diligence",
+    "authors": [
+      "Niko Grupen",
+      "Julio Pereyra",
+      "Gabe Pereyra",
+      "Charlie O'Neill",
+      "Mudith Jayasekara",
+      "Aaron Ellis-Bloor",
+      "Jonathon Liu",
+      "Matthew Blau"
+    ],
+    "year": 2026,
+    "venue": "Harvey, September 8, 2026",
+    "url": "https://www.harvey.ai/blog/post-training-rlm-agents-for-m-and-a-diligence",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "trajectoryNemotronSuper",
+    "title": "The Sovereign Path for Continual Learning: Early Results on Harvey LAB with NVIDIA Nemotron",
+    "authors": [
+      "Jerry Chan"
+    ],
+    "year": 2026,
+    "venue": "Trajectory field notes, May 29, 2026",
+    "url": "https://www.trajectory.ai/field-notes/the-sovereign-path-for-continual-agent-learning-early-results-on-harvey-lab-with-nvidia-nemotron",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "trajectoryNemotronUltra",
+    "title": "Post-Training NVIDIA Nemotron 3 Ultra on Harvey LAB in Under 24 Hours",
+    "authors": [
+      "Jerry Chan"
+    ],
+    "year": 2026,
+    "venue": "Trajectory field notes, June 9, 2026",
+    "url": "https://www.trajectory.ai/field-notes/harvey-nemotron-3-ultra",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "adaptionLabs",
+    "title": "A Better Harness Can Unlock Smaller Models",
+    "authors": [
+      "Dhruv Naik",
+      "Sudip Roy"
+    ],
+    "year": 2026,
+    "venue": "Adaption Labs, September 9, 2026",
+    "url": "https://adaptionlabs.ai/blog/a-better-harness-can-unlock-smaller-models",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "mercorFoody",
+    "title": "How RL Environments Are Built, and Why They're Your AI Moat",
+    "authors": [
+      "Brendan Foody"
+    ],
+    "year": 2026,
+    "venue": "Sequoia Capital, Own Your Intelligence, August 2026",
+    "url": "https://sequoiacap.com/podcast/how-rl-environments-are-built-and-why-they-re-your-ai-moat",
+    "type": "video",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "xaiGrok47",
+    "title": "Introducing Grok 4.7",
+    "authors": [
+      "xAI (SpaceXSI)"
+    ],
+    "year": 2026,
+    "venue": "Release announcement, September 21, 2026",
+    "url": "https://x.ai/news/grok-4-7",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "googleGemini4Argon",
+    "title": "Gemini 4 Argon: our next era of frontier intelligence",
+    "authors": [
+      "Google DeepMind"
+    ],
+    "year": 2026,
+    "venue": "Blog post and model evaluation methodology, September 30, 2026",
+    "url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-4-argon/",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "anthropicOpus55Card",
+    "title": "Claude Opus 5.5 System Card, §8.14.2 (Legal Agent Benchmark)",
+    "authors": [
+      "Anthropic"
+    ],
+    "year": 2026,
+    "venue": "System card, September 22, 2026",
+    "url": "https://anthropic.com/claude-opus-5-5-system-card",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "metaMuseWonder",
+    "title": "Muse Wonder: A Frontier Model for Personal and Professional AI Agents",
+    "authors": [
+      "Meta"
+    ],
+    "year": 2026,
+    "venue": "Release post and model card, October 12, 2026",
+    "url": "https://research.meta.ai/blog/muse-wonder",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "mistralLarge4",
+    "title": "Introducing Mistral Large 4",
+    "authors": [
+      "Mistral AI"
+    ],
+    "year": 2026,
+    "venue": "Release announcement, October 6, 2026",
+    "url": "https://mistral.ai/news/mistral-large-4/",
+    "type": "company report",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "charlotinDatabase",
+    "title": "AI Hallucination Cases Database",
+    "authors": [
+      "Damien Charlotin"
+    ],
+    "year": 2026,
+    "venue": "Database of court and tribunal decisions, last updated November 5, 2026",
+    "url": "https://www.damiencharlotin.com/hallucinations/",
+    "type": "dataset",
+    "accessed": "2026-11-09"
+  },
+  {
+    "key": "geirhosShortcut",
+    "title": "Shortcut Learning in Deep Neural Networks",
+    "authors": [
+      "Robert Geirhos",
+      "Jörn-Henrik Jacobsen",
+      "Claudio Michaelis",
+      "Richard Zemel",
+      "Wieland Brendel",
+      "Matthias Bethge",
+      "Felix A. Wichmann"
+    ],
+    "year": 2020,
+    "venue": "Nature Machine Intelligence 2:665-673, 2020",
+    "url": "https://arxiv.org/abs/2004.07780",
+    "type": "paper"
+  },
+  {
+    "key": "skalseRewardHacking",
+    "title": "Defining and Characterizing Reward Hacking",
+    "authors": [
+      "Joar Skalse",
+      "Nikolaus H. R. Howe",
+      "Dmitrii Krasheninnikov",
+      "David Krueger"
+    ],
+    "year": 2022,
+    "venue": "Advances in Neural Information Processing Systems 35 (NeurIPS 2022)",
+    "url": "https://arxiv.org/abs/2209.13085",
+    "type": "paper"
+  },
+  {
+    "key": "mahmoudRubricHacking",
+    "title": "Reward Hacking in Rubric-Based Reinforcement Learning",
+    "authors": [
+      "Anas Mahmoud",
+      "MohammadHossein Rezaei",
+      "Zihao Wang",
+      "Anisha Gunjal",
+      "Bing Liu",
+      "Yunzhong He"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2605.12474, May 12, 2026",
+    "url": "https://arxiv.org/abs/2605.12474",
+    "type": "paper"
+  },
+  {
+    "key": "yangRubricDropout",
+    "title": "Rubric Dropout: A Simple Way to Mitigate Reward Hacking in Rubric-Based RL",
+    "authors": [
+      "Minglai Yang",
+      "Xinyu Guo",
+      "Zhengliang Shi",
+      "Utkarsh Tyagi",
+      "Mian Zhang",
+      "Razvan Dumitru",
+      "Sunjie Hou",
+      "Yunzhong He",
+      "Daniel Yue Zhang",
+      "Dan Roth",
+      "Ying Liu"
+    ],
+    "year": 2026,
+    "venue": "arXiv:2608.11669, August 12, 2026 (revised October 21, 2026)",
+    "url": "https://arxiv.org/abs/2608.11669",
+    "type": "paper"
+  },
+  {
+    "key": "legalbench",
+    "title": "LegalBench: A Collaboratively Built Benchmark for Measuring Legal Reasoning in Large Language Models",
+    "authors": [
+      "Neel Guha",
+      "Julian Nyarko",
+      "Daniel E. Ho",
+      "Christopher Ré",
+      "Adam Chilton",
+      "et al."
+    ],
+    "year": 2023,
+    "venue": "Advances in Neural Information Processing Systems 36 (NeurIPS 2023), Datasets and Benchmarks Track, 2023",
+    "url": "https://arxiv.org/abs/2308.11462",
+    "type": "paper"
+  },
+  {
+    "key": "sycophancy",
+    "title": "Towards Understanding Sycophancy in Language Models",
+    "authors": [
+      "Mrinank Sharma",
+      "Meg Tong",
+      "Tomasz Korbak",
+      "David Duvenaud",
+      "Amanda Askell",
+      "et al."
+    ],
+    "year": 2024,
+    "venue": "International Conference on Learning Representations (ICLR 2024), 2024",
+    "url": "https://arxiv.org/abs/2310.13548",
     "type": "paper"
   }
 ]

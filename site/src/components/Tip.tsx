@@ -17,6 +17,11 @@ interface Props {
 	 * or link, so keyboard users do not get two tab stops.
 	 */
 	focusable?: boolean;
+	/**
+	 * The tip is the author's own prose: the site Pangram check
+	 * (scripts/pangram_site.py) scores it even inside a table.
+	 */
+	scoreTip?: boolean;
 	className?: string;
 }
 
@@ -30,6 +35,7 @@ export default function Tip({
 	side = "top",
 	align = "center",
 	focusable = true,
+	scoreTip = false,
 	className = "",
 }: Props) {
 	const id = useId();
@@ -66,6 +72,7 @@ export default function Tip({
 				role="tooltip"
 				id={id}
 				popover="manual"
+				data-pangram={scoreTip ? "score" : undefined}
 				className="tip-content rounded-lg border border-rule bg-surface px-3 py-2 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-lg"
 			>
 				{tip}

@@ -1,0 +1,10 @@
+position,model,mean_reward_percent,best_at_3_percent,original_report_model
+1,Gemini 4 Argon*,50.8,58.2,True
+2,Claude Fable 5.1,50.6,56.7,True
+3,Claude Opus 5.5,46.5,53.2,True
+4,Muse Spark 1.3,40.4,46.8,True
+5,Grok 4.7,40.4,47.4,True
+6,Gemini 3.8 Flash,39.6,45.6,True
+7,GPT-6 Astra,39.5,44.1,True
+8,Kimi K3.1 Pro,36.4,41.2,False
+9,GPT-6 Sol,31.9,37.4,True

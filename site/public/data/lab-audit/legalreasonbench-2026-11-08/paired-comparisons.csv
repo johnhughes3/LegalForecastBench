@@ -1,0 +1,57 @@
+row_model,column_model,shared_matching_version_matters,difference,ci95_lower,ci95_upper
+Gemini 4 Argon*,Claude Fable 5.1,33,0.009,-0.026,0.046
+Gemini 4 Argon*,Claude Opus 5.5,33,0.045,-0.01,0.105
+Gemini 4 Argon*,Muse Spark 1.3,48,0.102,0.065,0.137
+Gemini 4 Argon*,Grok 4.7,33,0.11,0.058,0.16
+Gemini 4 Argon*,Gemini 3.8 Flash,33,0.121,0.085,0.157
+Gemini 4 Argon*,GPT-6 Astra,33,0.125,0.067,0.184
+Gemini 4 Argon*,GPT-6 Sol,33,0.177,0.124,0.229
+Claude Fable 5.1,Gemini 4 Argon*,33,-0.009,-0.046,0.026
+Claude Fable 5.1,Claude Opus 5.5,50,0.041,0.012,0.076
+Claude Fable 5.1,Muse Spark 1.3,46,0.103,0.071,0.134
+Claude Fable 5.1,Grok 4.7,50,0.102,0.071,0.133
+Claude Fable 5.1,Gemini 3.8 Flash,50,0.11,0.079,0.142
+Claude Fable 5.1,GPT-6 Astra,50,0.111,0.072,0.15
+Claude Fable 5.1,GPT-6 Sol,50,0.186,0.151,0.221
+Claude Opus 5.5,Gemini 4 Argon*,33,-0.045,-0.105,0.01
+Claude Opus 5.5,Claude Fable 5.1,50,-0.041,-0.076,-0.012
+Claude Opus 5.5,Muse Spark 1.3,46,0.066,0.022,0.108
+Claude Opus 5.5,Grok 4.7,50,0.061,0.026,0.096
+Claude Opus 5.5,Gemini 3.8 Flash,50,0.069,0.031,0.105
+Claude Opus 5.5,GPT-6 Astra,50,0.07,0.026,0.112
+Claude Opus 5.5,GPT-6 Sol,50,0.145,0.102,0.184
+Muse Spark 1.3,Gemini 4 Argon*,48,-0.102,-0.137,-0.065
+Muse Spark 1.3,Claude Fable 5.1,46,-0.103,-0.134,-0.071
+Muse Spark 1.3,Claude Opus 5.5,46,-0.066,-0.108,-0.022
+Muse Spark 1.3,Grok 4.7,46,-0.003,-0.032,0.027
+Muse Spark 1.3,Gemini 3.8 Flash,46,0.001,-0.033,0.037
+Muse Spark 1.3,GPT-6 Astra,46,0.004,-0.04,0.048
+Muse Spark 1.3,GPT-6 Sol,46,0.077,0.041,0.112
+Grok 4.7,Gemini 4 Argon*,33,-0.11,-0.16,-0.058
+Grok 4.7,Claude Fable 5.1,50,-0.102,-0.133,-0.071
+Grok 4.7,Claude Opus 5.5,50,-0.061,-0.096,-0.026
+Grok 4.7,Muse Spark 1.3,46,0.003,-0.027,0.032
+Grok 4.7,Gemini 3.8 Flash,50,0.008,-0.022,0.038
+Grok 4.7,GPT-6 Astra,50,0.009,-0.03,0.048
+Grok 4.7,GPT-6 Sol,50,0.084,0.048,0.117
+Gemini 3.8 Flash,Gemini 4 Argon*,33,-0.121,-0.157,-0.085
+Gemini 3.8 Flash,Claude Fable 5.1,50,-0.11,-0.142,-0.079
+Gemini 3.8 Flash,Claude Opus 5.5,50,-0.069,-0.105,-0.031
+Gemini 3.8 Flash,Muse Spark 1.3,46,-0.001,-0.037,0.033
+Gemini 3.8 Flash,Grok 4.7,50,-0.008,-0.038,0.022
+Gemini 3.8 Flash,GPT-6 Astra,50,0.002,-0.04,0.044
+Gemini 3.8 Flash,GPT-6 Sol,50,0.077,0.033,0.119
+GPT-6 Astra,Gemini 4 Argon*,33,-0.125,-0.184,-0.067
+GPT-6 Astra,Claude Fable 5.1,50,-0.111,-0.15,-0.072
+GPT-6 Astra,Claude Opus 5.5,50,-0.07,-0.112,-0.026
+GPT-6 Astra,Muse Spark 1.3,46,-0.004,-0.048,0.04
+GPT-6 Astra,Grok 4.7,50,-0.009,-0.048,0.03
+GPT-6 Astra,Gemini 3.8 Flash,50,-0.002,-0.044,0.04
+GPT-6 Astra,GPT-6 Sol,50,0.075,0.032,0.111
+GPT-6 Sol,Gemini 4 Argon*,33,-0.177,-0.229,-0.124
+GPT-6 Sol,Claude Fable 5.1,50,-0.186,-0.221,-0.151
+GPT-6 Sol,Claude Opus 5.5,50,-0.145,-0.184,-0.102
+GPT-6 Sol,Muse Spark 1.3,46,-0.077,-0.112,-0.041
+GPT-6 Sol,Grok 4.7,50,-0.084,-0.117,-0.048
+GPT-6 Sol,Gemini 3.8 Flash,50,-0.077,-0.119,-0.033
+GPT-6 Sol,GPT-6 Astra,50,-0.075,-0.111,-0.032

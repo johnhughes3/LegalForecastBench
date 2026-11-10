@@ -43,7 +43,7 @@ const criterionOf = (task: string, id: string) =>
 	<section aria-labelledby="results" class="mt-14">
 		<h2 id="results" class="font-serif text-2xl font-semibold tracking-tight">What the reviewer found</h2>
 		<p class="mt-2 max-w-3xl text-sm text-ink-2">
-			These are the reviewer's verdicts and analysis. <strong class="text-ink">Defective</strong> means the criterion, applied as written to the task as given, would grade a competent response wrong. <strong class="text-ink">Arguable</strong> means reasonable litigators could disagree. Only Defective verdicts count toward the protocol's decision rule: see the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>protocol</a> for the table that turns a defective count into a confidence bound. A sample of {summary.total} gives a wide interval.
+			These are the reviewer's verdicts and analysis. <strong class="text-ink">Defective</strong> means the criterion, applied as written to the task as given, would fail a response a careful litigator would consider appropriate, or pass one a careful litigator would consider wrong. <strong class="text-ink">Arguable</strong> means careful litigators could disagree about that. Only Defective verdicts count toward the protocol's decision rule: see the <a class="text-accent" href={REVIEW_PROTOCOL_URL}>protocol</a> for the table that turns a defective count into a confidence bound. A sample of {summary.total} gives a wide interval.
 		</p>
 		<dl class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 			{RUBRIC_VERDICTS.filter((verdict) => summary.verdicts[verdict].length > 0).map((verdict) => (

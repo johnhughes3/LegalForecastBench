@@ -22,20 +22,20 @@ The unit is the rubric criterion. The question is whether the criterion, applied
 
 ### 1. Rubric verdict
 
-- **Defective.** Applied as written to the task as given (instructions, supplied documents, and governing law), the criterion would grade a competent response wrong on the point it covers. It would either fail a response that a careful litigator would consider correct, or pass one that is wrong. It does so for at least one of these reasons:
+- **Defective.** Applied as written to the task as given (instructions, supplied documents, and governing law), the criterion would grade a competent response wrong on the point it covers. It would either fail a response that a careful litigator would consider appropriate, or pass one that a careful litigator would consider wrong. It does so for at least one of these reasons:
   - (a) the expected answer contradicts, or is unsupported by, the supplied record;
   - (b) it states or depends on an incorrect legal proposition;
   - (c) it requires something the instructions did not ask for and that a competent lawyer would not reasonably infer; or
   - (d) it conflicts with the instructions or with another criterion, so a competent response cannot satisfy both.
-- **Arguable.** Reasonable litigators could disagree about whether the criterion would misgrade a competent response, or the problem would affect only unusual responses.
-- **Not defective.** The criterion grades correctly. This includes a demanding but defensible standard; a judgment call where the criterion takes a reasonable side; a stylistic preference stated in the task; a document inconsistency that does not change what the criterion requires; and an instruction in a fictional or hypothetical record that a response can reasonably follow, even where it misstates real-world law.
+- **Arguable.** Careful litigators could disagree about whether the response the criterion fails is appropriate, or whether the response it passes is wrong, or the problem would affect only unusual responses.
+- **Not defective.** The criterion grades correctly. This includes a demanding but defensible standard, such as rewarding an in-scope point a careful litigator would make even if some competent responses would omit it; a judgment call where the responses the criterion fails are ones a careful litigator would consider wrong; a stylistic preference stated in the task; a document inconsistency that does not change what the criterion requires; and an instruction in a fictional or hypothetical record that a response can reasonably follow, even where it misstates real-world law.
 - **Unresolved.** The reviewer cannot decide from the record and the available authority.
 
 There is no separate severity scale. Materiality is part of the definition of Defective, and borderline or low-impact concerns are Arguable.
 
 Two recurring situations are decided as in the Harvey review:
 
-- **Criteria that require one of several permissible approaches.** A criterion may prefer one approach. It is Defective when it rejects an approach a careful litigator would adopt on this record. Requiring one permissible option is not by itself a defect; rejecting a correct one is.
+- **Criteria that require one of several permissible approaches.** A criterion is Defective when it rejects an approach a careful litigator could appropriately take on this record, even if the approach it requires is also permissible. A criterion may prefer one approach only when the alternatives it fails are ones a careful litigator would consider wrong.
 - **Defects in the environment.** An unplanted error in the supplied record (conflicting figures, arithmetic that does not add up, fabricated or misdescribed authority) makes a criterion Defective when it changes what a competent response can get right, so that the expected answer is contradicted or unsupported by the record. A criterion can also be defective by passing work that is wrong. When the record is objectively wrong but the criterion still grades correctly, the verdict is Not defective (an environment-only defect). Planted mistakes that the task asks the solver to catch are not environment defects.
 
 For each Defective verdict the reviewer also records:
@@ -66,7 +66,7 @@ One or two sentences giving the reason, with the document and passage or the aut
 1. For each item, read the assignment instructions, the earlier same-matter prompts, the criterion, the relevant supplied documents, and the AI findings, and weigh the AI arguments against the sources. The worksheet collapses the blind AI findings and the later reconciliation into separate sections for readability. That is not reviewer blinding, and the reviewer need not form a view before opening them.
 2. Check claims against the original LegalReasonBench files at the pinned revision (links are in the worksheet) and, where a ground is legal, against the governing authority, not against quotations in the AI reports. The extracted text and AI visual transcriptions are reading aids with stated limits. Where a scanned page, image, or table cannot be read reliably, say so in the note.
 3. Record the fields in [`worksheet.md`](worksheet.md). Once all 25 items are complete, run `uv run python scripts/legalreasonbench_review_sample.py tally`.
-4. After the tally, verdicts change only to fix clerical errors, and any such change is noted in the worksheet.
+4. After the tally, the reviewer may revise verdicts and notes during a quality-control review, in which AI stress tests and consistency passes argue for and against each call ([`stress-test/`](stress-test/)). Once that review is complete, verdicts change only to fix clerical errors, and any such change is noted in the worksheet. As part of the adversarial quality-control review, the description of the standard was refined to better match what a desirable training signal looks like: passing an answer a careful lawyer would consider wrong on the specific issue the criterion covers is a defect, and so is failing an answer a careful lawyer would consider appropriate. The refinement replaced wording that had treated a criterion requiring one of several permissible approaches, or taking one reasonable side of a judgment call, as sound.
 
 ## Analysis (fixed in advance)
 

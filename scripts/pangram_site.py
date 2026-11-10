@@ -1,16 +1,31 @@
-"""Score the website's own prose, other than the paper, with Pangram's AI-text detector.
+"""Score the website's own prose with Pangram's AI-text detector.
 
 Reads the built site (``site/dist``, from ``pnpm --dir site build``), keeps the text a
 visitor sees in each page's main content, and sends it to Pangram. It reuses the
 paper check's client and report (``docs/papers/pangram_check.py``).
 
+``/paper/`` is in scope. It shows the paper's title, its abstract, and the citation
+box, not the paper's body. The abstract lies outside the passages the manuscript marks
+``% BEGIN AI-PREPARED`` / ``% END AI-PREPARED``, which the paper's AI-use statement
+discloses as prepared with AI (Sections 3 and 4), and the paper check scores it too.
+None of those AI-prepared sections, nor the paper's tables, figures, display
+equations, bibliography, or quoted Harvey LAB material, appear on the page, so the two
+checks agree. The paper prose quoted on other pages comes through
+``site/src/data/paper-prose.ts``, which fails the site build if a quotation falls in
+an AI-prepared section.
+
 Left out by default, because they are not the site's own prose:
 
-* ``/paper/``: the paper, which has its own check;
 * ``/lab/deliverables/``, ``/lab/tasks/``, ``/lab/review/``: AI model outputs, Harvey
   LAB task material and AI audit findings, and the human-review pages generated from
-  the worksheet;
-* navigation, headers, footers, tables, code, scripts, and hidden elements.
+  the worksheet (the site does not build these pages at present);
+* ``/404`` and the generated ``/og/`` images;
+* navigation, headers, footers, tables, code, scripts, buttons, and hidden elements.
+
+An element marked ``data-pangram="score"`` is scored even inside one of those, so
+author prose that lives in the footer or a table tooltip (the footer disclaimers,
+the ``/data/`` mirror note) is checked automatically whenever it changes. Mark only
+the author's own prose; citation data and labels stay out.
 
 A paragraph that repeats on several pages (model-page boilerplate, for example) is
 scored once, on the first page where it appears. If the text is longer than one
@@ -40,7 +55,6 @@ DEFAULT_DIST = ROOT / "site" / "dist"
 MIN_PARAGRAPH_WORDS = 5
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 DEFAULT_EXCLUDE = (
-    "/paper/",
     "/lab/deliverables/",
     "/lab/tasks/",
     "/lab/review/",
@@ -112,6 +126,10 @@ class _Visible(HTMLParser):
         self._buffer: list[str] = []
         self._buffer_in_main = False
         self._breaks: list[bool] = []  # per open element: does it end a paragraph?
+        # Opt-in regions (data-pangram="score") inside a skipped element: the
+        # mute count to restore on leaving each, and the _breaks depth it opened at.
+        self._resume: list[int] = []
+        self._opt_in_depths: list[int] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "title" and not self._muted and not self.title:
@@ -120,10 +138,17 @@ class _Visible(HTMLParser):
             self._flush()
         if tag in VOID:
             return
+        values = dict(attrs)
         if self._muted:
+            if values.get("data-pangram") == "score":
+                self._flush()
+                self._resume.append(self._muted)
+                self._muted = 0
+                self._breaks.append(True)
+                self._opt_in_depths.append(len(self._breaks))
+                return
             self._muted += 1
             return
-        values = dict(attrs)
         if tag in SKIP or "hidden" in values or values.get("aria-hidden") == "true":
             self._flush()
             self._muted = 1
@@ -151,6 +176,12 @@ class _Visible(HTMLParser):
         if self._muted:
             self._muted -= 1
             return
+        if self._opt_in_depths and len(self._breaks) == self._opt_in_depths[-1]:
+            self._breaks.pop()
+            self._flush()
+            self._opt_in_depths.pop()
+            self._muted = self._resume.pop()
+            return
         if (self._breaks.pop() if self._breaks else False) or tag == "main":
             self._flush()
         if tag == "main" and self._main_depth:
@@ -161,7 +192,8 @@ class _Visible(HTMLParser):
             self.title += data
         elif not self._muted:
             if not self._buffer:
-                self._buffer_in_main = self._main_depth > 0
+                # Opted-in text counts as page content even outside <main>.
+                self._buffer_in_main = self._main_depth > 0 or bool(self._opt_in_depths)
             self._buffer.append(data)
 
     def _flush(self) -> None:
@@ -359,8 +391,9 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "This is not a check of the whole site. Left out: routes starting with "
         + ", ".join([*DEFAULT_EXCLUDE, *args.exclude])
-        + "; navigation, headers, footers, tables, code, and hidden elements; "
-        f"fragments under {MIN_PARAGRAPH_WORDS} words; and paragraphs already scored "
+        + "; navigation, headers, footers, tables, code, and hidden elements, "
+        + 'except elements marked data-pangram="score"; '
+        + f"fragments under {MIN_PARAGRAPH_WORDS} words; and paragraphs already scored "
         "on an earlier page, ignoring numbers."
     )
     return status
