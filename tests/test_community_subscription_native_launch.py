@@ -99,7 +99,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
     )
     for executable in ("claude", "codex"):
         binary = binary_root / executable
-        version = "2.1.310 (Claude Code)" if executable == "claude" else "1.2.3"
+        version = "2.1.322 (Claude Code)" if executable == "claude" else "1.2.3"
         help_flags = (
             flags.replace("--allowedTools ", "")
             if executable == "claude" and not claude_supports_allowed_tools
@@ -153,7 +153,7 @@ def test_native_preflight_then_actual_solver_and_bound_judge_launch(
         evaluator_bin_dir=binary_root,
         solver_config_dir=role_roots[0],
         judge_config_dir=role_roots[1],
-        claude_version="2.1.310 (Claude Code)",
+        claude_version="2.1.322 (Claude Code)",
         claude_sha256=sha256_file(binary_root / "claude"),
         codex_version="1.2.3",
         codex_sha256=sha256_file(binary_root / "codex"),
