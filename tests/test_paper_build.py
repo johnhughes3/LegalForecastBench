@@ -94,6 +94,7 @@ def test_container_build_retries_a_stalled_image_pull(tmp_path: Path) -> None:
             **os.environ,
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
             "SOURCE_DATE_EPOCH": "1",
+            "PAPER_BUILD_SSH_HOST": "none",
             "PAPER_IMAGE_PULL_BACKOFF_SECONDS": "0",
             "PAPER_TEST_DOCKER_LOG": str(log),
             "PAPER_TEST_COMPILED": str(tmp_path / "compiled"),
@@ -145,6 +146,7 @@ def test_container_build_runs_as_mapped_root_under_rootless_docker(
             **os.environ,
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
             "SOURCE_DATE_EPOCH": "1",
+            "PAPER_BUILD_SSH_HOST": "none",
             "PAPER_TEST_RUN_ARGS": str(args),
         },
         capture_output=True,
@@ -275,7 +277,7 @@ def test_pdf_check_passes_with_a_warning_without_docker(tmp_path: Path) -> None:
         [bash, str(ROOT / "docs" / "papers" / "check-pdfs.sh")],
         capture_output=True,
         text=True,
-        env={"PATH": str(bin_dir)},
+        env={"PATH": str(bin_dir), "XDG_CONFIG_HOME": str(tmp_path / "empty-xdg")},
         check=False,
     )
     assert result.returncode == 0, result.stderr
@@ -293,3 +295,160 @@ def test_pdf_check_lists_a_committed_pdf_for_every_paper() -> None:
         assert line is not None, f"check-pdfs.sh has no committed PDF for {name}"
         pdf = line.split(")", 1)[1].split(";;")[0].replace("echo", "").strip()
         assert (ROOT / pdf).is_file(), pdf
+
+
+def test_container_build_offloads_over_configured_ssh_host_without_local_docker(
+    tmp_path: Path,
+) -> None:
+    tools_dir = tmp_path / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
+    paper_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
+    shutil.copy2(
+        ROOT / "docs" / "papers" / "texlive-image.txt", tools_dir / "texlive-image.txt"
+    )
+    (paper_dir / "LegalForecastBench-paper.tex").write_text(
+        "\\date{September 29, 2026}\nSettled prose.\n"
+    )
+    xdg_config = tmp_path / "xdg-config"
+    host_cfg = xdg_config / "legalforecastbench" / "paper-build-host"
+    host_cfg.parent.mkdir(parents=True)
+    host_cfg.write_text("paper-builder.example\n", encoding="utf-8")
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    docker_called = tmp_path / "docker-called"
+    docker = bin_dir / "docker"
+    docker.write_text(f"#!/usr/bin/env bash\ntouch {str(docker_called)!r}\nexit 1\n")
+    docker.chmod(0o755)
+    ssh_host_file = tmp_path / "ssh-host"
+    in_dir = tmp_path / "ssh-in"
+    out_dir = tmp_path / "ssh-out"
+    in_dir.mkdir()
+    out_dir.mkdir()
+    tex_rel = "docs/papers/legalforecastbench/LegalForecastBench-paper.tex"
+    out_pdf = out_dir / "LegalForecastBench-paper.pdf"
+    ssh = bin_dir / "ssh"
+    ssh.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "while [[ $1 == -* ]]; do\n"
+        "  if [[ $1 == -o ]]; then shift 2; else shift; fi\n"
+        "done\n"
+        f'printf "%s\\n" "$1" > {str(ssh_host_file)!r}\n'
+        f"tar -xf - -C {str(in_dir)!r}\n"
+        f"test -f {str(in_dir / tex_rel)!r}\n"
+        f'printf "%%PDF-1.4\\nremote\\n" > {str(out_pdf)!r}\n'
+        f"tar -cf - -C {str(out_dir)!r} .\n"
+    )
+    ssh.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "XDG_CONFIG_HOME": str(xdg_config),
+    }
+    env.pop("PAPER_BUILD_SSH_HOST", None)
+    result = subprocess.run(
+        ["bash", str(tools_dir / "build.sh"), "--container"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not docker_called.exists()
+    assert ssh_host_file.read_text(encoding="utf-8").strip() == "paper-builder.example"
+    built_pdf = paper_dir / "build" / "LegalForecastBench-paper.pdf"
+    assert built_pdf.read_bytes() == b"%PDF-1.4\nremote\n"
+
+
+def test_pdf_check_warns_and_passes_when_remote_ssh_host_is_offline(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    tools_dir = repo / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
+    site_dir = repo / "site" / "public" / "paper"
+    paper_dir.mkdir(parents=True)
+    site_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
+    shutil.copy2(
+        ROOT / "docs" / "papers" / "check-pdfs.sh", tools_dir / "check-pdfs.sh"
+    )
+    shutil.copy2(
+        ROOT / "docs" / "papers" / "texlive-image.txt", tools_dir / "texlive-image.txt"
+    )
+    (paper_dir / "LegalForecastBench-paper.tex").write_text(
+        "\\date{September 29, 2026}\nSettled prose.\n"
+    )
+    (site_dir / "legalforecastbench-working.pdf").write_bytes(b"%PDF-1.4\ncommitted\n")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    ssh = bin_dir / "ssh"
+    ssh.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 255\n")
+    ssh.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(tools_dir / "check-pdfs.sh"), "--all"],
+        cwd=repo,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "PAPER_BUILD_SSH_HOST": "paper-builder.example",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "container build host is unavailable" in result.stderr
+
+
+def test_pdf_check_fails_when_remote_tex_compile_fails(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    tools_dir = repo / "docs" / "papers"
+    paper_dir = tools_dir / "legalforecastbench"
+    site_dir = repo / "site" / "public" / "paper"
+    paper_dir.mkdir(parents=True)
+    site_dir.mkdir(parents=True)
+    shutil.copy2(ROOT / "docs" / "papers" / "build.sh", tools_dir / "build.sh")
+    shutil.copy2(
+        ROOT / "docs" / "papers" / "check-pdfs.sh", tools_dir / "check-pdfs.sh"
+    )
+    shutil.copy2(
+        ROOT / "docs" / "papers" / "texlive-image.txt", tools_dir / "texlive-image.txt"
+    )
+    (paper_dir / "LegalForecastBench-paper.tex").write_text(
+        "\\date{September 29, 2026}\nBroken \\undefinedmacro.\n"
+    )
+    (site_dir / "legalforecastbench-working.pdf").write_bytes(b"%PDF-1.4\ncommitted\n")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    ssh = bin_dir / "ssh"
+    ssh.write_text("#!/usr/bin/env bash\ncat >/dev/null\nexit 1\n")
+    ssh.chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(tools_dir / "check-pdfs.sh"), "--all"],
+        cwd=repo,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "PAPER_BUILD_SSH_HOST": "paper-builder.example",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 1
+    assert "paper did not build" in result.stderr
+
+
+def test_paper_workflow_gates_pangram_on_manuscript_or_scorer_changes() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "paper.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "docs/papers/*/*-paper.tex|docs/papers/pangram_check.py" in workflow
+    assert "${BASE_SHA}...${HEAD_SHA}" in workflow
+    assert "if: needs.changes.outputs.run_pangram == 'true'" in workflow

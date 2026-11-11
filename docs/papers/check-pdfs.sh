@@ -18,7 +18,8 @@ to the shared tooling in docs/papers/ builds every paper. Without those
 variables, or with --all, every paper is built.
 
 The build reads the working tree, so commit or stash unrelated edits first.
-Without Docker the check prints a warning and passes; CI still enforces it.
+Without a reachable Docker daemon (or configured SSH build host) the check
+prints a warning and passes; CI still enforces it.
 
   --all      Build every paper regardless of what changed.
   --help     Show this help.
@@ -35,6 +36,23 @@ committed_pdf() {
   esac
 }
 
+resolve_remote_build_host() {
+  local host="${PAPER_BUILD_SSH_HOST:-}"
+  if [[ -z "${PAPER_BUILD_SSH_HOST+x}" ]]; then
+    local config_root="${XDG_CONFIG_HOME:-${HOME:-}/.config}"
+    local host_file="$config_root/legalforecastbench/paper-build-host"
+    if [[ -n "${config_root}" && -f "$host_file" ]]; then
+      IFS= read -r host < "$host_file" || true
+      host="${host#"${host%%[![:space:]]*}"}"
+      host="${host%"${host##*[![:space:]]}"}"
+    fi
+  fi
+  if [[ "$host" == "none" ]]; then
+    host=""
+  fi
+  printf '%s\n' "$host"
+}
+
 all=false
 while (( $# )); do
   case "$1" in
@@ -49,7 +67,13 @@ tools_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd -- "$tools_dir/../.." && pwd)
 cd "$repo_root"
 
-if ! command -v docker >/dev/null 2>&1; then
+remote_host=$(resolve_remote_build_host)
+if [[ -n "$remote_host" ]]; then
+  if ! command -v ssh >/dev/null 2>&1; then
+    printf 'warning: docker is not available; skipping the paper PDF check (CI still runs it).\n' >&2
+    exit 0
+  fi
+elif ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
   printf 'warning: docker is not available; skipping the paper PDF check (CI still runs it).\n' >&2
   exit 0
 fi
@@ -92,7 +116,13 @@ for manuscript in docs/papers/*/*-paper.tex; do
   fi
   needs_build "$name" "$pdf" || continue
   printf 'Building %s ...\n' "$name" >&2
-  if ! bash docs/papers/build.sh --paper "$name" --container >/dev/null; then
+  rc=0
+  bash docs/papers/build.sh --paper "$name" --container >/dev/null || rc=$?
+  if (( rc == 69 )); then
+    printf 'warning: container build host is unavailable; skipping the paper PDF check (CI still runs it).\n' >&2
+    exit 0
+  fi
+  if (( rc != 0 )); then
     printf 'The %s paper did not build; run bash docs/papers/build.sh --paper %s --container.\n' \
       "$name" "$name" >&2
     status=1
