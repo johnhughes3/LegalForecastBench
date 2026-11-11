@@ -26,7 +26,7 @@ PINNED_IMAGE = (
     "@sha256:0123456789abcdef0123456789abcdef"
     "0123456789abcdef0123456789abcdef"
 )
-BACKEND_PATH = Path("/usr/bin/true")
+BACKEND_PATH = Path("/usr/bin/true").resolve()
 SESSION_TOKEN = "a" * 32
 
 

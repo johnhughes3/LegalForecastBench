@@ -10,7 +10,11 @@ Build docs/papers/NAME/*-paper.tex with latexmk and pdfLaTeX. The PDF and logs
 are written to docs/papers/NAME/build/. Undefined citations/references are errors.
 
   --paper NAME Paper directory under docs/papers (default: legalforecastbench).
-  --container  Use the pinned TeX Live image (Docker, linux/amd64).
+  --container  Use the pinned TeX Live image (Docker, linux/amd64). Set
+               PAPER_BUILD_SSH_HOST (or write an SSH host alias to
+               ${XDG_CONFIG_HOME:-~/.config}/legalforecastbench/paper-build-host)
+               to offload container builds over SSH; set PAPER_BUILD_SSH_HOST=none
+               to force local Docker.
   --release    Refuse unresolved draft, citation, number, or TODO annotations.
   --help       Show this help.
 
@@ -32,6 +36,11 @@ while (( $# )); do
   esac
   shift
 done
+
+if [[ ! "$paper" =~ ^[A-Za-z0-9._-]+$ || "$paper" == *..* ]]; then
+  printf 'Invalid paper directory name: %s\n' "$paper" >&2
+  exit 2
+fi
 
 tools_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(cd -- "$tools_dir/../.." && pwd)
@@ -56,7 +65,7 @@ fi
 # bytes after the pull request had already compiled them. Uncommitted drafts are
 # previews of the working tree.
 if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
-  SOURCE_DATE_EPOCH=$(python3 - "$paper_dir/$manuscript" <<'PY'
+  SOURCE_DATE_EPOCH=$(python3 - "$paper_dir/$manuscript" <<'PYEOF'
 import re
 import sys
 from datetime import datetime, timezone
@@ -81,7 +90,7 @@ when = datetime.strptime(
     "%B %d %Y",
 ).replace(tzinfo=timezone.utc)
 print(int(when.timestamp()))
-PY
+PYEOF
 )
 fi
 export SOURCE_DATE_EPOCH
@@ -90,6 +99,109 @@ if [[ -z "${SOURCE_DATE_EPOCH}" ]]; then
   exit 1
 fi
 export FORCE_SOURCE_DATE=1
+
+resolve_remote_build_host() {
+  local host="${PAPER_BUILD_SSH_HOST:-}"
+  if [[ -z "${PAPER_BUILD_SSH_HOST+x}" ]]; then
+    local config_root="${XDG_CONFIG_HOME:-${HOME:-}/.config}"
+    local host_file="$config_root/legalforecastbench/paper-build-host"
+    if [[ -n "${config_root}" && -f "$host_file" ]]; then
+      IFS= read -r host < "$host_file" || true
+      host="${host#"${host%%[![:space:]]*}"}"
+      host="${host%"${host##*[![:space:]]}"}"
+    fi
+  fi
+  if [[ "$host" == "none" ]]; then
+    host=""
+  fi
+  printf '%s\n' "$host"
+}
+
+build_remote_container() {
+  local remote_host=$1
+  if ! command -v ssh >/dev/null 2>&1; then
+    printf 'ssh is required to build on %s.\n' "$remote_host" >&2
+    return 69
+  fi
+
+  local input_tar output_tar rc=0
+  local -a tar_flags=()
+  input_tar=$(mktemp)
+  output_tar=$(mktemp)
+
+  if tar --version 2>/dev/null | grep -qi bsdtar; then
+    tar_flags+=(--no-xattrs --no-mac-metadata)
+  fi
+  COPYFILE_DISABLE=1 tar "${tar_flags[@]+${tar_flags[@]}}" -cf "$input_tar" -C "$repo_root" \
+    --exclude="docs/papers/$paper/build" \
+    --exclude="docs/papers/$paper/.texpadtmp" \
+    --exclude="docs/papers/$paper/temp" \
+    --exclude=".DS_Store" \
+    docs/papers/build.sh \
+    docs/papers/texlive-image.txt \
+    "docs/papers/$paper"
+
+  local remote_script remote_b64
+  remote_script=$(cat <<'REMOTE_EOF'
+set -euo pipefail
+exec 3>&1 1>&2
+
+remote_paper=$1
+remote_epoch=$2
+remote_release=$3
+
+if [[ -z "${DOCKER_HOST:-}" && -S "/run/user/$(id -u)/docker.sock" ]]; then
+  export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+fi
+
+if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+  printf 'Docker is not available on remote container build host.\n' >&2
+  exit 69
+fi
+
+cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/lfb-paper-build"
+mkdir -p "$cache_root"
+workdir=$(mktemp -d "$cache_root/run.XXXXXX")
+trap 'rm -rf "$workdir"' EXIT
+
+tar -xf - -C "$workdir"
+remote_args=(--paper "$remote_paper" --container)
+if [[ "$remote_release" == true ]]; then
+  remote_args+=(--release)
+fi
+if ! PAPER_BUILD_SSH_HOST=none SOURCE_DATE_EPOCH="$remote_epoch" \
+  bash "$workdir/docs/papers/build.sh" "${remote_args[@]}" >"$workdir/compile.out"; then
+  cat "$workdir/compile.out" >&2
+  exit 1
+fi
+
+tar -cf - -C "$workdir/docs/papers/$remote_paper/build" . >&3
+REMOTE_EOF
+)
+  remote_b64=$(printf '%s\n' "$remote_script" | base64 | tr -d '\r\n')
+
+  ssh -o BatchMode=yes -o ConnectTimeout="${PAPER_SSH_CONNECT_TIMEOUT:-5}" \
+    "$remote_host" \
+    "bash -c \"\$(printf '%s' '$remote_b64' | base64 -d)\" _ '$paper' '$SOURCE_DATE_EPOCH' '$release'" \
+    < "$input_tar" > "$output_tar" || rc=$?
+
+  rm -f "$input_tar"
+  if (( rc == 255 || rc == 69 )); then
+    rm -f "$output_tar"
+    printf 'Could not reach container build host %s over SSH (or Docker is unavailable there).\n' \
+      "$remote_host" >&2
+    return 69
+  fi
+  if (( rc != 0 )); then
+    rm -f "$output_tar"
+    return "$rc"
+  fi
+
+  mkdir -p "$output_dir"
+  tar -xf "$output_tar" -C "$output_dir"
+  rm -f "$output_tar"
+  printf '\nBuilt %s/%s (via %s)\n' "$output_dir" "${manuscript%.tex}.pdf" "$remote_host"
+}
 
 # The pinned image is about 1.8GB. A 120s cap kills a healthy slow pull on
 # CI, and ghcr can also leave a layer in "Waiting". Stop a stalled pull and
@@ -124,6 +236,12 @@ pull_pinned_texlive_image() {
 }
 
 if "$container"; then
+  remote_host=$(resolve_remote_build_host)
+  if [[ -n "$remote_host" ]]; then
+    build_remote_container "$remote_host"
+    exit 0
+  fi
+
   image=$(cat "$tools_dir/texlive-image.txt")
   pull_pinned_texlive_image "$image"
   options=(--paper "$paper")

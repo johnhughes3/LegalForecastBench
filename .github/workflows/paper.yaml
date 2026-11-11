@@ -125,18 +125,60 @@ jobs:
           printf 'or run bash docs/papers/check-pdfs.sh locally.\n' >&2
           exit 1
 
-  pangram:
-    name: Pangram check of ${{ matrix.name }} prose
-    # Scoring spends Pangram credits, so it runs only for pull requests from
-    # this repository (forks have no secret), not Dependabot's (dependency
-    # bumps do not touch the prose and get no secret), and on manual dispatch. It skips
-    # scoring when the text is identical to the base branch's, and caches each
-    # result by the exact text sent, so reruns and PDF-only commits are free.
+  changes:
+    name: Classify paper prose changes
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        github.event.pull_request.user.login != 'dependabot[bot]')
+    permissions:
+      contents: read
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
+    timeout-minutes: 5
+    outputs:
+      run_pangram: ${{ steps.classify.outputs.run_pangram }}
+    steps:
+      - name: Check out repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check whether scored manuscript inputs changed
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          run_pangram=true
+          if [[ "$EVENT_NAME" == pull_request && -n "$BASE_SHA" ]] && \
+            git merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null 2>&1; then
+            run_pangram=false
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                docs/papers/*/*-paper.tex|docs/papers/pangram_check.py)
+                  run_pangram=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --no-renames --name-only -z "${BASE_SHA}...${HEAD_SHA}")
+          fi
+          printf 'run_pangram=%s\n' "$run_pangram" >> "$GITHUB_OUTPUT"
+
+  pangram:
+    name: Pangram check of ${{ matrix.name }} prose
+    # Scoring spends Pangram credits, so it runs only on manual dispatch and on
+    # pull requests from this repository that touch a manuscript or
+    # pangram_check.py (never forks or Dependabot). Within a run it still skips
+    # scoring any paper whose extracted text is identical to the base branch's,
+    # and caches each result by the exact text sent.
+    needs: changes
+    if: needs.changes.outputs.run_pangram == 'true'
     permissions:
       contents: read
     strategy:
