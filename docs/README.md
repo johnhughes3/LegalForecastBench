@@ -29,6 +29,7 @@ Corpus construction, private source bytes, selection, unitization, and quality c
 
 ## Research
 
+- [Dated exploratory comparisons](exploratory/README.md): saved inputs and offline calculations supporting one-off public numerical claims.
 - [Working papers and PDF builds](papers/README.md): the LegalForecastBench and Harvey LAB audit manuscripts, public numerical inputs, and build and publication instructions.
 - [Paper figure reproduction](papers/legalforecastbench/figures/README.md): regenerate the manuscript CSVs and TikZ result figures from public inputs.
 - [Paper clustering analysis](papers/legalforecastbench/analysis/README.md): reproduce within-case dependence estimates.

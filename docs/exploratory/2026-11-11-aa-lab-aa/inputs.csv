@@ -1,0 +1,23 @@
+model,ranked,micro_brier,lfb_effort,aa_same_effort_slug,aa_same_effort_score,aa_shared_model_slug,aa_shared_model_effort,aa_shared_model_score,lab_aa_gated_all_pass
+GPT-6 Sol,True,0.11763,high,,,gpt-6-sol,max,44.1555010304265,0.03611111111111111
+Claude Fable 5.1,True,0.12877,adaptive/default,,,claude-fable-5-1,max,49.1602124158081,0.06388888888888888
+Grok 4.6,True,0.13368,high,,,,,,
+Claude Opus 5,True,0.13987,adaptive/default,,,,,,
+GPT-5.6 Sol,True,0.14009,high,,,,,,
+Kimi K3,True,0.14130,high,,,,,,
+GPT-5.6 Luna,True,0.14322,high,,,,,,
+Claude Opus 5.5,True,0.14540,high,claude-opus-5-5-high,51.8359958227294,claude-opus-5-5,max,59.1060336078904,0.041666666666666664
+GPT-6.1 Sol,True,0.14948,high,gpt-6-1-sol-high,50.3291231936536,gpt-6-1-sol,max,54.6087338138148,0.06944444444444443
+GPT-6 Astra,True,0.15221,high,gpt-6-astra-high,54.849838322506,gpt-6-astra,max,56.8538559596797,0.0861111111111111
+Gemini 3.8 Flash,True,0.15331,high,gemini-3-8-flash,30.8468119957291,gemini-3-8-flash,high,30.8468119957291,0
+Gemini 4 Argon,True,0.15387,high,gemini-4-argon,50.4121935905389,gemini-4-argon,high,50.4121935905389,0.03888888888888888
+Ultramarine 1 Flash,True,0.15495,high,,,,,,
+Grok 4.7,True,0.15833,high,grok-4-7-high,35.2122962959703,grok-4-7,xhigh,35.4850117067196,0.09444444444444446
+Claude Sonnet 5,True,0.15848,adaptive/default,,,,,,
+Mistral Large 4,True,0.15964,high,mistral-large-4,26.1249946754784,,,,
+GPT-6 Luna,True,0.16368,high,gpt-6-luna-high,21.4290170864582,gpt-6-luna,max,27.8552004938153,0.03333333333333333
+Muse Wonder,True,0.16536,high,muse-wonder-high,40.5266079185604,muse-wonder,max,43.5748225998431,0.1
+Claude Sonnet 5.5,True,0.17298,high,claude-sonnet-5-5-high,41.515109087048,claude-sonnet-5-5,max,54.54133407109,0.027777777777777776
+Muse Spark 1.3,True,0.18121,high,,,muse-spark-1-3,max,36.6172039139368,0.08888888888888888
+Gemini 3.1 Pro Preview,True,0.18345,high,,,,,,
+GPT-4.1 (unranked reference),False,0.60513,none,,,,,,
