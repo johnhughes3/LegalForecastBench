@@ -74,6 +74,7 @@
     "legalforecast"
   ],
   "file_relative_resolution": [
+    "docs/exploratory/2026-11-11-aa-lab-aa/reproduce.py",
     "docs/papers/lab-audit/analysis/lab_review.py",
     "docs/papers/lab-audit/analysis/lrb_review.py",
     "docs/papers/legalforecastbench/analysis/clustering.py",

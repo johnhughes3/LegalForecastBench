@@ -127,6 +127,23 @@
       ]
     ],
     "files": {
+      "docs/exploratory/2026-11-11-aa-lab-aa/reproduce.py": {
+        "cycle_id": "",
+        "disposition_kind": "below-watch",
+        "disposition_owner": "other",
+        "fan_in": 0,
+        "fan_out": 0,
+        "flags": [
+          "relative-path"
+        ],
+        "lane_owner": "other",
+        "largest_symbol": "calculate",
+        "largest_symbol_lines": 57,
+        "layer": "application",
+        "line_count": 135,
+        "nonblank_line_count": 114,
+        "top_level_definition_count": 5
+      },
       "docs/papers/lab-audit/analysis/lab_review.py": {
         "cycle_id": "",
         "disposition_kind": "below-watch",

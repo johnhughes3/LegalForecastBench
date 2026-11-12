@@ -37,6 +37,7 @@ INDEX_PATH = DOCS_DIR / "README.md"
 INDEX_RELATIVE = "docs/README.md"
 
 SELF_INDEXED_DIRS = (
+    "docs/exploratory",
     "docs/multiharness",
     "docs/harvey-lab-audit/litigation-dispute-resolution",
     "docs/legalreasonbench-audit/litigation",

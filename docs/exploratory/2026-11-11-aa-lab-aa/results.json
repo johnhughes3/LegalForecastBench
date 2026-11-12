@@ -1,0 +1,31 @@
+{
+  "older_model_comparison": {
+    "reference_model": "gpt-4.1-2025-04-14",
+    "reference_micro_brier": 0.60513,
+    "worst_ranked_model": "Gemini 3.1 Pro Preview",
+    "worst_ranked_micro_brier": 0.18345
+  },
+  "same_effort_aa_comparison": {
+    "models": 10,
+    "spearman": 0.563636363636,
+    "two_sided_permutation_p": 0.09697903021,
+    "permutations": 100000,
+    "seed": 20261111
+  },
+  "shared_model_aa_comparison": {
+    "models": 12,
+    "lfb_spearman": 0.405594405594,
+    "lab_aa_spearman": 0.090909090909
+  },
+  "brier_baselines": {
+    "constant_half": 0.25,
+    "retrospectively_fitted_constant": 0.194098912325,
+    "ranked_models": 21,
+    "ranked_models_beating_both": 21,
+    "reference_beats_either": false
+  },
+  "cohort": {
+    "cases": 91,
+    "prediction_units_per_model": 387
+  }
+}
