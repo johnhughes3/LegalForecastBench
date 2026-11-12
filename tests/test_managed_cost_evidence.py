@@ -376,13 +376,23 @@ def test_gpt41_standard_cost_preserves_cached_input_discount() -> None:
     assert evidence.rate_provenance == entry.pricing_source
 
 
-def test_argon_implicit_cache_preserves_omission_but_reconstructs_cost() -> None:
+@pytest.mark.parametrize(
+    ("model", "checked", "expected"),
+    [
+        ("argon", "2026-10-15", 0.32),
+        ("carbon", "2026-11-12", 0.32),
+        ("hydrogen", "2026-11-12", 0.24),
+    ],
+)
+def test_gemini4_implicit_cache_preserves_omission_but_reconstructs_cost(
+    model: str, checked: str, expected: float
+) -> None:
     from pathlib import Path
 
     from legalforecast.evals.model_registry import load_model_registry
 
     entry = load_model_registry(
-        Path("model_registries/cycle-1-agentic-gemini-4-argon-high-2026-10-15.json")
+        Path(f"model_registries/cycle-1-agentic-gemini-4-{model}-high-{checked}.json")
     ).entries[0]
     usage = ManagedResponseUsage(300000, 10000, cache_read_tokens=200000)
     result = ManagedToolAgentResult(
@@ -398,6 +408,6 @@ def test_argon_implicit_cache_preserves_omission_but_reconstructs_cost() -> None
         response_usage_details=(usage,),
     )
     evidence = managed_execution._managed_result_cost_evidence(entry, result=result)
-    assert evidence.amount_usd == pytest.approx(0.32)
+    assert evidence.amount_usd == pytest.approx(expected)
     assert evidence.method == "cache_aware_usage_reconstruction"
     assert "cache_write_tokens" not in usage.to_record()

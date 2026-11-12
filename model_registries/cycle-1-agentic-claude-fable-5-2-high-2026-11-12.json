@@ -1,0 +1,27 @@
+[
+  {
+    "cache_read_token_price": 0.2,
+    "cache_write_token_price": 10.0,
+    "context_limit": 1000000,
+    "display_name": "Claude Fable 5.2 (agentic; high reasoning)",
+    "input_token_price": 8.0,
+    "known_cutoff_publicity_caveats": [
+      "Anthropic reports June 2026 training-data and reliable-knowledge cutoffs without an exact day; exact training cutoff is left unknown. The maintained eligibility policy compares month-only evidence as June 1, before the earliest scored decision.",
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "Adaptive thinking with explicit high effort matches the prior high-reasoning comparisons. Native JSON output and five-minute automatic prompt caching are retained."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "claude-fable-5-2",
+    "model_version_or_snapshot": "claude-fable-5-2",
+    "network_disabled": true,
+    "output_token_price": 40.0,
+    "pricing_source": "https://platform.claude.com/docs/en/models/fable-5-2/overview: Standard USD8/M input, USD40/M output, USD0.20/M cache read, USD10/M five-minute cache write; no long-context premium. Checked 2026-11-12.",
+    "provider": "anthropic",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-11-09T00:00:00Z",
+    "release_timestamp_source": "https://www.anthropic.com/claude-fable-and-mythos-5-2; released November 9, 2026.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

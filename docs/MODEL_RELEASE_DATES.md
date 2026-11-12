@@ -2,6 +2,18 @@
 
 This file records the model identities, release dates, and provider-reported cutoffs behind the Cycle 1 comparisons. The maintained eligibility evidence is [`legalforecast/data/model_cutoffs.json`](../legalforecast/data/model_cutoffs.json); each frozen registry under [`model_registries/`](../model_registries/) carries its own source fields. See [methods](METHODS.md) for the eligibility rule.
 
+## November 2026 comparisons
+
+The November 12 additions use the same locked 91-case Cycle 1 release and the regular full-document agentic document-tool condition, with high reasoning or thinking explicitly pinned. They do not use Jev summaries, external search, or long-decode continuation. Registration does not establish live provider readiness or authorize spending.
+
+| Model | Provider-reported cutoff | API and pricing evidence |
+| --- | --- | --- |
+| [Gemini 4 Carbon](../model_registries/cycle-1-agentic-gemini-4-carbon-high-2026-11-12.json) | March 2026 knowledge cutoff; eligible | [Model card](https://deepmind.google/models/model-cards/gemini-4-carbon/), [API specifications](https://aistudio.google.com/docs/models/gemini-4-carbon), [Standard pricing](https://aistudio.google.com/docs/pricing#gemini-4-carbon). Introductory rates expire November 30, 2026. |
+| [Gemini 4 Hydrogen](../model_registries/cycle-1-agentic-gemini-4-hydrogen-high-2026-11-12.json) | March 2026 knowledge cutoff; eligible | [Model card](https://storage.googleapis.com/deepmind-media/Model-Cards/Gemini-4-Hydrogen-Model-Card.pdf), [launch announcement](https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-hydrogen/), [Standard paid-tier pricing](https://aistudio.google.com/docs/pricing#gemini-4-hydrogen). |
+| [Claude Fable 5.2](../model_registries/cycle-1-agentic-claude-fable-5-2-high-2026-11-12.json) | June 2026 training-data and reliable-knowledge cutoffs; eligible | [Specifications and cache pricing](https://platform.claude.com/docs/en/models/fable-5-2/overview), [launch announcement](https://www.anthropic.com/claude-fable-and-mythos-5-2). Native JSON output and five-minute automatic prompt caching are retained. |
+
+Month-only cutoffs are compared as March 1 and June 1 under the maintained eligibility rule; both precede the earliest June 30 decision. The frozen registries preserve unknown exact training dates rather than inventing a day. Google stable aliases have no dated immutable snapshot; retain the served model version. Both Google configurations use implicit caching only, with absent cache-write counts preserved in raw usage and treated as zero solely for pricing.
+
 ## September 2026 comparisons
 
 The repaired 91-case release contains decisions dated June 30 through August 7, 2026. New model comparisons reuse those cases and labels. Official comparison eligibility follows the provider-reported training-data or knowledge cutoff (owner rule, clarified September 28, 2026), rather than public release date; the evidence table is `legalforecast/data/model_cutoffs.json`, and see [methods](METHODS.md). Release dates and historical post-anchor assignments remain provenance metadata. Neither a provider cutoff nor a stable API ID is an independent guarantee about training data or unchanged weights.

@@ -574,7 +574,10 @@ def test_managed_agent_exposes_exactly_the_six_harvey_tools(tmp_path: Path) -> N
     assert seen == ["bash", "edit", "glob", "grep", "read", "write"]
 
 
-@pytest.mark.parametrize("model_id", ["gemini-3.8-flash", "gemini-4-argon"])
+@pytest.mark.parametrize(
+    "model_id",
+    ["gemini-3.8-flash", "gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen"],
+)
 def test_google_managed_agent_uses_native_tools_and_bills_thoughts(
     model_id: str,
     tmp_path: Path,
@@ -839,6 +842,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
     ("model_id", "reasoning_effort"),
     [
         ("claude-fable-5-1", None),
+        ("claude-fable-5-2", "high"),
         ("claude-opus-5", None),
         ("claude-sonnet-5", None),
         ("claude-opus-5-5", "high"),
@@ -1115,6 +1119,7 @@ class _ReplayHandler(_AttemptHandler):
     ("model_id", "reasoning_effort", "default_effort"),
     [
         ("claude-fable-5-1", None, "provider_default_high"),
+        ("claude-fable-5-2", "high", None),
         ("claude-opus-5-5", "high", None),
         ("claude-opus-5-5", None, "provider_default_medium"),
     ],
