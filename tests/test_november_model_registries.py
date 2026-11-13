@@ -141,3 +141,43 @@ def test_haiku_prices_all_cache_buckets_at_the_context_tier(
         cache_usages=((40000, 10000),),
     )
     assert actual == pytest.approx(base * multiplier)
+
+
+@pytest.mark.parametrize(
+    "model_id,provider,native_id",
+    [
+        ("meta/muse-ember", "meta", "muse-ember-1.0"),
+        ("moonshotai/kimi-k3.1-pro", "deepinfra", "moonshotai/Kimi-K3.1-Pro"),
+    ],
+)
+def test_new_gateway_models_require_the_documented_native_identity(
+    model_id: str, provider: str, native_id: str
+) -> None:
+    from legalforecast.runner.gateway import validate_gateway_metadata
+
+    metadata = {
+        "original_model_id": model_id,
+        "canonical_slug": model_id,
+        "resolved_provider": provider,
+        "final_provider": provider,
+        "generation_id": "fixture",
+        "cost_usd": "0.01",
+        "market_cost_usd": "0.01",
+        "model_attempt_count": "1",
+        "total_provider_attempt_count": "1",
+    }
+    for wrong in (None, "wrong-model"):
+        candidate = dict(metadata)
+        if wrong is not None:
+            candidate["resolved_provider_api_model_id"] = wrong
+        with pytest.raises(ValueError, match="native model identity"):
+            validate_gateway_metadata(
+                candidate, expected_model_id=model_id, expected_provider=provider
+            )
+    metadata["resolved_provider_api_model_id"] = native_id
+    assert (
+        validate_gateway_metadata(
+            metadata, expected_model_id=model_id, expected_provider=provider
+        )
+        == metadata
+    )

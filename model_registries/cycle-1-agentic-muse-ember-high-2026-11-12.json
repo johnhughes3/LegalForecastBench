@@ -6,7 +6,8 @@
     "input_token_price": 0.1,
     "known_cutoff_publicity_caveats": [
       "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
-      "No provider-reported training-data or knowledge cutoff found in Meta launch and developer model documentation checked 2026-11-12; eligibility is qualified. Gateway ID meta/muse-ember is hard routed only to Meta in Standard mode; no provider fallback. Meta documents native API ID muse-ember-1.0. High reasoning and automatic tool choice match prior Muse comparisons. Gateway advertises 1M output while Meta documents 512K; retain the regular 128000 benchmark cap. Meta lists a 3x price premium above 200K input tokens although the Gateway catalog omits that tier; retain provider Standard rates for repricing and observed charges separately."
+      "No provider-reported training-data or knowledge cutoff found in Meta launch and developer model documentation checked 2026-11-12; eligibility is qualified. Gateway ID meta/muse-ember is hard routed only to Meta in Standard mode; no provider fallback. Meta documents native API ID muse-ember-1.0. High reasoning and automatic tool choice match prior Muse comparisons. Gateway advertises 1M output while Meta documents 512K; retain the regular 128000 benchmark cap. Meta lists a 3x price premium above 200K input tokens although the Gateway catalog omits that tier; retain provider Standard rates for repricing and observed charges separately.",
+      "Gateway routing metadata must report resolved_provider_api_model_id=muse-ember-1.0; a missing or changed native identity fails the case before its predictions can be accepted. Verify actual metadata in the one-case smoke before expansion."
     ],
     "long_context_surcharge": {
       "input_price_multiplier": 3,
