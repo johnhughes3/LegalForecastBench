@@ -1,0 +1,31 @@
+[
+  {
+    "cache_read_token_price": 0.01,
+    "cache_write_token_price": 0.125,
+    "context_limit": 1000000,
+    "display_name": "Claude Haiku 5.5 (agentic; high reasoning)",
+    "input_token_price": 0.1,
+    "known_cutoff_publicity_caveats": [
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "Anthropic reports June 2026 training-data and knowledge cutoffs without a day; maintained eligibility compares June 1. Explicit high effort overrides the medium default. Native JSON and five-minute automatic prompt caching are retained."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 5,
+      "output_price_multiplier": 5,
+      "threshold_input_tokens": 100000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "claude-haiku-5-5",
+    "model_version_or_snapshot": "claude-haiku-5-5",
+    "network_disabled": true,
+    "output_token_price": 0.5,
+    "pricing_source": "https://platform.claude.com/docs/en/models/haiku-5-5/overview; Standard USD per million input/output/cache-read tokens: 0.1/0.5/0.01. Five-minute cache write 0.125. Checked 2026-11-12.",
+    "provider": "anthropic",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-10-07T00:00:00Z",
+    "release_timestamp_source": "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

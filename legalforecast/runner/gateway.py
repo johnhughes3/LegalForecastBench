@@ -15,6 +15,8 @@ VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 _GATEWAY_ROUTE_PROVIDERS = {
     "openai/gpt-5.6-sol": "openai",
     "moonshotai/kimi-k3": "deepinfra",
+    "moonshotai/kimi-k3.1-pro": "deepinfra",
+    "meta/muse-ember": "meta",
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",
     "meta/muse-wonder-1.0": "meta",
@@ -23,7 +25,12 @@ _GATEWAY_ROUTE_PROVIDERS = {
     "mistral/mistral-large-4": "mistral",
 }
 _MUSE_GATEWAY_MODEL_IDS = frozenset(
-    {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor", "meta/muse-wonder-1.0"}
+    {
+        "meta/muse-spark-1.3",
+        "meta/muse-spark-1.3-contributor",
+        "meta/muse-wonder-1.0",
+        "meta/muse-ember",
+    }
 )
 _GATEWAY_MODEL_ALIASES = {
     # Gateway keeps the requested id in ``originalModelId`` but returns the

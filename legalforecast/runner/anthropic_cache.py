@@ -28,7 +28,7 @@ _OPUS_55_PRICING_SOURCE: Final = (
     "https://platform.claude.com/docs/en/about-claude/pricing, "
     "Anthropic prompt-cache pricing checked 2026-09-22"
 )
-_FABLE_52_PRICING_SOURCE: Final = (
+_NOVEMBER_PRICING_SOURCE: Final = (
     "https://platform.claude.com/docs/en/about-claude/pricing, "
     "Anthropic prompt-cache pricing checked 2026-11-12"
 )
@@ -61,12 +61,19 @@ _RATES: Final[dict[str, _AnthropicCacheRate]] = {
         cache_write_token_price=12.5,
         output_token_price=50.0,
     ),
+    "claude-haiku-5-5": _AnthropicCacheRate(
+        input_token_price=0.1,
+        cache_read_token_price=0.01,
+        cache_write_token_price=0.125,
+        output_token_price=0.5,
+        pricing_source=_NOVEMBER_PRICING_SOURCE,
+    ),
     "claude-fable-5-2": _AnthropicCacheRate(
         input_token_price=8.0,
         cache_read_token_price=0.2,
         cache_write_token_price=10.0,
         output_token_price=40.0,
-        pricing_source=_FABLE_52_PRICING_SOURCE,
+        pricing_source=_NOVEMBER_PRICING_SOURCE,
     ),
     "claude-opus-5": _AnthropicCacheRate(
         input_token_price=5.0,

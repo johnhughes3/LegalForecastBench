@@ -1,0 +1,31 @@
+[
+  {
+    "cache_read_token_price": 0.05,
+    "cache_write_token_price": 1.25,
+    "context_limit": 1050000,
+    "display_name": "GPT-6.1 Terra (agentic; high reasoning)",
+    "input_token_price": 1,
+    "known_cutoff_publicity_caveats": [
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "OpenAI reports a June 1, 2026 knowledge cutoff, not an exact training-data cutoff. Responses API with explicit high reasoning matches prior comparisons. The native runner requests Flex at 50% of Standard; registry rates retain Standard for repricing."
+    ],
+    "long_context_surcharge": {
+      "input_price_multiplier": 2,
+      "output_price_multiplier": 1.5,
+      "threshold_input_tokens": 272000
+    },
+    "max_output_tokens": 128000,
+    "model_id": "gpt-6.1-terra",
+    "model_version_or_snapshot": "gpt-6.1-terra",
+    "network_disabled": true,
+    "output_token_price": 5,
+    "pricing_source": "https://developers.openai.com/api/docs/models/gpt-6.1-terra; Standard USD per million input/output/cache-read tokens: 1/5/0.05. Five-minute cache write 1.25. Checked 2026-11-12.",
+    "provider": "openai",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-10-26T00:00:00Z",
+    "release_timestamp_source": "https://help.openai.com/en/articles/9624314-model-release-notes; October 26, 2026",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

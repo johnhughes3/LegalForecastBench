@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import legalforecast.runner.managed_execution as managed_execution
 import pytest
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import LongContextSurcharge, ModelRegistryEntry
 from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.managed_execution import (
     ManagedResponseUsage,
@@ -411,3 +411,26 @@ def test_gemini4_implicit_cache_preserves_omission_but_reconstructs_cost(
     assert evidence.amount_usd == pytest.approx(expected)
     assert evidence.method == "cache_aware_usage_reconstruction"
     assert "cache_write_tokens" not in usage.to_record()
+
+
+def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> None:
+    entry = replace(
+        _entry(),
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=100,
+            input_price_multiplier=2.0,
+            output_price_multiplier=2.0,
+        ),
+    )
+
+    below_threshold_turns = managed_execution._managed_estimated_cost(
+        entry,
+        response_usages=((60, 10), (60, 10)),
+    )
+    one_surcharged_turn = managed_execution._managed_estimated_cost(
+        entry,
+        response_usages=((101, 10), (19, 10)),
+    )
+
+    assert below_threshold_turns == pytest.approx(0.00024)
+    assert one_surcharged_turn == pytest.approx(0.000401)

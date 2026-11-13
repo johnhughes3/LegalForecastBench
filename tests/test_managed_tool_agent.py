@@ -9,7 +9,7 @@ from typing import Any, cast
 import legalforecast.runner.managed_execution as managed_execution
 import pytest
 from legalforecast.evals.live_model_solver import LiveModelProviderError
-from legalforecast.evals.model_registry import LongContextSurcharge, ModelRegistryEntry
+from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from legalforecast.runner.managed_execution import (
     ManagedCaseInput,
@@ -843,6 +843,7 @@ def test_supported_anthropic_models_use_adaptive_managed_tools_and_schema(
     [
         ("claude-fable-5-1", None),
         ("claude-fable-5-2", "high"),
+        ("claude-haiku-5-5", "high"),
         ("claude-opus-5", None),
         ("claude-sonnet-5", None),
         ("claude-opus-5-5", "high"),
@@ -1547,29 +1548,6 @@ def test_late_managed_429_keeps_the_case_reservation_ambiguous(
     assert handler.run_count == 1
     assert handler.ambiguous is True
     assert handler.settlement is None
-
-
-def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> None:
-    entry = replace(
-        _entry(),
-        long_context_surcharge=LongContextSurcharge(
-            threshold_input_tokens=100,
-            input_price_multiplier=2.0,
-            output_price_multiplier=2.0,
-        ),
-    )
-
-    below_threshold_turns = managed_execution._managed_estimated_cost(
-        entry,
-        response_usages=((60, 10), (60, 10)),
-    )
-    one_surcharged_turn = managed_execution._managed_estimated_cost(
-        entry,
-        response_usages=((101, 10), (19, 10)),
-    )
-
-    assert below_threshold_turns == pytest.approx(0.00024)
-    assert one_surcharged_turn == pytest.approx(0.000401)
 
 
 @pytest.mark.parametrize(
