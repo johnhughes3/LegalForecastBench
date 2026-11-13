@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import legalforecast.runner.managed_execution as managed_execution
 import pytest
-from legalforecast.evals.model_registry import ModelRegistryEntry
+from legalforecast.evals.model_registry import LongContextSurcharge, ModelRegistryEntry
 from legalforecast.runner.anthropic_cache import anthropic_cache_cost
 from legalforecast.runner.managed_execution import (
     ManagedResponseUsage,
@@ -376,13 +376,23 @@ def test_gpt41_standard_cost_preserves_cached_input_discount() -> None:
     assert evidence.rate_provenance == entry.pricing_source
 
 
-def test_argon_implicit_cache_preserves_omission_but_reconstructs_cost() -> None:
+@pytest.mark.parametrize(
+    ("model", "checked", "expected"),
+    [
+        ("argon", "2026-10-15", 0.32),
+        ("carbon", "2026-11-12", 0.32),
+        ("hydrogen", "2026-11-12", 0.24),
+    ],
+)
+def test_gemini4_implicit_cache_preserves_omission_but_reconstructs_cost(
+    model: str, checked: str, expected: float
+) -> None:
     from pathlib import Path
 
     from legalforecast.evals.model_registry import load_model_registry
 
     entry = load_model_registry(
-        Path("model_registries/cycle-1-agentic-gemini-4-argon-high-2026-10-15.json")
+        Path(f"model_registries/cycle-1-agentic-gemini-4-{model}-high-{checked}.json")
     ).entries[0]
     usage = ManagedResponseUsage(300000, 10000, cache_read_tokens=200000)
     result = ManagedToolAgentResult(
@@ -398,6 +408,29 @@ def test_argon_implicit_cache_preserves_omission_but_reconstructs_cost() -> None
         response_usage_details=(usage,),
     )
     evidence = managed_execution._managed_result_cost_evidence(entry, result=result)
-    assert evidence.amount_usd == pytest.approx(0.32)
+    assert evidence.amount_usd == pytest.approx(expected)
     assert evidence.method == "cache_aware_usage_reconstruction"
     assert "cache_write_tokens" not in usage.to_record()
+
+
+def test_managed_cost_applies_long_context_surcharge_per_provider_request() -> None:
+    entry = replace(
+        _entry(),
+        long_context_surcharge=LongContextSurcharge(
+            threshold_input_tokens=100,
+            input_price_multiplier=2.0,
+            output_price_multiplier=2.0,
+        ),
+    )
+
+    below_threshold_turns = managed_execution._managed_estimated_cost(
+        entry,
+        response_usages=((60, 10), (60, 10)),
+    )
+    one_surcharged_turn = managed_execution._managed_estimated_cost(
+        entry,
+        response_usages=((101, 10), (19, 10)),
+    )
+
+    assert below_threshold_turns == pytest.approx(0.00024)
+    assert one_surcharged_turn == pytest.approx(0.000401)

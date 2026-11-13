@@ -161,8 +161,12 @@ def _cache_write_tokens_for_pricing(
     """Normalize providers without cache-write billing, retaining raw evidence."""
 
     provider = entry.provider.strip().lower()
-    implicit_only = provider == "google" and entry.model_id == "gemini-4-argon"
-    # Argon supports only implicit cache reads; absent writes are not missing usage.
+    implicit_only = provider == "google" and entry.model_id in {
+        "gemini-4-argon",
+        "gemini-4-carbon",
+        "gemini-4-hydrogen",
+    }
+    # These Gemini 4 models bill implicit cache reads without separate writes.
     if usage.cache_write_tokens is None and (provider == "openai" or implicit_only):
         return 0
     return usage.cache_write_tokens

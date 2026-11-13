@@ -33,6 +33,8 @@ def _entry(
     ("model_id", "input_price", "output_price", "expected", "read", "write"),
     (
         ("claude-fable-5-1", 10.0, 50.0, 0.01635, 400, 100),
+        ("claude-haiku-5-5", 0.1, 0.5, 0.0001665, 400, 100),
+        ("claude-fable-5-2", 8.0, 40.0, 0.01308, 400, 100),
         ("claude-opus-5", 5.0, 25.0, 0.008325, 400, 100),
         ("claude-opus-5-5", 4.0, 20.0, 0.00658, 400, 100),
         ("claude-sonnet-5", 2.0, 10.0, 0.00333, 400, 100),
@@ -60,6 +62,8 @@ def test_anthropic_cache_cost_prices_each_input_bucket_once(
     assert metadata["cache_pricing_ttl"] == "5m"
     pricing_checked = {
         "claude-opus-5-5": "2026-09-22",
+        "claude-haiku-5-5": "2026-11-12",
+        "claude-fable-5-2": "2026-11-12",
         "claude-sonnet-5-5": "2026-09-29",
     }.get(model_id, "2026-09-12")
     assert metadata["cache_pricing_source"] == (

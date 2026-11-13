@@ -15,6 +15,8 @@ VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 _GATEWAY_ROUTE_PROVIDERS = {
     "openai/gpt-5.6-sol": "openai",
     "moonshotai/kimi-k3": "deepinfra",
+    "moonshotai/kimi-k3.1-pro": "deepinfra",
+    "meta/muse-ember": "meta",
     "meta/muse-spark-1.3": "meta",
     "meta/muse-spark-1.3-contributor": "meta",
     "meta/muse-wonder-1.0": "meta",
@@ -22,8 +24,21 @@ _GATEWAY_ROUTE_PROVIDERS = {
     "spacexai/grok-4.7": "xai",
     "mistral/mistral-large-4": "mistral",
 }
+# New comparisons bind the Gateway slug to the documented upstream API ID.
+# Meta: https://research.meta.ai/blog/muse-ember
+# DeepInfra: https://api.deepinfra.com/models/moonshotai/Kimi-K3.1-Pro
+# Both checked 2026-11-12. Historical routes retain their original contract.
+_GATEWAY_NATIVE_MODEL_IDS = {
+    "meta/muse-ember": "muse-ember-1.0",
+    "moonshotai/kimi-k3.1-pro": "moonshotai/Kimi-K3.1-Pro",
+}
 _MUSE_GATEWAY_MODEL_IDS = frozenset(
-    {"meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor", "meta/muse-wonder-1.0"}
+    {
+        "meta/muse-spark-1.3",
+        "meta/muse-spark-1.3-contributor",
+        "meta/muse-wonder-1.0",
+        "meta/muse-ember",
+    }
 )
 _GATEWAY_MODEL_ALIASES = {
     # Gateway keeps the requested id in ``originalModelId`` but returns the
@@ -239,6 +254,14 @@ def validate_gateway_metadata(
                 "resolved_provider_api_model_id"
             )
         normalized["resolved_provider_api_model_id"] = api_model_id
+    expected_native_id = _GATEWAY_NATIVE_MODEL_IDS.get(expected_model_id.casefold())
+    if expected_native_id is not None and (
+        not isinstance(api_model_id, str)
+        or api_model_id.casefold() != expected_native_id.casefold()
+    ):
+        raise ValueError(
+            "Vercel AI Gateway native model identity is missing or changed"
+        )
     for field_name in ("cost_usd", "market_cost_usd"):
         try:
             cost = float(normalized[field_name])

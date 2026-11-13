@@ -237,6 +237,76 @@
 			"kind": "knowledge",
 			"source": "https://deepmind.google/models/model-cards/gemini-4-argon/",
 			"checked": "2026-10-15"
+		},
+		{
+			"slug": "gemini-4-carbon",
+			"model_ids": [
+				"gemini-4-carbon"
+			],
+			"cutoff": "2026-03",
+			"kind": "knowledge",
+			"source": "https://deepmind.google/models/model-cards/gemini-4-carbon/",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "gemini-4-hydrogen",
+			"model_ids": [
+				"gemini-4-hydrogen"
+			],
+			"cutoff": "2026-03",
+			"kind": "knowledge",
+			"source": "https://storage.googleapis.com/deepmind-media/Model-Cards/Gemini-4-Hydrogen-Model-Card.pdf",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "claude-fable-5-2",
+			"model_ids": [
+				"claude-fable-5-2"
+			],
+			"cutoff": "2026-06",
+			"kind": "training",
+			"source": "https://platform.claude.com/docs/en/models/fable-5-2/overview",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "claude-haiku-5-5",
+			"model_ids": [
+				"claude-haiku-5-5"
+			],
+			"cutoff": "2026-06",
+			"kind": "training",
+			"source": "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "gpt-6-1-terra",
+			"model_ids": [
+				"gpt-6.1-terra"
+			],
+			"cutoff": "2026-06-01",
+			"kind": "knowledge",
+			"source": "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "kimi-k3-1-pro",
+			"model_ids": [
+				"moonshotai/kimi-k3.1-pro"
+			],
+			"cutoff": null,
+			"kind": "unknown",
+			"source": "https://www.kimi.com/en/blog/kimi-k3-1-pro",
+			"checked": "2026-11-12"
+		},
+		{
+			"slug": "muse-ember",
+			"model_ids": [
+				"meta/muse-ember"
+			],
+			"cutoff": null,
+			"kind": "unknown",
+			"source": "https://dev.meta.ai/docs/models",
+			"checked": "2026-11-12"
 		}
 	]
 }
