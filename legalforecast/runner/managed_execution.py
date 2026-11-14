@@ -75,6 +75,7 @@ from legalforecast.runner.gateway import (
     gateway_route_provider,
     gateway_total_cost_usd,
     validate_gateway_metadata,
+    validated_gateway_response_metadata,
 )
 from legalforecast.runner.ledger import RunValidationError
 from legalforecast.runner.managed_anthropic import (
@@ -692,21 +693,12 @@ def _managed_result_from_run(
         )
     gateway_response_metadata: tuple[Mapping[str, str], ...] = ()
     if provider == "vercel_ai_gateway":
-        expected_provider = gateway_route_provider(expected_model_id)
         metadata_rows: list[Mapping[str, str]] = []
         for item in responses:
-            row = (item.provider_details or {}).get("gateway_metadata")
-            if not isinstance(row, Mapping):
-                raise ManagedToolAgentError(
-                    "Vercel AI Gateway response omitted routing and usage metadata"
-                )
-            row = cast(Mapping[str, object], row)
             try:
                 metadata_rows.append(
-                    validate_gateway_metadata(
-                        row,
-                        expected_model_id=expected_model_id,
-                        expected_provider=expected_provider,
+                    validated_gateway_response_metadata(
+                        item, expected_model_id=expected_model_id
                     )
                 )
             except ValueError as exc:
@@ -1063,6 +1055,7 @@ def complete_managed_tool_cell(
                             raw_row,
                             expected_model_id=entry.model_id,
                             expected_provider=expected_provider,
+                            observed_model_id=served_model,
                         )
                     )
                 except ValueError as exc:
