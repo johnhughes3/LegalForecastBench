@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from openai.types.responses import Response
-from pydantic_ai import ModelProfile
+from pydantic_ai import ModelProfile, ModelResponse
 from pydantic_ai.profiles import merge_profile
 from pydantic_ai.providers.openai import OpenAIProvider
 
@@ -89,6 +89,19 @@ def gateway_normalize_model_identity(
     expected = expected_model_id.casefold()
     observed = observed_model_id.casefold()
     if observed == expected or observed in _GATEWAY_MODEL_ALIASES.get(expected, ()):
+        return expected_model_id
+    native_id = _GATEWAY_NATIVE_MODEL_IDS.get(expected)
+    if (
+        native_id is not None
+        and observed == native_id.casefold()
+        and gateway_metadata
+        and all(
+            row.get("canonical_slug", "").casefold() == expected
+            and row.get("resolved_provider", "").casefold()
+            == gateway_route_provider(expected)
+            for row in gateway_metadata
+        )
+    ):
         return expected_model_id
     if gateway_metadata and all(
         row.get("canonical_slug", "").casefold() == expected
@@ -224,6 +237,7 @@ def validate_gateway_metadata(
     *,
     expected_model_id: str,
     expected_provider: str,
+    observed_model_id: str | None = None,
 ) -> Mapping[str, str]:
     """Validate one Gateway routing and usage record before publishing it."""
 
@@ -256,8 +270,15 @@ def validate_gateway_metadata(
         normalized["resolved_provider_api_model_id"] = api_model_id
     expected_native_id = _GATEWAY_NATIVE_MODEL_IDS.get(expected_model_id.casefold())
     if expected_native_id is not None and (
-        not isinstance(api_model_id, str)
-        or api_model_id.casefold() != expected_native_id.casefold()
+        (
+            api_model_id is not None
+            and str(api_model_id).casefold() != expected_native_id.casefold()
+        )
+        or (
+            observed_model_id is not None
+            and observed_model_id.casefold() != expected_native_id.casefold()
+        )
+        or (api_model_id is None and observed_model_id is None)
     ):
         raise ValueError(
             "Vercel AI Gateway native model identity is missing or changed"
@@ -300,6 +321,24 @@ def validate_gateway_metadata(
     return normalized
 
 
+def validated_gateway_response_metadata(
+    response: ModelResponse, *, expected_model_id: str
+) -> Mapping[str, str]:
+    """Bind a response's native identity to its Gateway routing record."""
+
+    row = (response.provider_details or {}).get("gateway_metadata")
+    if not isinstance(row, Mapping):
+        raise ValueError(
+            "Vercel AI Gateway response omitted routing and usage metadata"
+        )
+    return validate_gateway_metadata(
+        cast(Mapping[str, object], row),
+        expected_model_id=expected_model_id,
+        expected_provider=gateway_route_provider(expected_model_id),
+        observed_model_id=response.model_name,
+    )
+
+
 def gateway_total_cost_usd(
     metadata_rows: Sequence[Mapping[str, object]],
 ) -> float:
@@ -331,4 +370,5 @@ __all__ = [
     "gateway_route_provider",
     "gateway_total_cost_usd",
     "validate_gateway_metadata",
+    "validated_gateway_response_metadata",
 ]
