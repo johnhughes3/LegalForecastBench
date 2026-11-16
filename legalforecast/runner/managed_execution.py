@@ -524,13 +524,16 @@ def run_managed_tool_agent(
     # Preserve the Gateway's existing longer timeout.
     settings.setdefault("timeout", DEFAULT_TIMEOUT_SECONDS)
     unit_ids = json.dumps(list(required_unit_ids), separators=(",", ":"))
-    # Keep Ultramarine's document calls and final result in the SDK tool protocol;
-    # its native JSON mode returned terminal responses before inspecting evidence.
+    # Keep Ultramarine and Ember on the SDK output-tool protocol. The automatic
+    # schema also accepts text as JSON, which made Ember's empty thinking text
+    # consume output retries with a JSON-repair prompt instead of requesting the
+    # final result tool. Muse still uses its supported automatic tool choice.
     agent = Agent(
         resolved_model,
         output_type=(
             ToolOutput(ForecastEnvelope)
             if provider == "paperinstruments"
+            or (provider == "vercel_ai_gateway" and entry.model_id == "meta/muse-ember")
             else NativeOutput(ForecastEnvelope)
             if provider == "anthropic"
             else ForecastEnvelope

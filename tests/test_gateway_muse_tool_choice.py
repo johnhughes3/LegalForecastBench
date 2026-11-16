@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
 import legalforecast.runner.managed_execution as managed_execution
+import pytest
 from legalforecast.evals.model_registry import ModelRegistryEntry
 from legalforecast.multiharness.tool_protocol import ToolRequest, ToolResponse
 from legalforecast.runner.managed_execution import run_managed_tool_agent
-from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.usage import RequestUsage
 
@@ -173,6 +176,90 @@ def test_muse_openai_responses_serialization_keeps_tools_and_retries_output(
         tool_names = {tool["name"] for tool in serialized_tools}
         assert expected_tools <= tool_names
         assert "final_result" in tool_names
+        assert call["extra_body"] == {
+            "providerOptions": {"gateway": {"only": ["meta"]}}
+        }
+
+
+@pytest.mark.parametrize(
+    "plain_output",
+    [json.dumps(_final_result(0.5, "unused").args), "<think>\n\n</think>"],
+    ids=["valid-json", "empty-thinking"],
+)
+def test_ember_requires_output_tool_instead_of_accepting_plain_text(
+    tmp_path: Path,
+    plain_output: str,
+) -> None:
+    entry_record = _entry().to_record()
+    entry_record["model_id"] = "meta/muse-ember"
+    entry_record["model_version_or_snapshot"] = "meta/muse-ember"
+    entry = ModelRegistryEntry.from_record(entry_record)
+    final_tool = _final_result(0.5, "final-valid")
+    responses = [
+        _response(
+            [
+                ToolCallPart(
+                    "read",
+                    {"file_path": "/workspace/documents/motion.txt"},
+                    tool_call_id="read-1",
+                )
+            ],
+            inputs=100,
+            outputs=10,
+        ),
+        # The automatic output schema used to accept text as a second final
+        # protocol. Require the registered output tool even for valid JSON.
+        _response([TextPart(plain_output)], inputs=150, outputs=20),
+        _response([final_tool], inputs=175, outputs=25),
+    ]
+    metadata = {
+        **_metadata(),
+        "original_model_id": "meta/muse-ember",
+        "canonical_slug": "meta/muse-ember",
+    }
+    responses = [
+        replace(
+            response,
+            model_name="muse-ember-1.0",
+            provider_details={"gateway_metadata": metadata},
+        )
+        for response in responses
+    ]
+    client = _OpenAIClient(responses)
+    provider = OpenAIProvider(openai_client=cast(Any, client))
+    model = managed_execution._ObservedTierOpenAIResponsesModel(
+        entry.model_id,
+        provider=provider,
+        profile=managed_execution.gateway_model_profile(provider, entry.model_id),
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = run_managed_tool_agent(
+        entry,
+        initial_prompt="Case: case-1\nDocuments: /workspace/documents/motion.txt",
+        required_unit_ids=("unit-a",),
+        executor=_Executor(),
+        workspace=workspace,
+        request_id="cell-1",
+        model=model,
+    )
+
+    assert len(client.responses.calls) == 3
+    assert result.called_tools == ("read",)
+    retry_input = client.responses.calls[2]["input"]
+    assert "include your response in a tool call" in json.dumps(retry_input)
+    for call in client.responses.calls:
+        assert call["tool_choice"] == "auto"
+        assert {tool["name"] for tool in call["tools"]} == {
+            "bash",
+            "edit",
+            "glob",
+            "grep",
+            "read",
+            "write",
+            "final_result",
+        }
         assert call["extra_body"] == {
             "providerOptions": {"gateway": {"only": ["meta"]}}
         }
