@@ -289,6 +289,7 @@ def managed_result_from_transcript(
                         cast(Mapping[str, object], row),
                         expected_model_id=entry.model_id,
                         expected_provider=expected_provider,
+                        observed_model_id=response.model_name,
                     )
                 )
             except ValueError as exc:

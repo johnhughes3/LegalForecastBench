@@ -1,0 +1,26 @@
+[
+  {
+    "cache_read_token_price": 0.2,
+    "context_limit": 1000000,
+    "display_name": "Kimi K3.1 Pro (agentic; high reasoning)",
+    "input_token_price": 2,
+    "known_cutoff_publicity_caveats": [
+      "Regular Cycle 1 agentic document-tool condition over the full locked document set, with high reasoning and provider-default sampling. No Jev summary cache or one-shot comparator mode is used.",
+      "No provider-reported training-data or knowledge cutoff found in the launch blog or Hugging Face model card checked 2026-11-12; eligibility is qualified. Gateway is hard routed only to DeepInfra, matching the prior Kimi comparison; no provider fallback. Standard DeepInfra rates are USD2/M input, USD10/M output and USD0.20/M cached input; Gateway currently advertises a 5% discount. Preserve actual charges alongside Standard repricing. No immutable dated weight snapshot is offered.",
+      "Gateway native identity must match moonshotai/Kimi-K3.1-Pro in the returned response model name or resolved_provider_api_model_id; supplied identities must agree. Requested and canonical Gateway slug and resolved/final provider route are checked separately. The 2026-11-13 corrected snapshot accepts the native response model name because the diagnostic smoke omitted the redundant resolved_provider_api_model_id field. Model request settings are unchanged; prior snapshot and charges are retained."
+    ],
+    "max_output_tokens": 128000,
+    "model_id": "moonshotai/kimi-k3.1-pro",
+    "model_version_or_snapshot": "moonshotai/kimi-k3.1-pro",
+    "network_disabled": true,
+    "output_token_price": 10,
+    "pricing_source": "https://vercel.com/ai-gateway/models/kimi-k3.1-pro; Standard USD per million input/output/cache-read tokens: 2/10/0.2. Checked 2026-11-12.",
+    "provider": "vercel_ai_gateway",
+    "provider_training_cutoff_status": "unknown",
+    "reasoning_effort": "high",
+    "release_timestamp": "2026-10-24T00:00:00Z",
+    "release_timestamp_source": "https://www.kimi.com/news/kimi-k3-1-pro; October 24, 2026. Gateway lists October 23 in its timezone.",
+    "search_disabled": true,
+    "tool_policy": "controlled_docket_tool_only"
+  }
+]

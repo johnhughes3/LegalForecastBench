@@ -174,10 +174,61 @@ def test_new_gateway_models_require_the_documented_native_identity(
             validate_gateway_metadata(
                 candidate, expected_model_id=model_id, expected_provider=provider
             )
+    assert (
+        validate_gateway_metadata(
+            metadata,
+            expected_model_id=model_id,
+            expected_provider=provider,
+            observed_model_id=native_id,
+        )
+        == metadata
+    )
+    with pytest.raises(ValueError, match="native model identity"):
+        validate_gateway_metadata(
+            metadata,
+            expected_model_id=model_id,
+            expected_provider=provider,
+            observed_model_id="wrong-model",
+        )
+    with pytest.raises(ValueError, match="native model identity"):
+        validate_gateway_metadata(
+            {**metadata, "resolved_provider_api_model_id": "wrong-model"},
+            expected_model_id=model_id,
+            expected_provider=provider,
+            observed_model_id=native_id,
+        )
+    from legalforecast.runner.gateway import gateway_normalize_model_identity
+
+    assert (
+        gateway_normalize_model_identity(
+            model_id, native_id, gateway_metadata=(metadata,)
+        )
+        == model_id
+    )
     metadata["resolved_provider_api_model_id"] = native_id
     assert (
         validate_gateway_metadata(
             metadata, expected_model_id=model_id, expected_provider=provider
         )
         == metadata
+    )
+
+
+@pytest.mark.parametrize("slug", ["kimi-k3.1-pro", "muse-ember"])
+def test_corrected_gateway_snapshot_preserves_model_request_settings(slug: str) -> None:
+    prior = load_model_registry(
+        Path(f"model_registries/cycle-1-agentic-{slug}-high-2026-11-12.json")
+    ).entries[0]
+    corrected = load_model_registry(
+        Path(f"model_registries/cycle-1-agentic-{slug}-high-2026-11-13.json")
+    ).entries[0]
+    assert (
+        replace(
+            corrected,
+            known_cutoff_publicity_caveats=prior.known_cutoff_publicity_caveats,
+        )
+        == prior
+    )
+    assert (
+        "returned response model name" in corrected.known_cutoff_publicity_caveats[-1]
     )
