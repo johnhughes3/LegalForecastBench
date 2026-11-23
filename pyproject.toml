@@ -50,7 +50,7 @@ tier0-judge-adapter = [
 dev = [
   "anthropic>=1.13.0,<2",
   "interrogate>=1.7.0",
-  "numpy==2.5.4",
+  "numpy==2.5.5",
   "openai==3.29.0",
   "pyright>=1.1.414",
   "pytest>=9.1.1",
